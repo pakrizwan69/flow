@@ -19,8 +19,9 @@ dist/uploads/payments/*
 public/uploads/prompts/*
 dist/uploads/prompts/*
 
-# Local RDP Admin Automation Extension zip (do NOT deploy publicly to web root)
+# Local RDP Admin Automation Extension zip & unpacked folder (do NOT deploy publicly to web root)
 FlowCookieAutoSync_*.zip
+FlowCookieAutoSync_*/
 /*.zip
 
 # OS / IDE / Logs
