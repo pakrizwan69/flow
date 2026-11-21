@@ -1,0 +1,31 @@
+# Environment & secrets (NEVER commit live .env — configure directly on Hostinger!)
+.env
+.env.*
+!.env.example
+
+# Runtime data, caches, logs & production backups (Hostinger uses MySQL; keep data/ writable via .gitkeep)
+data/*
+!data/.gitkeep
+
+# Production SQL dumps (keep clean schema.sql only)
+database/*.sql
+!database/schema.sql
+
+# User-uploaded payment proofs & prompt images (never overwrite live server uploads on git pull)
+public/uploads/payments/*
+!public/uploads/payments/.gitkeep
+dist/uploads/payments/*
+!dist/uploads/payments/.gitkeep
+public/uploads/prompts/*
+dist/uploads/prompts/*
+
+# Local RDP Admin Automation Extension zip (do NOT deploy publicly to web root)
+FlowCookieAutoSync_*.zip
+/*.zip
+
+# OS / IDE / Logs
+*.log
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

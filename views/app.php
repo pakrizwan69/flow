@@ -1,0 +1,3456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PakFlow — Google Flow AI</title>
+  <link rel="icon" href="/flowbypak-logo.png" />
+  <link rel="preload" as="image" href="/flowbypak-logo.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
+  <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" /></noscript>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #050507;
+      --card: #111116;
+      --card-border: rgba(255,255,255,0.10);
+      --text: #f5f5f7;
+      --muted: #9ca3af;
+      --accent: #a855f7;
+      --accent-2: #ec4899;
+      --danger: #ef4444;
+    }
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      scroll-behavior: smooth;
+    }
+    .hidden { display: none !important; }
+
+    /* ── Cinematic Landing Page (flow.google.com style) ── */
+    .landing-wrap {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow: hidden;
+      background:
+        radial-gradient(ellipse 80% 55% at 50% -10%, rgba(139,92,246,0.30), transparent 65%),
+        radial-gradient(ellipse 55% 45% at 85% 85%, rgba(59,130,246,0.18), transparent 60%),
+        radial-gradient(ellipse 45% 40% at 15% 75%, rgba(236,72,153,0.12), transparent 60%),
+        #040406;
+    }
+    .landing-wrap::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+      background-size: 56px 56px;
+      mask-image: radial-gradient(ellipse 75% 65% at 50% 35%, #000 30%, transparent 80%);
+      pointer-events: none;
+    }
+    .landing-nav-outer {
+      position: sticky;
+      top: 0;
+      z-index: 40;
+      background: rgba(4,4,6,0.72);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .landing-nav {
+      position: relative;
+      z-index: 5;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 15px 32px;
+      max-width: 1240px;
+      width: 100%;
+      margin: 0 auto;
+    }
+    .landing-links {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 5px 7px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.10);
+      backdrop-filter: blur(12px);
+    }
+    .landing-links a,
+    .landing-links button {
+      background: transparent;
+      border: 0;
+      color: #d4d4d8;
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 7px 16px;
+      border-radius: 999px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: background .15s ease, color .15s ease;
+    }
+    .landing-links a:hover,
+    .landing-links button:hover {
+      color: #ffffff;
+      background: rgba(255,255,255,0.06);
+    }
+    .landing-links a.active,
+    .landing-links button.active {
+      background: #ffffff;
+      color: #09090b;
+    }
+    .landing-links a.earn {
+      color: #a855f7;
+    }
+    .landing-links a.earn:hover {
+      color: #c084fc;
+      background: rgba(168,85,247,0.12);
+    }
+    @media (max-width: 820px) {
+      .landing-links { display: none; }
+    }
+    .landing-stats {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      width: 100%;
+      max-width: 980px;
+      margin: 0 auto 44px;
+      padding: 18px 24px;
+      background: rgba(255,255,255,0.025);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px;
+      backdrop-filter: blur(10px);
+    }
+    @media (max-width: 720px) {
+      .landing-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+    }
+    .l-stat { text-align: center; }
+    .l-stat strong {
+      display: block;
+      font-size: 20px;
+      font-weight: 800;
+      color: #ffffff;
+      letter-spacing: -0.02em;
+    }
+    .l-stat span {
+      font-size: 12px;
+      color: #71717a;
+      font-weight: 500;
+    }
+    .landing-footer {
+      position: relative;
+      z-index: 5;
+      border-top: 1px solid rgba(255,255,255,0.07);
+      padding: 28px 32px;
+      max-width: 1240px;
+      width: 100%;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 16px;
+      font-size: 13px;
+      color: #71717a;
+    }
+    .landing-footer a {
+      color: #a1a1aa;
+      text-decoration: none;
+      margin-left: 18px;
+    }
+    .landing-footer a:hover { color: #fff; }
+    .landing-logo {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      font-size: 18px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: #fff;
+      text-decoration: none;
+    }
+    .landing-logo img {
+      width: 34px;
+      height: 34px;
+      border-radius: 9px;
+      object-fit: cover;
+      border: 1px solid rgba(255,255,255,0.15);
+    }
+    .landing-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .btn-ghost {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.14);
+      color: #e5e7eb;
+      padding: 9px 18px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      backdrop-filter: blur(8px);
+      transition: background .15s ease, border-color .15s ease;
+    }
+    .btn-ghost:hover {
+      background: rgba(255,255,255,0.10);
+      border-color: rgba(255,255,255,0.32);
+    }
+    .btn-pill-sm {
+      background: #ffffff;
+      color: #09090b;
+      border: 0;
+      padding: 9px 20px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform .12s ease, opacity .15s ease;
+    }
+    .btn-pill-sm:hover { opacity: 0.92; transform: translateY(-1px); }
+    .landing-hero {
+      position: relative;
+      z-index: 5;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 36px 24px 64px;
+      max-width: 980px;
+      margin: 0 auto;
+      width: 100%;
+    }
+    .landing-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 16px;
+      border-radius: 999px;
+      background: rgba(168,85,247,0.12);
+      border: 1px solid rgba(168,85,247,0.32);
+      color: #e9d5ff;
+      font-size: 12px;
+      font-weight: 600;
+      margin-bottom: 24px;
+      backdrop-filter: blur(8px);
+    }
+    .landing-hero h1 {
+      font-size: clamp(44px, 7vw, 80px);
+      font-weight: 800;
+      letter-spacing: -0.035em;
+      line-height: 1.04;
+      min-height: 3.15em;
+      margin-bottom: 20px;
+      background: linear-gradient(180deg, #ffffff 15%, #c4b5fd 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .tw-cursor {
+      display: inline-block;
+      width: 4px;
+      height: 0.85em;
+      margin-left: 4px;
+      vertical-align: -0.06em;
+      background: #c4b5fd;
+      -webkit-text-fill-color: initial;
+      animation: twBlink .75s step-end infinite;
+    }
+    @keyframes twBlink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0; }
+    }
+    .landing-hero p {
+      font-size: clamp(16px, 2vw, 20px);
+      line-height: 1.6;
+      color: #a1a1aa;
+      max-width: 600px;
+      margin-bottom: 34px;
+    }
+    .landing-cta-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      flex-wrap: wrap;
+      margin-bottom: 52px;
+    }
+    .btn-flow-cta {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 16px 36px;
+      border-radius: 999px;
+      border: 0;
+      background: #ffffff;
+      color: #09090b;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 0 40px rgba(168,85,247,0.35), 0 12px 32px rgba(255,255,255,0.16);
+      transition: transform .15s ease, box-shadow .15s ease;
+    }
+    .btn-flow-cta:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 0 55px rgba(168,85,247,0.5), 0 16px 40px rgba(255,255,255,0.24);
+    }
+    .btn-flow-sec {
+      padding: 15px 28px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.16);
+      background: rgba(255,255,255,0.04);
+      color: #f4f4f5;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background .15s ease, border-color .15s ease;
+    }
+    .btn-flow-sec:hover {
+      background: rgba(255,255,255,0.09);
+      border-color: rgba(255,255,255,0.3);
+    }
+    .landing-cards {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+      width: 100%;
+      text-align: left;
+    }
+    @media (max-width: 760px) {
+      .landing-cards { grid-template-columns: 1fr; }
+    }
+    .l-card {
+      background: rgba(17,17,22,0.72);
+      border: 1px solid rgba(255,255,255,0.09);
+      border-radius: 16px;
+      padding: 20px 22px;
+      backdrop-filter: blur(12px);
+      transition: border-color .18s ease, transform .18s ease;
+    }
+    .l-card:hover {
+      border-color: rgba(168,85,247,0.45);
+      transform: translateY(-3px);
+    }
+    .l-card-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: rgba(168,85,247,0.16);
+      border: 1px solid rgba(168,85,247,0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      margin-bottom: 12px;
+    }
+    .l-card h3 {
+      font-size: 15px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 6px;
+    }
+    .l-card p {
+      font-size: 13px;
+      line-height: 1.5;
+      color: #9ca3af;
+      margin: 0;
+    }
+
+    /* ── About PakFlow Section ── */
+    .about-section {
+      position: relative;
+      z-index: 5;
+      max-width: 820px;
+      width: 100%;
+      margin: 16px auto 64px;
+      padding: 44px 28px;
+      text-align: center;
+      border-radius: 24px;
+      background: rgba(255,255,255,0.02);
+      border: 1px solid rgba(255,255,255,0.08);
+      backdrop-filter: blur(12px);
+    }
+    .about-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 6px 14px;
+      border-radius: 999px;
+      background: rgba(139,92,246,0.14);
+      border: 1px solid rgba(139,92,246,0.32);
+      color: #c4b5fd;
+      font-size: 11.5px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      margin-bottom: 18px;
+    }
+    .about-section h2 {
+      font-size: clamp(32px, 5vw, 48px);
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      color: #ffffff;
+      margin-bottom: 16px;
+    }
+    .about-section h2 span { color: #8b5cf6; }
+    .about-section p {
+      font-size: 15.5px;
+      line-height: 1.65;
+      color: #a1a1aa;
+      max-width: 660px;
+      margin: 0 auto 28px;
+    }
+    .about-section p strong { color: #f4f4f5; }
+    .about-btns {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    /* ── Home Sections: Ready in 4 steps, Clients, Questions Answered ── */
+    .home-sec {
+      position: relative;
+      z-index: 5;
+      max-width: 1120px;
+      width: 100%;
+      margin: 0 auto 88px;
+      padding: 0 24px;
+    }
+    .steps4-head {
+      margin-bottom: 30px;
+    }
+    .steps4-head h2 {
+      font-size: clamp(32px, 4.5vw, 48px);
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1.08;
+      color: #ffffff;
+      margin-bottom: 12px;
+    }
+    .steps4-head h2 span { color: #9333ea; display: block; }
+    .steps4-head p {
+      font-size: 15px;
+      color: #a1a1aa;
+      max-width: 470px;
+      line-height: 1.55;
+    }
+    .steps4-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+    .step4-card {
+      display: flex;
+      align-items: flex-start;
+      gap: 18px;
+      background: rgba(18, 12, 34, 0.72);
+      border: 1px solid rgba(147, 51, 234, 0.22);
+      border-radius: 14px;
+      padding: 22px 24px;
+      transition: border-color .18s ease, transform .18s ease;
+    }
+    .step4-card:hover {
+      border-color: rgba(168, 85, 247, 0.5);
+      transform: translateY(-2px);
+    }
+    .step4-num {
+      font-size: 28px;
+      font-weight: 800;
+      color: rgba(147, 51, 234, 0.38);
+      line-height: 1;
+      flex-shrink: 0;
+      min-width: 38px;
+    }
+    .step4-body h3 {
+      font-size: 15.5px;
+      font-weight: 700;
+      color: #ffffff;
+      margin-bottom: 6px;
+    }
+    .step4-body p {
+      font-size: 13px;
+      line-height: 1.55;
+      color: #9ca3af;
+    }
+
+    /* Clients Testimonials */
+    .clients-head {
+      text-align: center;
+      margin-bottom: 34px;
+    }
+    .clients-head h2 {
+      font-size: clamp(28px, 4vw, 40px);
+      font-weight: 800;
+      letter-spacing: -0.025em;
+      color: #ffffff;
+      margin-bottom: 8px;
+    }
+    .clients-head h2 span { color: #a855f7; }
+    .clients-head p {
+      font-size: 14px;
+      color: #9ca3af;
+    }
+    .clients-head p span { color: #a855f7; }
+    .clients-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+    .client-card {
+      background: #0a0a0f;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 12px;
+      padding: 18px 20px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 14px;
+    }
+    .client-card h4 {
+      font-size: 13px;
+      font-weight: 700;
+      color: #f4f4f5;
+      margin-bottom: 5px;
+    }
+    .client-card p {
+      font-size: 12.5px;
+      line-height: 1.55;
+      color: #9ca3af;
+    }
+    .client-foot {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .client-user {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .client-avatar {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: #7c3aed;
+      color: #ffffff;
+      font-size: 11px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .client-name {
+      font-size: 12.5px;
+      font-weight: 600;
+      color: #e4e4e7;
+    }
+    .client-stars {
+      color: #9333ea;
+      font-size: 12px;
+      letter-spacing: 1px;
+    }
+    .clients-marquee-wrap {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+      height: 410px;
+      overflow: hidden;
+      mask-image: linear-gradient(to bottom, transparent 0%, #000 14%, #000 86%, transparent 100%);
+      -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 14%, #000 86%, transparent 100%);
+    }
+    .clients-col {
+      overflow: hidden;
+      position: relative;
+    }
+    .clients-track {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      will-change: transform;
+      animation: clientsScrollUp 28s linear infinite;
+    }
+    .clients-col.col-slow .clients-track {
+      animation-duration: 34s;
+    }
+    .clients-marquee-wrap:hover .clients-track {
+      animation-play-state: paused;
+    }
+    @keyframes clientsScrollUp {
+      0% { transform: translateY(0); }
+      100% { transform: translateY(-50%); }
+    }
+    @media (max-width: 780px) {
+      .clients-marquee-wrap { grid-template-columns: 1fr; height: 360px; }
+      .clients-col.col-slow { display: none; }
+    }
+
+    /* White Questions? Answered. Accordion Section */
+    .qa-band {
+      position: relative;
+      z-index: 5;
+      width: 100%;
+      background: #ffffff;
+      color: #09090b;
+      padding: 76px 24px 88px;
+    }
+    .qa-inner {
+      max-width: 720px;
+      margin: 0 auto;
+    }
+    .qa-head {
+      text-align: center;
+      margin-bottom: 34px;
+    }
+    .qa-head h2 {
+      font-size: clamp(32px, 4.5vw, 46px);
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1.08;
+      color: #09090b;
+    }
+    .qa-head h2 span {
+      display: block;
+      color: #7c3aed;
+    }
+    .qa-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .qa-item {
+      background: #ffffff;
+      border: 1px solid #e4e4e7;
+      border-radius: 12px;
+      overflow: hidden;
+      transition: border-color .15s ease, box-shadow .15s ease;
+    }
+    .qa-item[open] {
+      border-color: #c4b5fd;
+      box-shadow: 0 6px 20px rgba(124, 58, 237, 0.08);
+    }
+    .qa-item summary {
+      list-style: none;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 18px 22px;
+      font-size: 14.5px;
+      font-weight: 700;
+      color: #09090b;
+      cursor: pointer;
+    }
+    .qa-item summary::-webkit-details-marker { display: none; }
+    .qa-chevron {
+      color: #7c3aed;
+      transition: transform .2s ease;
+      flex-shrink: 0;
+    }
+    .qa-item[open] .qa-chevron { transform: rotate(180deg); }
+    .qa-ans {
+      padding: 0 22px 18px;
+      font-size: 13.5px;
+      line-height: 1.6;
+      color: #52525b;
+    }
+    .purple-cta-band {
+      position: relative;
+      z-index: 5;
+      width: 100%;
+      background: linear-gradient(135deg, #6d28d9 0%, #7c3aed 55%, #5b21b6 100%);
+      padding: 64px 24px;
+    }
+    .purple-cta-inner {
+      max-width: 960px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 32px;
+      flex-wrap: wrap;
+    }
+    .purple-cta-text h2 {
+      font-size: clamp(30px, 4.2vw, 44px);
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1.08;
+      color: #ffffff;
+      margin-bottom: 12px;
+    }
+    .purple-cta-text p {
+      font-size: 14.5px;
+      color: rgba(255,255,255,0.86);
+      max-width: 390px;
+      line-height: 1.55;
+    }
+    .purple-cta-action {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
+    .purple-cta-action img {
+      width: 68px;
+      height: 68px;
+      border-radius: 50%;
+      object-fit: cover;
+      background: #050507;
+      border: 2px solid rgba(255,255,255,0.22);
+      box-shadow: 0 12px 28px rgba(0,0,0,0.35);
+    }
+    .btn-purple-white {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: #ffffff;
+      color: #6d28d9;
+      font-size: 14px;
+      font-weight: 800;
+      padding: 13px 28px;
+      border-radius: 10px;
+      text-decoration: none;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.22);
+      transition: transform .15s ease, box-shadow .15s ease;
+    }
+    .btn-purple-white:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 30px rgba(0,0,0,0.3);
+    }
+    .landing-footer.centered-footer {
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      background: #000000;
+      padding: 28px 20px 32px;
+      text-align: center;
+      border-top: 1px solid rgba(255,255,255,0.06);
+    }
+    .landing-footer.centered-footer div {
+      display: flex;
+      gap: 20px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .landing-footer.centered-footer a {
+      color: #a1a1aa;
+      font-size: 12.5px;
+      text-decoration: none;
+    }
+    .landing-footer.centered-footer a:hover { color: #ffffff; }
+    .landing-footer.centered-footer span {
+      font-size: 11.5px;
+      color: #52525b;
+    }
+    @media (max-width: 780px) {
+      .steps4-grid, .clients-grid { grid-template-columns: 1fr; }
+      .purple-cta-inner { flex-direction: column; text-align: center; }
+      .purple-cta-text p { margin: 0 auto; }
+    }
+
+    /* ── Made with Veo Showcase Section ── */
+    .veo-section {
+      position: relative;
+      z-index: 5;
+      max-width: 1120px;
+      width: 100%;
+      margin: 10px auto 80px;
+      padding: 0 24px;
+    }
+    .veo-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 6px 13px;
+      border-radius: 999px;
+      background: rgba(139,92,246,0.14);
+      border: 1px solid rgba(139,92,246,0.32);
+      color: #c4b5fd;
+      font-size: 12px;
+      font-weight: 600;
+      margin-bottom: 16px;
+    }
+    .veo-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 24px;
+      flex-wrap: wrap;
+      margin-bottom: 34px;
+    }
+    .veo-head h2 {
+      font-size: clamp(32px, 4.5vw, 50px);
+      font-weight: 800;
+      line-height: 1.05;
+      letter-spacing: -0.03em;
+      color: #fff;
+    }
+    .veo-head h2 span {
+      display: block;
+      color: #8b5cf6;
+    }
+    .veo-head p {
+      max-width: 340px;
+      font-size: 14px;
+      line-height: 1.55;
+      color: #9ca3af;
+      text-align: right;
+    }
+    @media (max-width: 760px) {
+      .veo-head p { text-align: left; }
+    }
+    .veo-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 14px;
+      align-items: center;
+      margin-bottom: 36px;
+    }
+    @media (max-width: 900px) {
+      .veo-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    .veo-card {
+      position: relative;
+      border-radius: 16px;
+      overflow: hidden;
+      aspect-ratio: 9 / 15;
+      border: 1px solid rgba(255,255,255,0.10);
+      background: #111116;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.65);
+      transition: transform .2s ease, border-color .2s ease;
+    }
+    .veo-card:nth-child(2), .veo-card:nth-child(4) { transform: translateY(10px); }
+    .veo-card:nth-child(3) { transform: translateY(-10px); }
+    .veo-card:hover {
+      transform: translateY(-6px) scale(1.02);
+      border-color: rgba(139,92,246,0.5);
+    }
+    .veo-card img,
+    .veo-card video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .veo-card::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, transparent 55%, rgba(0,0,0,0.72) 100%);
+      pointer-events: none;
+    }
+    .veo-label {
+      position: absolute;
+      left: 10px;
+      bottom: 12px;
+      z-index: 2;
+      padding: 5px 11px;
+      border-radius: 999px;
+      background: rgba(17,17,22,0.72);
+      border: 1px solid rgba(255,255,255,0.18);
+      backdrop-filter: blur(8px);
+      color: #f4f4f5;
+      font-size: 11.5px;
+      font-weight: 600;
+    }
+    .veo-cta-wrap {
+      display: flex;
+      justify-content: center;
+    }
+    .btn-veo-start {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 28px;
+      border-radius: 12px;
+      border: 0;
+      background: linear-gradient(135deg, #7c3aed, #6d28d9);
+      color: #ffffff;
+      font-size: 14.5px;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 12px 32px rgba(124,58,237,0.40);
+      transition: transform .15s ease, box-shadow .15s ease;
+    }
+    .btn-veo-start:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 16px 40px rgba(124,58,237,0.55);
+    }
+    /* ── Auth (Direct Login / Signup) ── */
+    .auth-wrap {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      position: relative;
+      overflow: hidden;
+      background:
+        radial-gradient(ellipse 75% 55% at 50% -10%, rgba(139,92,246,0.26), transparent 65%),
+        radial-gradient(ellipse 50% 45% at 85% 90%, rgba(59,130,246,0.16), transparent 60%),
+        #040406;
+    }
+    .auth-wrap::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+      background-size: 48px 48px;
+      mask-image: radial-gradient(ellipse 70% 60% at 50% 50%, #000 30%, transparent 80%);
+      pointer-events: none;
+    }
+    .auth-marquee-bg {
+      position: absolute;
+      inset: -4% -2%;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-around;
+      gap: 18px;
+      pointer-events: none;
+      user-select: none;
+      overflow: hidden;
+      z-index: 1;
+      mask-image: radial-gradient(ellipse 90% 85% at 50% 50%, #000 45%, transparent 100%);
+      -webkit-mask-image: radial-gradient(ellipse 90% 85% at 50% 50%, #000 45%, transparent 100%);
+    }
+    .auth-marquee-row {
+      display: flex;
+      width: 100%;
+      overflow: hidden;
+      white-space: nowrap;
+    }
+    .auth-marquee-track {
+      display: flex;
+      flex-shrink: 0;
+      align-items: center;
+      font-size: clamp(20px, 2.2vw, 30px);
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      color: rgba(255, 255, 255, 0.045);
+      line-height: 1.1;
+      will-change: transform;
+      animation: authMarqueeLeft 36s linear infinite;
+    }
+    .auth-marquee-row:nth-child(even) .auth-marquee-track {
+      animation: authMarqueeRight 40s linear infinite;
+    }
+    .auth-marquee-row:nth-child(3n) .auth-marquee-track {
+      animation-duration: 46s;
+      color: rgba(167, 139, 250, 0.045);
+    }
+    .auth-marquee-track span {
+      display: inline-block;
+      padding-right: 28px;
+    }
+    @keyframes authMarqueeLeft {
+      0% { transform: translateX(0); }
+      100% { transform: translateX(-50%); }
+    }
+    @keyframes authMarqueeRight {
+      0% { transform: translateX(-50%); }
+      100% { transform: translateX(0); }
+    }
+    .auth-center-col {
+      position: relative;
+      z-index: 5;
+      width: 100%;
+      max-width: 860px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 18px;
+    }
+    @keyframes authCardIn {
+      from { opacity: 0; transform: translateY(12px) scale(0.985); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .auth-card {
+      position: relative;
+      width: 100%;
+      display: grid;
+      grid-template-columns: 1fr 1.08fr;
+      background: #0c0c12;
+      color: #f4f4f5;
+      border: 1px solid rgba(139,92,246,0.28);
+      border-radius: 24px;
+      overflow: hidden;
+      box-shadow: 0 32px 90px rgba(0,0,0,0.85), 0 0 70px rgba(139,92,246,0.14);
+      animation: authCardIn .28s ease-out;
+    }
+    .auth-split-left {
+      background: radial-gradient(circle at 20% 15%, rgba(139,92,246,0.24), transparent 55%),
+                  radial-gradient(circle at 80% 85%, rgba(16,185,129,0.12), transparent 55%),
+                  #100d1c;
+      border-right: 1px solid rgba(255,255,255,0.08);
+      padding: 36px 32px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 28px;
+    }
+    .auth-split-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .auth-split-brand img {
+      width: 42px;
+      height: 42px;
+      border-radius: 12px;
+      object-fit: cover;
+      border: 1px solid rgba(255,255,255,0.16);
+    }
+    .auth-split-brand span {
+      font-size: 16px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: #ffffff;
+    }
+    .auth-split-copy h2 {
+      font-size: 28px;
+      font-weight: 800;
+      line-height: 1.15;
+      letter-spacing: -0.025em;
+      color: #ffffff;
+      margin-bottom: 12px;
+    }
+    .auth-split-copy h2 em {
+      font-style: normal;
+      background: linear-gradient(135deg, #c4b5fd, #818cf8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .auth-split-copy p {
+      font-size: 13.5px;
+      line-height: 1.6;
+      color: #a1a1aa;
+      margin-bottom: 22px;
+    }
+    .auth-split-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .auth-split-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+      color: #e4e4e7;
+    }
+    .auth-split-dot {
+      width: 26px;
+      height: 26px;
+      border-radius: 8px;
+      background: rgba(139,92,246,0.16);
+      border: 1px solid rgba(139,92,246,0.32);
+      color: #c4b5fd;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      flex-shrink: 0;
+    }
+    .auth-split-foot {
+      font-size: 12px;
+      color: #71717a;
+      border-top: 1px solid rgba(255,255,255,0.07);
+      padding-top: 16px;
+    }
+    .auth-split-right {
+      padding: 36px 34px 32px;
+      background: #0c0c12;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+    @media (max-width: 820px) {
+      .auth-center-col { max-width: 430px; }
+      .auth-card { grid-template-columns: 1fr; }
+      .auth-split-left { display: none; }
+      .auth-split-right { padding: 30px 26px; }
+    }
+    .auth-card.is-forgot {
+      border-color: rgba(168,85,247,0.45);
+      box-shadow: 0 32px 90px rgba(0,0,0,0.85), 0 0 80px rgba(168,85,247,0.18);
+    }
+    .auth-forgot-icon {
+      width: 56px;
+      height: 56px;
+      border-radius: 16px;
+      background: rgba(139,92,246,0.14);
+      border: 1px solid rgba(168,85,247,0.35);
+      color: #c4b5fd;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 14px;
+    }
+    .auth-brand {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      text-align: left;
+      margin-bottom: 22px;
+    }
+    .auth-brand img {
+      width: 48px;
+      height: 48px;
+      border-radius: 14px;
+      object-fit: cover;
+      background: #050507;
+      border: 1px solid rgba(139,92,246,0.35);
+      margin-bottom: 12px;
+    }
+    .auth-brand h1 {
+      font-size: 24px;
+      font-weight: 800;
+      color: #ffffff;
+      letter-spacing: -0.02em;
+    }
+    .auth-brand span {
+      display: block;
+      font-size: 13.5px;
+      color: #9ca3af;
+      margin-top: 4px;
+    }
+    .auth-perks {
+      display: flex;
+      justify-content: flex-start;
+      gap: 12px;
+      flex-wrap: wrap;
+      font-size: 11.5px;
+      color: #a1a1aa;
+      margin-top: 10px;
+    }
+    .auth-perks span b { color: #a78bfa; margin-right: 3px; }
+    .auth-mode-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 11px;
+      border-radius: 999px;
+      background: rgba(139,92,246,0.14);
+      border: 1px solid rgba(139,92,246,0.30);
+      color: #c4b5fd;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      margin-bottom: 10px;
+    }
+    .auth-back-below {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.12);
+      color: #cbd5e1;
+      font-size: 12.5px;
+      font-weight: 600;
+      padding: 7px 18px;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: all .15s ease;
+    }
+    .auth-back-below:hover { color: #ffffff; background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.25); }
+    .auth-trust-note {
+      font-size: 11.5px;
+      color: #64748b;
+      letter-spacing: 0.01em;
+    }
+    .auth-tabs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 13px;
+      padding: 4px;
+      margin-bottom: 20px;
+    }
+    .auth-tab {
+      border: 0;
+      background: transparent;
+      color: var(--muted);
+      padding: 10px;
+      font-size: 13.5px;
+      font-weight: 700;
+      border-radius: 9px;
+      cursor: pointer;
+      transition: all .18s ease;
+    }
+    .auth-tab.active {
+      background: #ffffff;
+      color: #09090b;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.35);
+    }
+    .field { margin-bottom: 16px; }
+    .field label {
+      display: block;
+      font-size: 12.5px;
+      font-weight: 600;
+      color: #d4d4d8;
+      margin-bottom: 7px;
+    }
+    .input-wrap {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+    .input-icon {
+      position: absolute;
+      left: 13px;
+      color: #71717a;
+      pointer-events: none;
+      display: flex;
+      align-items: center;
+    }
+    .field input {
+      width: 100%;
+      padding: 12px 14px 12px 40px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.04);
+      color: #fff;
+      font-size: 14px;
+      outline: none;
+      transition: border-color .15s ease, background .15s ease, box-shadow .15s ease;
+    }
+    .field input.has-toggle { padding-right: 44px; }
+    .field input:focus {
+      border-color: var(--accent);
+      background: rgba(255,255,255,0.06);
+      box-shadow: 0 0 0 3px rgba(168,85,247,0.16);
+    }
+    .pass-toggle {
+      position: absolute;
+      right: 10px;
+      background: transparent;
+      border: 0;
+      color: #9ca3af;
+      cursor: pointer;
+      padding: 4px 6px;
+      font-size: 14px;
+      border-radius: 6px;
+    }
+    .pass-toggle:hover { color: #fff; background: rgba(255,255,255,0.08); }
+    .btn-primary {
+      width: 100%;
+      margin-top: 8px;
+      padding: 13px 18px;
+      border: 0;
+      border-radius: 12px;
+      background: #ffffff;
+      color: #09090b;
+      font-size: 14.5px;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 10px 28px rgba(255,255,255,0.12);
+      transition: transform .12s ease, opacity .15s ease, box-shadow .15s ease;
+    }
+    .btn-primary:hover { opacity: 0.94; transform: translateY(-1px); box-shadow: 0 14px 34px rgba(255,255,255,0.18); }
+    .btn-primary:active { transform: scale(0.99); }
+    .btn-primary:disabled { opacity: 0.55; cursor: not-allowed; }
+    .auth-footer-switch {
+      margin-top: 18px;
+      text-align: center;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .auth-footer-switch button {
+      background: transparent;
+      border: 0;
+      color: #c4b5fd;
+      font-weight: 600;
+      cursor: pointer;
+      margin-left: 4px;
+    }
+    .auth-footer-switch button:hover { text-decoration: underline; color: #fff; }
+    .auth-card .field label { color: #d4d4d8; font-size: 12.5px; font-weight: 600; margin-bottom: 6px; }
+    .auth-card .field input {
+      padding: 12px 14px;
+      border-radius: 11px;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: #14141e;
+      color: #f8fafc;
+      font-size: 14px;
+      transition: border-color .15s ease, box-shadow .15s ease;
+    }
+    .auth-card .field input:-webkit-autofill,
+    .auth-card .field input:-webkit-autofill:hover,
+    .auth-card .field input:-webkit-autofill:focus {
+      -webkit-box-shadow: 0 0 0 1000px #14141e inset;
+      -webkit-text-fill-color: #f8fafc;
+      transition: background-color 5000s ease-in-out 0s;
+    }
+    .auth-card .field input::placeholder { color: #71717a; }
+    .auth-card .field input.has-toggle { padding-right: 44px; }
+    .auth-card .field input:focus {
+      border-color: #8b5cf6;
+      background: #181826;
+      box-shadow: 0 0 0 3px rgba(139,92,246,0.18);
+    }
+    .auth-card .pass-toggle { color: #9ca3af; }
+    .auth-card .pass-toggle:hover { color: #ffffff; background: rgba(255,255,255,0.08); }
+    .auth-card .btn-primary {
+      background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+      color: #ffffff;
+      border-radius: 11px;
+      padding: 13px 18px;
+      font-size: 14.5px;
+      font-weight: 700;
+      box-shadow: 0 10px 28px rgba(139,92,246,0.35);
+      margin-top: 6px;
+    }
+    .auth-card .btn-primary:hover {
+      opacity: 0.96;
+      transform: translateY(-1px);
+      box-shadow: 0 14px 34px rgba(139,92,246,0.48);
+    }
+    .auth-card .auth-footer-switch {
+      color: #9ca3af;
+      margin-top: 16px;
+      font-size: 13px;
+    }
+    .auth-card .auth-footer-switch button {
+      color: #c4b5fd;
+      font-weight: 700;
+    }
+    .auth-card .auth-footer-switch button:hover { color: #ffffff; text-decoration: underline; }
+    .auth-card .auth-alert.err {
+      background: rgba(239,68,68,0.14);
+      border: 1px solid rgba(239,68,68,0.35);
+      color: #fca5a5;
+    }
+    .auth-card .auth-alert.ok {
+      background: rgba(34,197,94,0.14);
+      border: 1px solid rgba(34,197,94,0.35);
+      color: #86efac;
+    }
+    .auth-alert {
+      margin-bottom: 16px;
+      padding: 11px 13px;
+      border-radius: 10px;
+      font-size: 13px;
+      line-height: 1.4;
+    }
+    .auth-alert.err {
+      background: rgba(239,68,68,0.14);
+      border: 1px solid rgba(239,68,68,0.35);
+      color: #fca5a5;
+    }
+    .auth-alert.ok {
+      background: rgba(34,197,94,0.14);
+      border: 1px solid rgba(34,197,94,0.35);
+      color: #86efac;
+    }
+
+    /* ── Dashboard (Exact Clean Theme) ── */
+    .dash-wrap {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background: #000000;
+    }
+    .topbar {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 24px 8px;
+      position: relative;
+      z-index: 30;
+      flex-wrap: wrap;
+    }
+    .topbar-notice {
+      margin-right: auto;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, rgba(16,185,129,0.14), rgba(79,70,229,0.16));
+      border: 1px solid rgba(52,211,153,0.32);
+      color: #ecfdf5;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+      text-decoration: none;
+      transition: transform 0.12s ease, border-color 0.15s ease, background 0.15s ease;
+    }
+    .topbar-notice:hover {
+      border-color: rgba(52,211,153,0.6);
+      background: linear-gradient(135deg, rgba(16,185,129,0.22), rgba(79,70,229,0.24));
+      transform: translateY(-1px);
+    }
+    .topbar-notice-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #10b981;
+      box-shadow: 0 0 8px rgba(16,185,129,0.85);
+      flex-shrink: 0;
+    }
+    .topbar-notice-cta {
+      color: #6ee7b7;
+      font-weight: 700;
+      margin-left: 4px;
+    }
+    .boot-loader {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      background: #000000;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      transition: opacity 0.18s ease, visibility 0.18s ease;
+    }
+    .boot-loader.is-done {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+    .boot-spinner {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      border: 3px solid rgba(167,139,250,0.18);
+      border-top-color: #8b5cf6;
+      border-right-color: #10b981;
+      animation: bootSpin 0.7s linear infinite;
+    }
+    .boot-label {
+      color: #a1a1aa;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+    }
+    @keyframes bootSpin {
+      to { transform: rotate(360deg); }
+    }
+    .plan-pill {
+      background: linear-gradient(135deg, #312e81, #4c1d95);
+      color: #e0e7ff;
+      border: 1px solid rgba(167,139,250,0.35);
+      padding: 7px 14px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+    }
+    .avatar-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border: 0;
+      background: linear-gradient(135deg, #2563eb, #4f46e5);
+      color: #fff;
+      font-weight: 700;
+      font-size: 14px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .dropdown {
+      position: absolute;
+      top: 64px;
+      right: 28px;
+      width: 270px;
+      background: #141418;
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 14px;
+      box-shadow: 0 24px 60px rgba(0,0,0,0.85);
+      overflow: hidden;
+      z-index: 50;
+    }
+    .dd-head {
+      padding: 14px 16px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+    .dd-name {
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+    .dd-email {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 2px;
+      word-break: break-all;
+    }
+    .dd-credits {
+      padding: 14px 16px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+    .dd-credits-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      margin-bottom: 8px;
+    }
+    .dd-credits-label { color: #d1d5db; display: flex; align-items: center; gap: 5px; }
+    .dd-credits-val { font-weight: 700; color: #fff; }
+    .dd-credits-val span { color: var(--muted); font-weight: 500; }
+    .progress-track {
+      width: 100%;
+      height: 5px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.1);
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #a855f7, #ec4899);
+      border-radius: 999px;
+      width: 100%;
+      transition: width .3s ease;
+    }
+    .dd-days {
+      margin-top: 7px;
+      font-size: 11px;
+      color: var(--muted);
+    }
+    .dd-menu { padding: 6px 0; }
+    .dd-item {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 16px;
+      border: 0;
+      background: transparent;
+      color: #d1d5db;
+      font-size: 13px;
+      text-decoration: none;
+      cursor: pointer;
+      text-align: left;
+      transition: background .14s ease, color .14s ease;
+    }
+    .dd-item:hover {
+      background: rgba(255,255,255,0.06);
+      color: #fff;
+    }
+    .dd-item.signout {
+      border-top: 1px solid rgba(255,255,255,0.08);
+      margin-top: 4px;
+      padding-top: 12px;
+      color: #f87171;
+    }
+    .dd-item.signout:hover { background: rgba(239,68,68,0.1); }
+
+    .dash-main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 4px 24px 40px;
+    }
+    .hero-banner {
+      position: relative;
+      width: 100%;
+      max-width: 1720px;
+      height: clamp(380px, 60vh, 640px);
+      border-radius: 22px;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: #060916 url('/google-flow-banner.jpg') center center / cover no-repeat;
+      box-shadow: 0 30px 90px rgba(0,0,0,0.7);
+    }
+    .cta-wrap {
+      margin-top: 30px;
+      display: flex;
+      justify-content: center;
+    }
+    .btn-generate {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 15px 32px;
+      border-radius: 999px;
+      border: 0;
+      background: #ffffff;
+      color: #09090b;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      text-decoration: none;
+      box-shadow: 0 10px 30px rgba(255,255,255,0.14);
+      transition: transform .15s ease, box-shadow .15s ease;
+    }
+    .btn-generate:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 14px 36px rgba(255,255,255,0.22);
+    }
+
+    /* Simple Modal */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.75);
+      backdrop-filter: blur(6px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 80;
+    }
+    .modal-card {
+      width: 100%;
+      max-width: 460px;
+      background: #141418;
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 16px;
+      padding: 24px;
+    }
+    .modal-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+    .modal-head h3 { font-size: 17px; font-weight: 700; }
+    .modal-close {
+      background: transparent;
+      border: 0;
+      color: var(--muted);
+      font-size: 20px;
+      cursor: pointer;
+    }
+    .modal-body { font-size: 14px; color: #d1d5db; line-height: 1.6; }
+    .info-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 10px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+    }
+    .info-row:last-child { border-bottom: 0; }
+
+    /* ── Settings Page ── */
+    .settings-wrap {
+      min-height: 100vh;
+      background: radial-gradient(ellipse 70% 40% at 50% 0%, rgba(168,85,247,0.12), transparent 65%), #050507;
+      padding: 36px 24px 72px;
+    }
+    .settings-container {
+      max-width: 820px;
+      margin: 0 auto;
+    }
+    .settings-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding-bottom: 20px;
+      margin-bottom: 24px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+    .settings-header h2 {
+      font-size: 24px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+    .settings-header-sub {
+      font-size: 13px;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+    .settings-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+      margin-bottom: 18px;
+    }
+    @media (max-width: 720px) {
+      .settings-grid { grid-template-columns: 1fr; }
+    }
+    .settings-card {
+      background: linear-gradient(180deg, rgba(24,24,32,0.92), rgba(15,15,21,0.98));
+      border: 1px solid rgba(255,255,255,0.10);
+      border-radius: 20px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 12px 32px rgba(0,0,0,0.45);
+      transition: border-color 0.2s ease, transform 0.15s ease;
+    }
+    .settings-card:hover {
+      border-color: rgba(168,85,247,0.35);
+    }
+    .settings-card.email-card:hover {
+      border-color: rgba(16,185,129,0.38);
+    }
+    .settings-card-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      width: fit-content;
+      padding: 4px 11px;
+      border-radius: 999px;
+      background: rgba(168,85,247,0.16);
+      border: 1px solid rgba(168,85,247,0.35);
+      color: #e9d5ff;
+      font-size: 11px;
+      font-weight: 700;
+      margin-bottom: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .settings-card-badge.emerald {
+      background: rgba(16,185,129,0.15);
+      border-color: rgba(52,211,153,0.35);
+      color: #6ee7b7;
+    }
+    .settings-card h3 {
+      font-size: 17px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+    .settings-card p.sub {
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 18px;
+      line-height: 1.45;
+    }
+    .settings-card .field {
+      margin-bottom: 14px;
+    }
+    .settings-card .field label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: #d4d4d8;
+      margin-bottom: 6px;
+    }
+    .settings-card .field input {
+      width: 100%;
+      border-radius: 12px !important;
+      padding: 11px 14px !important;
+      background: #08080c;
+      border: 1px solid rgba(255,255,255,0.12);
+      color: #f5f5f7;
+      font-size: 13.5px;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    .settings-card .field input:focus {
+      outline: none;
+      border-color: #a855f7;
+      box-shadow: 0 0 0 3px rgba(168,85,247,0.18);
+    }
+    .settings-submit-btn {
+      margin-top: 4px;
+      padding: 11px 22px;
+      border: 0;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #a855f7, #ec4899);
+      color: #ffffff;
+      font-size: 13.5px;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 6px 18px rgba(168,85,247,0.28);
+      transition: opacity 0.15s ease, transform 0.12s ease;
+    }
+    .settings-submit-btn.emerald {
+      background: linear-gradient(135deg, #10b981, #06b6d4);
+      box-shadow: 0 6px 18px rgba(16,185,129,0.25);
+    }
+    .settings-submit-btn:hover { opacity: 0.92; }
+    .settings-submit-btn:active { transform: scale(0.98); }
+    .settings-card.danger {
+      border-color: rgba(239,68,68,0.32);
+      background: linear-gradient(135deg, rgba(239,68,68,0.08), rgba(17,17,22,0.95));
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+    .settings-card.danger p.sub { margin-bottom: 0; }
+    .btn-danger {
+      padding: 11px 20px;
+      border: 0;
+      border-radius: 12px;
+      background: #ef4444;
+      color: #fff;
+      font-size: 13.5px;
+      font-weight: 700;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: background 0.15s ease, transform 0.12s ease;
+    }
+    .btn-danger:hover { background: #dc2626; }
+    .btn-danger:active { transform: scale(0.98); }
+    .btn-danger:disabled { opacity: 0.55; cursor: not-allowed; }
+
+    /* ── Plan & Pricing Page (Pro 20d & Max 30d, Google Flow Only) ── */
+    .pricing-wrap {
+      min-height: 100vh;
+      background: #000000;
+      display: flex;
+      flex-direction: column;
+    }
+    .pricing-body {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 20px 64px;
+    }
+    .pricing-shell {
+      width: 100%;
+      max-width: 820px;
+      margin: 0 auto;
+    }
+    .pricing-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+    .pricing-top h3 { font-size: 20px; font-weight: 700; }
+    .pricing-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+    }
+    @media (max-width: 720px) {
+      .pricing-grid { grid-template-columns: 1fr; }
+    }
+    .p-card {
+      border-radius: 18px;
+      padding: 22px;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: #0d0e12;
+      display: flex;
+      flex-direction: column;
+    }
+    .p-card.pro {
+      border-color: rgba(212,245,42,0.28);
+      background: linear-gradient(180deg, rgba(212,245,42,0.06) 0%, #0b0c0f 45%);
+    }
+    .p-card.max {
+      border-color: rgba(59,130,246,0.38);
+      background: linear-gradient(180deg, rgba(59,130,246,0.10) 0%, #0a0d16 45%);
+    }
+    .p-title-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 4px;
+    }
+    .p-title-row h4 {
+      font-size: 24px;
+      font-weight: 800;
+      letter-spacing: 0.01em;
+    }
+    .p-tag {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: #2563eb;
+      color: #fff;
+    }
+    .p-tag.pink { background: #db2777; }
+    .p-sub { font-size: 13px; color: var(--muted); margin-bottom: 14px; }
+    .p-box {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 12px;
+      padding: 14px;
+      margin-bottom: 14px;
+    }
+    .p-credits { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+    .p-card.pro .p-credits { color: #d4f52a; }
+    .p-card.max .p-credits { color: #60a5fa; }
+    .p-duration { font-size: 12px; color: #9ca3af; margin-bottom: 12px; }
+    .p-tools-label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      color: #6b7280;
+      margin-bottom: 8px;
+    }
+    .p-tool-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+      font-weight: 600;
+      color: #f3f4f6;
+    }
+    .p-tool-row span:last-child { font-size: 12px; color: #9ca3af; font-weight: 500; }
+    .p-btn {
+      width: 100%;
+      padding: 13px 16px;
+      border: 0;
+      border-radius: 11px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      margin-bottom: 10px;
+      transition: opacity .15s ease;
+    }
+    .p-btn:hover { opacity: 0.92; }
+    .p-btn.pro { background: #d4f52a; color: #09090b; }
+    .p-btn.max { background: #3b82f6; color: #ffffff; }
+    .p-reseller-note {
+      text-align: center;
+      font-size: 11.5px;
+      color: #d1d5db;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 8px;
+      padding: 8px 10px;
+      margin-bottom: 14px;
+    }
+    .p-noads {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 600;
+      color: #4ade80;
+      background: rgba(34,197,94,0.12);
+      border: 1px solid rgba(34,197,94,0.28);
+      border-radius: 999px;
+      padding: 3px 10px;
+      margin-bottom: 12px;
+      width: fit-content;
+    }
+    .p-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      font-size: 13px;
+      color: #d1d5db;
+    }
+    .p-card.pro .p-list li::before { content: "✓ "; color: #d4f52a; font-weight: 700; }
+    .p-card.max .p-list li::before { content: "✓ "; color: #60a5fa; font-weight: 700; }
+
+    /* Bottom-right corner toast */
+    .corner-toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 999;
+      max-width: 340px;
+      background: #141418;
+      border: 1px solid rgba(255,255,255,0.16);
+      border-radius: 14px;
+      padding: 14px 16px;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.8);
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      animation: toastIn .18s ease-out;
+    }
+    @keyframes toastIn {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .corner-toast-body { flex: 1; }
+    .corner-toast-title { font-size: 14px; font-weight: 700; color: #fff; margin-bottom: 3px; }
+    .corner-toast-msg { font-size: 12.5px; color: #d1d5db; line-height: 1.45; }
+    .corner-toast-close {
+      background: transparent;
+      border: 0;
+      color: #9ca3af;
+      font-size: 18px;
+      line-height: 1;
+      cursor: pointer;
+      padding: 0 2px;
+    }
+    .corner-toast-close:hover { color: #fff; }
+    @media (max-width: 640px) {
+      .hero-banner { padding: 32px 24px; min-height: 320px; }
+      .topbar { padding: 14px 16px; }
+      .dropdown { right: 16px; }
+    }
+  </style>
+</head>
+<body>
+  <div id="bootLoader" class="boot-loader" role="status" aria-live="polite">
+    <div class="boot-spinner" aria-hidden="true"></div>
+    <div class="boot-label">Loading PakFlow...</div>
+  </div>
+
+  <!-- Minimal flow.google.com Style Landing Page -->
+  <section id="landingView" class="landing-wrap hidden">
+    <div class="landing-nav-outer">
+      <nav class="landing-nav">
+        <a href="/" class="landing-logo">
+          <img src="/flowbypak-logo.png" alt="Flow" />
+          <span>PakFlow</span>
+        </a>
+        <div class="landing-links">
+          <a href="/" class="active" id="navHomeBtn">Home</a>
+          <a href="/about" id="navAboutBtn">About</a>
+          <a href="/pricing" id="navPricingBtn">Pricing</a>
+        </div>
+        <div class="landing-actions">
+          <button type="button" class="btn-ghost" id="navLoginBtn">Login</button>
+          <button type="button" class="btn-pill-sm" id="navSignupBtn">Get Started</button>
+        </div>
+      </nav>
+    </div>
+
+    <div class="landing-hero">
+      <div class="landing-badge">✦ Introducing Google Flow • Nano Banana Pro</div>
+      <h1 aria-label="AI VIDEO. UNLIMITED. CREATION."><span id="heroTypedText"></span><span class="tw-cursor"></span></h1>
+      <p>
+        An AI filmmaking studio built for creators. Turn your ideas into cinematic videos and ultra-sharp scenes in seconds.
+      </p>
+      <div class="landing-cta-row">
+        <button type="button" class="btn-flow-cta" id="heroCreateBtn">
+          <span>✦</span> Create with Google Flow
+        </button>
+      </div>
+    </div>
+
+    <!-- Made with Veo Showcase -->
+    <div id="veoShowcase" class="veo-section">
+      <div class="veo-badge">🎬 Made with Veo</div>
+      <div class="veo-head">
+        <h2>One prompt.<span>Any style.</span></h2>
+        <p>Every clip below was generated with the same models you get on PakFlow — no camera, no crew, no editing.</p>
+      </div>
+      <div class="veo-grid">
+        <div class="veo-card">
+          <img src="/videos/usecases/uc-baby-snack-review.jpg" alt="Snack Reviews" loading="lazy" />
+          <span class="veo-label">Snack Reviews</span>
+        </div>
+        <div class="veo-card">
+          <img src="/videos/usecases/uc-baby-podcast.jpg" alt="Baby Podcasts" loading="lazy" />
+          <span class="veo-label">Baby Podcasts</span>
+        </div>
+        <div class="veo-card">
+          <img src="/videos/usecases/uc-baby-animal-interview.jpg" alt="Animal Interviews" loading="lazy" />
+          <span class="veo-label">Animal Interviews</span>
+        </div>
+        <div class="veo-card">
+          <img src="/videos/usecases/uc-baby-chef.jpg" alt="Chef Skits" loading="lazy" />
+          <span class="veo-label">Chef Skits</span>
+        </div>
+        <div class="veo-card">
+          <img src="/videos/usecases/uc-baby-documentary.jpg" alt="Mini Documentaries" loading="lazy" />
+          <span class="veo-label">Mini Documentaries</span>
+        </div>
+      </div>
+      <div class="veo-cta-wrap">
+        <button type="button" class="btn-veo-start" onclick="showAuth('signup')">
+          Start creating free &rarr;
+        </button>
+      </div>
+    </div>
+
+    <!-- Ready in 4 steps -->
+    <div class="home-sec">
+      <div class="steps4-head">
+        <h2>Ready in<span>4 steps.</span></h2>
+        <p>No complicated setup. Install the Chrome Extension, connect your account, and start generating.</p>
+      </div>
+      <div class="steps4-grid">
+        <div class="step4-card">
+          <div class="step4-num">01</div>
+          <div class="step4-body">
+            <h3>Create an Account</h3>
+            <p>Sign up with your email and verify with OTP to get instant access to your PakFlow portal.</p>
+          </div>
+        </div>
+        <div class="step4-card">
+          <div class="step4-num">02</div>
+          <div class="step4-body">
+            <h3>Install the Extension</h3>
+            <p>Download the PakFlow Extension from your dashboard and load it in Chrome.</p>
+          </div>
+        </div>
+        <div class="step4-card">
+          <div class="step4-num">03</div>
+          <div class="step4-body">
+            <h3>Open Google Flow</h3>
+            <p>Visit labs.google/fx/tools/flow. The Extension syncs your session automatically.</p>
+          </div>
+        </div>
+        <div class="step4-card">
+          <div class="step4-num">04</div>
+          <div class="step4-body">
+            <h3>Generate &amp; Enjoy</h3>
+            <p>Type your prompt, hit generate, and create cinematic AI videos in seconds.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Hear it from our clients -->
+    <div class="home-sec">
+      <div class="clients-head">
+        <h2>Hear it from our <span>clients</span></h2>
+        <p>Real users sharing their <span>PakFlow</span> experience.</p>
+      </div>
+      <?php
+        $leftReviews = [
+          ['Recommended', 'Very happy with the tool. Does what it says — simple and smooth. PakFlow connected my session instantly and I generated my first video in under a minute.', 'VK', 'Vamsi K.'],
+          ['Game changer for content creators', 'I was skeptical at first but the Extension is incredibly seamless. My workflow went from hours to minutes with PakFlow.', 'LM', 'Layla M.'],
+          ['Best AI video tool I\'ve tried', 'I\'ve been using PakFlow for a few weeks. The support is great and I can always generate high-quality videos without any issues.', 'KR', 'Karl R.'],
+          ['Smooth & fast rendering', 'On the Pro plan now and the generation flow is super reliable. No headaches, just pure AI video creation.', 'PS', 'Priya S.'],
+        ];
+        $rightReviews = [
+          ['Fast & reliable', 'The generation speed is insane. Veo 3 through PakFlow is significantly better than anything else I\'ve tried. Worth every day.', 'LA', 'Leonie A.'],
+          ['Top-notch creator experience', 'The best AI video solution for creators. I\'ve been a PakFlow user for months — the team always delivers updates and the support is top notch.', 'HR', 'Hassan R.'],
+          ['Blown away by the quality', 'I showed my clients videos I generated with PakFlow and they thought they were shot with a real drone. Absolutely unreal quality.', 'MT', 'Mia T.'],
+          ['Worth every penny', 'One-click extension connection and super responsive reseller activation. Makes daily content production effortless.', 'OF', 'Omar F.'],
+        ];
+      ?>
+      <div class="clients-marquee-wrap">
+        <div class="clients-col">
+          <div class="clients-track">
+            <?php foreach (array_merge($leftReviews, $leftReviews) as $rev): ?>
+            <div class="client-card">
+              <div>
+                <h4><?= htmlspecialchars($rev[0]) ?></h4>
+                <p><?= htmlspecialchars($rev[1]) ?></p>
+              </div>
+              <div class="client-foot">
+                <div class="client-user"><span class="client-avatar"><?= htmlspecialchars($rev[2]) ?></span><span class="client-name"><?= htmlspecialchars($rev[3]) ?></span></div>
+                <span class="client-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</span>
+              </div>
+            </div>
+            <?php endforeach; ?>
+          </div>
+        </div>
+        <div class="clients-col col-slow">
+          <div class="clients-track">
+            <?php foreach (array_merge($rightReviews, $rightReviews) as $rev): ?>
+            <div class="client-card">
+              <div>
+                <h4><?= htmlspecialchars($rev[0]) ?></h4>
+                <p><?= htmlspecialchars($rev[1]) ?></p>
+              </div>
+              <div class="client-foot">
+                <div class="client-user"><span class="client-avatar"><?= htmlspecialchars($rev[2]) ?></span><span class="client-name"><?= htmlspecialchars($rev[3]) ?></span></div>
+                <span class="client-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</span>
+              </div>
+            </div>
+            <?php endforeach; ?>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Questions? Answered. (White Accordion Section) -->
+    <div class="qa-band">
+      <div class="qa-inner">
+        <div class="qa-head">
+          <h2>Questions?<span>Answered.</span></h2>
+        </div>
+        <div class="qa-list">
+          <details class="qa-item">
+            <summary>
+              <span>Do I need any video editing experience?</span>
+              <svg class="qa-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+            </summary>
+            <div class="qa-ans">Not at all. Just type a prompt describing your scene in plain English and Google Flow generates cinematic videos automatically.</div>
+          </details>
+          <details class="qa-item">
+            <summary>
+              <span>How do I upgrade to Pro or Max?</span>
+              <svg class="qa-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+            </summary>
+            <div class="qa-ans">Check our Pro (20 Days) and Max (30 Days) plans on the Pricing page and contact your authorized reseller for instant activation.</div>
+          </details>
+          <details class="qa-item">
+            <summary>
+              <span>Which AI models do I get access to?</span>
+              <svg class="qa-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+            </summary>
+            <div class="qa-ans">PakFlow gives you direct access to Google Flow powered by Veo 3.1 and Nano Banana Pro with 45,000 AI Credits on Pro and Max plans.</div>
+          </details>
+          <details class="qa-item">
+            <summary>
+              <span>Can I use PakFlow on multiple devices at once?</span>
+              <svg class="qa-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+            </summary>
+            <div class="qa-ans">Each account supports 1 active device at a time. Signing in on a new device automatically signs out the previous session.</div>
+          </details>
+          <details class="qa-item">
+            <summary>
+              <span>How fast can I start after signing up?</span>
+              <svg class="qa-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+            </summary>
+            <div class="qa-ans">Immediately. Verify your email OTP, download the Chrome Extension from your dashboard, and launch Google Flow in one click.</div>
+          </details>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom Purple CTA Banner -->
+    <div class="purple-cta-band">
+      <div class="purple-cta-inner">
+        <div class="purple-cta-text">
+          <h2>Start generating<br>AI videos today.</h2>
+          <p>No credit card needed. Just install, connect, and create.</p>
+        </div>
+        <div class="purple-cta-action">
+          <img src="/flowbypak-logo.png" alt="PakFlow" />
+          <a href="/signup" class="btn-purple-white">Get Started Free</a>
+        </div>
+      </div>
+    </div>
+
+    <footer class="landing-footer centered-footer">
+      <div>
+        <a href="/login">Sign In</a>
+        <a href="/signup">Sign Up</a>
+        <a href="/pricing">Pricing</a>
+        <a href="/about">About</a>
+        <a href="mailto:support@flowbypak.com">Support</a>
+      </div>
+      <span>&copy; 2026 PakFlow Studio &middot; All rights reserved.</span>
+    </footer>
+  </section>
+
+  <!-- Dedicated About Page (/about) -->
+  <section id="aboutView" class="landing-wrap hidden">
+    <div class="landing-nav-outer">
+      <nav class="landing-nav">
+        <a href="/" class="landing-logo">
+          <img src="/flowbypak-logo.png" alt="Flow" />
+          <span>PakFlow</span>
+        </a>
+        <div class="landing-links">
+          <a href="/">Home</a>
+          <a href="/about" class="active">About</a>
+          <a href="/pricing">Pricing</a>
+        </div>
+        <div class="landing-actions">
+          <a href="/login" class="btn-ghost" style="text-decoration:none;">Login</a>
+          <a href="/signup" class="btn-pill-sm" style="text-decoration:none;">Get Started</a>
+        </div>
+      </nav>
+    </div>
+
+    <div style="flex:1;display:flex;align-items:center;justify-content:center;padding:48px 20px;">
+      <div id="aboutSection" class="about-section" style="margin:0;">
+        <div class="about-badge">✦ About PakFlow</div>
+        <h2>What is <span>PakFlow?</span></h2>
+        <p>
+          PakFlow is a Pakistan-based platform that gives creators direct access to <strong>Google Flow (Veo 3.1)</strong> with our <strong>1-Click Extension</strong> — without the complicated billing setup, expensive per-video costs, or technical hassle.
+        </p>
+        <p style="margin-top:-12px;margin-bottom:26px;font-size:14px;">
+          Need help? Contact Support: <a href="mailto:support@flowbypak.com" style="color:#c4b5fd;font-weight:600;text-decoration:none;">support@flowbypak.com</a>
+        </p>
+        <div class="about-btns">
+          <a href="/signup" class="btn-veo-start" style="text-decoration:none;">Try For Free &rarr;</a>
+          <a href="/pricing" class="btn-flow-sec" style="text-decoration:none;">View Pricing</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom Purple CTA Banner -->
+    <div class="purple-cta-band">
+      <div class="purple-cta-inner">
+        <div class="purple-cta-text">
+          <h2>Start generating<br>AI videos today.</h2>
+          <p>No credit card needed. Just install, connect, and create.</p>
+        </div>
+        <div class="purple-cta-action">
+          <img src="/flowbypak-logo.png" alt="PakFlow" />
+          <a href="/signup" class="btn-purple-white">Get Started Free</a>
+        </div>
+      </div>
+    </div>
+
+    <footer class="landing-footer centered-footer">
+      <div>
+        <a href="/login">Sign In</a>
+        <a href="/signup">Sign Up</a>
+        <a href="/pricing">Pricing</a>
+        <a href="/about">About</a>
+        <a href="mailto:support@flowbypak.com">Support</a>
+      </div>
+      <span>&copy; 2026 PakFlow Studio &middot; All rights reserved.</span>
+    </footer>
+  </section>
+
+  <!-- Direct Login / Signup Page -->
+  <section id="authView" class="auth-wrap hidden">
+    <div class="auth-marquee-bg" aria-hidden="true">
+      <?php
+        $marqueeLine = str_repeat('FlowByPak &middot; ', 12);
+        for ($r = 0; $r < 12; $r++):
+      ?>
+      <div class="auth-marquee-row">
+        <div class="auth-marquee-track">
+          <span><?= $marqueeLine ?></span>
+          <span><?= $marqueeLine ?></span>
+        </div>
+      </div>
+      <?php endfor; ?>
+    </div>
+    <div class="auth-center-col">
+      <div class="auth-card">
+        <div class="auth-split-left">
+          <div class="auth-split-brand">
+            <img src="/flowbypak-logo.png" alt="PakFlow" />
+            <span>PakFlow Studio</span>
+          </div>
+          <div class="auth-split-copy">
+            <h2>Create Cinematic <em>AI Videos</em> in Seconds.</h2>
+            <p>Access Google Flow (Veo 3.1) and Nano Banana Pro directly from one clean workspace.</p>
+            <div class="auth-split-list">
+              <div class="auth-split-item"><span class="auth-split-dot">&#9889;</span><span>45,000 AI Credits on Pro &amp; Max plans</span></div>
+              <div class="auth-split-item"><span class="auth-split-dot">&#128268;</span><span>1-Click Chrome Extension session sync</span></div>
+              <div class="auth-split-item"><span class="auth-split-dot">&#128737;</span><span>OTP verified &amp; 1-device protected</span></div>
+            </div>
+          </div>
+          <div class="auth-split-foot">Need help? support@flowbypak.com</div>
+        </div>
+        <div class="auth-split-right">
+        <div class="auth-brand">
+          <img id="authLogoImg" src="/flowbypak-logo.png" alt="PakFlow" />
+          <div id="authForgotIcon" class="auth-forgot-icon hidden" aria-hidden="true">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+          </div>
+          <div id="authModePill" class="auth-mode-pill">&#10022; Google Flow Studio</div>
+          <h1 id="authHeading">PakFlow</h1>
+          <span id="authSubheading">Sign in to your account</span>
+          <div id="authPerks" class="auth-perks hidden">
+            <span><b>&#10003;</b> Basic Plan</span>
+            <span><b>&#10003;</b> No card needed</span>
+            <span><b>&#10003;</b> Instant signup</span>
+          </div>
+        </div>
+
+        <div id="authAlert" class="auth-alert hidden"></div>
+
+        <form id="authForm">
+          <div class="field hidden" id="nameField">
+            <label for="authName">Full Name</label>
+            <input id="authName" name="full_name" type="text" placeholder="Your full name" autocomplete="name" />
+          </div>
+          <div class="field">
+            <label for="authEmail">Email</label>
+            <input id="authEmail" name="email" type="text" placeholder="you@example.com" required autocomplete="email" />
+          </div>
+          <div class="field">
+            <label for="authPassword">Password</label>
+            <div class="input-wrap">
+              <input id="authPassword" class="has-toggle" type="password" placeholder="••••••••" required autocomplete="current-password" />
+              <button type="button" class="pass-toggle" id="togglePassBtn" title="Show/Hide Password" aria-label="Show password">&#128065;</button>
+            </div>
+          </div>
+          <button type="submit" class="btn-primary" id="authSubmitBtn">Sign In</button>
+          <div id="forgotRow" style="text-align:center;margin-top:16px;">
+            <button type="button" id="openForgotBtn" style="background:transparent;border:0;color:#c4b5fd;font-size:13px;font-weight:700;cursor:pointer;">Forgot your password?</button>
+          </div>
+        </form>
+
+        <!-- Verify Signup Email Flow -->
+        <div id="verifySignupBox" class="hidden">
+          <form id="verifySignupForm">
+            <div class="field">
+              <label for="signupVerifyCode">6-Digit Verification Code</label>
+              <input id="signupVerifyCode" type="text" maxlength="6" placeholder="123456" style="letter-spacing:6px;font-weight:800;text-align:center;font-size:18px;" required />
+            </div>
+            <button type="submit" class="btn-primary" id="verifySignupBtn">Verify &amp; Create Account</button>
+          </form>
+          <div class="auth-footer-switch">
+            Didn't receive the code? <button type="button" id="resendSignupCodeBtn">Resend Code</button>
+          </div>
+        </div>
+
+        <!-- Forgot Password Flow -->
+        <div id="forgotBox" class="hidden">
+          <form id="forgotStep1Form">
+            <div class="field">
+              <label for="forgotEmail">Email</label>
+              <input id="forgotEmail" type="email" placeholder="you@example.com" required />
+            </div>
+            <button type="submit" class="btn-primary" id="sendCodeBtn">Send Reset Link</button>
+          </form>
+
+          <form id="forgotStep2Form" class="hidden" style="margin-top:16px;">
+            <div class="field">
+              <label for="resetNewPass">New Password</label>
+              <input id="resetNewPass" type="password" placeholder="Min 4 characters" required />
+            </div>
+            <button type="submit" class="btn-primary" id="resetPassBtn">Reset Password</button>
+          </form>
+
+          <div class="auth-footer-switch">
+            <button type="button" id="backToLoginBtn">&larr; Back to sign in</button>
+          </div>
+        </div>
+
+        <div class="auth-footer-switch" id="authFooterSwitch">
+          Don't have an account? <button type="button" id="footerSwitchBtn">Sign up free</button>
+        </div>
+        </div>
+      </div>
+
+      <button type="button" class="auth-back-below" id="authBackBtn">&larr; Back to home</button>
+      <div class="auth-trust-note">&#128274; Protected by 1-device session sync</div>
+    </div>
+  </section>
+
+  <!-- Clean Dashboard Theme -->
+  <section id="dashView" class="dash-wrap hidden">
+    <header class="topbar">
+      <a class="topbar-notice" href="/downloads/PakFlow_v1.7.zip" download="PakFlow_v1.7.zip">
+        <span class="topbar-notice-dot" aria-hidden="true"></span>
+        <span>Pakflow v1.7 is live now</span>
+        <span class="topbar-notice-cta">Download &rarr;</span>
+      </a>
+      <div class="plan-pill" id="planPill">Flow Ultra</div>
+      <button type="button" class="avatar-btn" id="avatarBtn" aria-label="Account menu">P</button>
+
+      <div class="dropdown hidden" id="accountDropdown">
+        <div class="dd-head">
+          <div class="dd-name" id="ddName">PAKTOOLS</div>
+          <div class="dd-email" id="ddEmail">user@pakflow.com</div>
+        </div>
+        <div class="dd-credits">
+          <div class="dd-credits-row">
+            <span class="dd-credits-label">⚡ Credits</span>
+            <span class="dd-credits-val" id="ddCreditsVal">45,000 <span>/ 45,000</span></span>
+          </div>
+          <div class="progress-track"><div class="progress-fill" id="ddProgress"></div></div>
+          <div class="dd-days" id="ddDays">30 days left in plan</div>
+        </div>
+        <div class="dd-menu">
+          <button type="button" class="dd-item" data-modal="settings">⚙ Settings</button>
+          <button type="button" class="dd-item" data-modal="plans">💳 Plan &amp; Pricing</button>
+          <button type="button" class="dd-item" data-modal="devices">🛡 My Devices</button>
+          <a class="dd-item" href="/downloads/PakFlow_v1.7.zip" download="PakFlow_v1.7.zip">⬇ Get Extension</a>
+          <button type="button" class="dd-item signout" id="signOutBtn">↪ Sign Out</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="dash-main">
+      <div class="hero-banner" aria-label="Nano Banana 2 is Here! Welcome to PakFlow"></div>
+
+      <div class="cta-wrap">
+        <a href="https://flow.google.com" target="_blank" rel="noopener noreferrer" class="btn-generate" id="generateVideoBtn">
+          <span>▶</span> Generate Video
+        </a>
+      </div>
+    </main>
+  </section>
+
+  <!-- Settings Page (Change Password, Change Email, Delete Account) -->
+  <section id="settingsView" class="settings-wrap hidden">
+    <div class="settings-container">
+      <div class="settings-header">
+        <div>
+          <h2>Account Settings</h2>
+          <p class="settings-header-sub">Manage your password, email address, and account security.</p>
+        </div>
+        <button type="button" class="btn-ghost" id="settingsBackBtn">&larr; Back to Dashboard</button>
+      </div>
+
+      <div id="settingsAlert" class="auth-alert hidden"></div>
+
+      <div class="settings-grid">
+        <!-- Change Password -->
+        <div class="settings-card">
+          <span class="settings-card-badge">Security</span>
+          <h3>Change Password</h3>
+          <p class="sub">Keep your account protected with a strong password.</p>
+          <form id="changePasswordForm">
+            <div class="field">
+              <label for="curPass">Current Password</label>
+              <input id="curPass" type="password" placeholder="Enter current password" />
+            </div>
+            <div class="field">
+              <label for="newPass">New Password</label>
+              <input id="newPass" type="password" placeholder="Enter new password (min 4 chars)" required />
+            </div>
+            <button type="submit" class="settings-submit-btn">Update Password</button>
+          </form>
+        </div>
+
+        <!-- Change Email -->
+        <div class="settings-card email-card">
+          <span class="settings-card-badge emerald">Identity</span>
+          <h3>Change Email</h3>
+          <p class="sub">Current email: <strong id="settingsCurrentEmail">-</strong></p>
+          <form id="changeEmailForm">
+            <div class="field">
+              <label for="newEmailInput">New Email Address</label>
+              <input id="newEmailInput" type="email" placeholder="newemail@example.com" required />
+            </div>
+            <button type="submit" class="settings-submit-btn emerald">Update Email</button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Delete Account -->
+      <div class="settings-card danger">
+        <div>
+          <h3>Danger Zone &mdash; Delete Account</h3>
+          <p class="sub">Permanently delete your account and sign out. This action cannot be undone.</p>
+        </div>
+        <button type="button" class="btn-danger" id="deleteAccountBtn">Delete My Account</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Plan & Pricing Page (2 Plans: Pro 20 Days & Max 30 Days - Google Flow Only) -->
+  <section id="pricingView" class="pricing-wrap hidden">
+    <div class="landing-nav-outer">
+      <nav class="landing-nav">
+        <a href="/" class="landing-logo">
+          <img src="/flowbypak-logo.png" alt="Flow" />
+          <span>PakFlow</span>
+        </a>
+        <div class="landing-links">
+          <a href="/">Home</a>
+          <a href="/about">About</a>
+          <a href="/pricing" class="active">Pricing</a>
+        </div>
+        <div class="landing-actions">
+          <a href="/login" class="btn-ghost" style="text-decoration:none;">Login</a>
+          <a href="/signup" class="btn-pill-sm" style="text-decoration:none;">Get Started</a>
+        </div>
+      </nav>
+    </div>
+
+    <div class="pricing-body">
+      <div class="pricing-shell">
+        <div style="text-align:center;margin-bottom:24px;">
+          <span style="display:inline-flex;align-items:center;gap:8px;padding:7px 18px;border-radius:999px;background:rgba(139,92,246,0.10);border:1px solid rgba(167,139,250,0.28);color:#d8b4fe;font-size:12.5px;font-weight:500;">&#10024; Authorized Reseller Distribution &middot; Contact your reseller for pricing &amp; instant activation</span>
+        </div>
+        <div class="pricing-top">
+          <h3>Plan &amp; Pricing</h3>
+          <button type="button" class="btn-ghost" id="pricingBackBtn">&larr; Back to Dashboard</button>
+        </div>
+      <div class="pricing-grid">
+        <!-- PRO PLAN -->
+        <div class="p-card pro">
+          <div class="p-title-row">
+            <h4>PRO</h4>
+            <span class="p-tag">43% OFF</span>
+          </div>
+          <div class="p-sub">For everyday AI creation</div>
+          <div class="p-box">
+            <div class="p-credits">✨ 45,000 AI Credits</div>
+            <div class="p-duration">= Full Google Flow access for 20 days</div>
+            <div class="p-tools-label">MAIN TOOLS</div>
+            <div class="p-tool-row">
+              <span>✓ Google Flow</span>
+              <span>Full Access</span>
+            </div>
+          </div>
+          <button type="button" class="p-btn pro" data-get-plan="Pro (20 Days)">Get Pro</button>
+          <div class="p-reseller-note">Special discounts available via authorized resellers</div>
+          <div class="p-noads">● No Ads</div>
+          <ul class="p-list">
+            <li>Full Google Flow Access</li>
+            <li>Parallel generations: 2x Videos</li>
+            <li>Higher Video Generation Success Rate</li>
+            <li>1K Image Resolution</li>
+            <li>16:9, 9:16 &amp; More Aspect Ratios</li>
+            <li>Faster Processing Speed</li>
+            <li>1 Device at a Time</li>
+            <li>Priority Support</li>
+            <li>Ad-Free Experience</li>
+          </ul>
+        </div>
+
+        <!-- MAX PLAN -->
+        <div class="p-card max">
+          <div class="p-title-row">
+            <h4>MAX</h4>
+            <span class="p-tag">50% OFF</span>
+            <span class="p-tag pink">✦ BEST VALUE</span>
+          </div>
+          <div class="p-sub">For ambitious AI projects</div>
+          <div class="p-box">
+            <div class="p-credits">✨ 45,000 AI Credits</div>
+            <div class="p-duration">= Full Google Flow access for 30 days</div>
+            <div class="p-tools-label">MAIN TOOLS</div>
+            <div class="p-tool-row">
+              <span>✓ Google Flow</span>
+              <span>Full Access</span>
+            </div>
+          </div>
+          <button type="button" class="p-btn max" data-get-plan="Max (30 Days)">Get Max</button>
+          <div class="p-reseller-note">Special discounts available via authorized resellers</div>
+          <div class="p-noads">● No Ads</div>
+          <ul class="p-list">
+            <li>Full Google Flow Access (30 Days)</li>
+            <li>Parallel generations: 3x Videos</li>
+            <li>Highest Video Generation Success</li>
+            <li>All Aspect Ratios (16:9, 4:3, 1:1, 3:4, 9:16)</li>
+            <li>Fastest Processing + Premium Queue</li>
+            <li>1 Device at a Time</li>
+            <li>Early Access to New Features</li>
+            <li>Priority Support</li>
+            <li>Ad-Free Experience</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    </div>
+  </section>
+
+  <!-- Corner Toast -->
+  <div id="cornerToast" class="corner-toast hidden" role="status" aria-live="polite">
+    <div class="corner-toast-body">
+      <div class="corner-toast-title" id="cornerToastTitle">Contact Your Reseller</div>
+      <div class="corner-toast-msg" id="cornerToastMsg"></div>
+    </div>
+    <button type="button" class="corner-toast-close" id="cornerToastClose" aria-label="Close">&times;</button>
+  </div>
+
+  <!-- Info Modal -->
+  <div id="infoModal" class="modal-backdrop hidden">
+    <div class="modal-card">
+      <div class="modal-head">
+        <h3 id="modalTitle">Details</h3>
+        <button type="button" class="modal-close" id="modalClose">&times;</button>
+      </div>
+      <div class="modal-body" id="modalBody"></div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      const landingView = document.getElementById('landingView');
+      const aboutView = document.getElementById('aboutView');
+      const authView = document.getElementById('authView');
+      const dashView = document.getElementById('dashView');
+      const settingsView = document.getElementById('settingsView');
+      const settingsBackBtn = document.getElementById('settingsBackBtn');
+      const settingsAlert = document.getElementById('settingsAlert');
+      const changePasswordForm = document.getElementById('changePasswordForm');
+      const changeEmailForm = document.getElementById('changeEmailForm');
+      const deleteAccountBtn = document.getElementById('deleteAccountBtn');
+      const heroCreateBtn = document.getElementById('heroCreateBtn');
+      const navLoginBtn = document.getElementById('navLoginBtn');
+      const navSignupBtn = document.getElementById('navSignupBtn');
+      const authBackBtn = document.getElementById('authBackBtn');
+      const tabLogin = document.getElementById('tabLogin');
+      const tabSignup = document.getElementById('tabSignup');
+      const nameField = document.getElementById('nameField');
+      const authForm = document.getElementById('authForm');
+      const authSubmitBtn = document.getElementById('authSubmitBtn');
+      const authAlert = document.getElementById('authAlert');
+      const avatarBtn = document.getElementById('avatarBtn');
+      const dropdown = document.getElementById('accountDropdown');
+      const signOutBtn = document.getElementById('signOutBtn');
+      const infoModal = document.getElementById('infoModal');
+      const modalTitle = document.getElementById('modalTitle');
+      const modalBody = document.getElementById('modalBody');
+      const modalClose = document.getElementById('modalClose');
+      const pricingView = document.getElementById('pricingView');
+      const pricingBackBtn = document.getElementById('pricingBackBtn');
+
+      let mode = (location.pathname === '/register' || location.pathname === '/signup') ? 'signup' : 'login';
+      let currentUser = null;
+
+      function getDeviceId() {
+        let id = localStorage.getItem('pakflow_device_id');
+        if (!id) {
+          id = 'dev_' + Math.random().toString(36).slice(2, 12);
+          localStorage.setItem('pakflow_device_id', id);
+        }
+        return id;
+      }
+
+      function syncExtensionBridgeLogin(token, user) {
+        if (!token || !user) return;
+        const plan = String(user.plan || 'basic').toLowerCase();
+        if (plan === 'basic' || plan === 'free' || plan === 'trial') return;
+        try {
+          localStorage.setItem('pakflow_token', token);
+          localStorage.setItem('token', token);
+          localStorage.setItem('user', JSON.stringify(user));
+          localStorage.setItem('pakflow_auth_bridge', JSON.stringify({ token: token, user: user }));
+          window.dispatchEvent(new CustomEvent('__bf_auth_ready__', {
+            detail: {
+              token: token,
+              userId: user.id,
+              email: user.email,
+              username: user.username || user.name,
+              plan: user.plan || 'plus',
+              daysRemaining: user.daysLeft !== undefined ? user.daysLeft : (user.daysRemaining !== undefined ? user.daysRemaining : 30)
+            }
+          }));
+          window.postMessage({ type: 'PAKFLOW_SITE_LOGIN', token: token, user: user }, '*');
+        } catch (_) {}
+      }
+
+      function syncExtensionBridgeLogout() {
+        try {
+          localStorage.removeItem('user');
+          localStorage.removeItem('pakflow_auth_bridge');
+          localStorage.removeItem('__flow_auth__');
+          window.dispatchEvent(new CustomEvent('__bf_logout__'));
+          window.postMessage({ type: 'PAKFLOW_SITE_LOGOUT' }, '*');
+        } catch (_) {}
+      }
+
+      function showAlert(msg, isOk) {
+        authAlert.textContent = msg;
+        authAlert.className = 'auth-alert ' + (isOk ? 'ok' : 'err');
+      }
+
+      function clearAlert() {
+        authAlert.className = 'auth-alert hidden';
+      }
+
+      function setMode(next) {
+        mode = next;
+        clearAlert();
+        const heading = document.getElementById('authHeading');
+        const sub = document.getElementById('authSubheading');
+        const footerWrap = document.getElementById('authFooterSwitch');
+        const forgotRow = document.getElementById('forgotRow');
+        const forgotBox = document.getElementById('forgotBox');
+        const verifySignupBox = document.getElementById('verifySignupBox');
+        const authTabsEl = document.querySelector('.auth-tabs');
+        const authCardEl = document.querySelector('.auth-card');
+        const authLogoImgEl = document.getElementById('authLogoImg');
+        const authForgotIconEl = document.getElementById('authForgotIcon');
+        if (authCardEl) authCardEl.classList.remove('is-forgot');
+        if (authLogoImgEl) authLogoImgEl.classList.remove('hidden');
+        if (authForgotIconEl) authForgotIconEl.classList.add('hidden');
+        if (forgotBox) forgotBox.classList.add('hidden');
+        if (verifySignupBox) verifySignupBox.classList.add('hidden');
+        if (authForm) authForm.classList.remove('hidden');
+        if (authTabsEl) authTabsEl.classList.remove('hidden');
+        if (footerWrap) footerWrap.classList.remove('hidden');
+        const authPerksEl = document.getElementById('authPerks');
+        const authModePillEl = document.getElementById('authModePill');
+        if (authModePillEl) authModePillEl.classList.remove('hidden');
+        if (mode === 'signup') {
+          if (tabSignup) tabSignup.classList.add('active');
+          if (tabLogin) tabLogin.classList.remove('active');
+          nameField.classList.remove('hidden');
+          if (authPerksEl) authPerksEl.classList.remove('hidden');
+          if (authModePillEl) authModePillEl.textContent = '✦ OTP Verified Signup';
+          if (forgotRow) forgotRow.classList.add('hidden');
+          authSubmitBtn.textContent = 'Create Account →';
+          if (heading) heading.textContent = 'Join PakFlow';
+          if (sub) sub.textContent = 'Free Basic Plan — upgrade anytime to unlock tools';
+          if (footerWrap) footerWrap.innerHTML = 'Already have an account? <button type="button" id="footerSwitchBtn">Sign in</button>';
+        } else {
+          if (tabLogin) tabLogin.classList.add('active');
+          if (tabSignup) tabSignup.classList.remove('active');
+          nameField.classList.add('hidden');
+          if (authPerksEl) authPerksEl.classList.add('hidden');
+          if (authModePillEl) authModePillEl.textContent = '✦ Google Flow Studio';
+          if (forgotRow) forgotRow.classList.remove('hidden');
+          authSubmitBtn.textContent = 'Sign In →';
+          if (heading) heading.textContent = 'PakFlow';
+          if (sub) sub.textContent = 'Sign in to your account';
+          if (footerWrap) footerWrap.innerHTML = 'Don\'t have an account? <button type="button" id="footerSwitchBtn">Sign up free</button>';
+        }
+        const fBtn = document.getElementById('footerSwitchBtn');
+        if (fBtn) fBtn.addEventListener('click', () => setMode(mode === 'signup' ? 'login' : 'signup'));
+      }
+
+      let pendingSignupEmail = '';
+      const verifySignupForm = document.getElementById('verifySignupForm');
+      const verifySignupBtn = document.getElementById('verifySignupBtn');
+      const resendSignupCodeBtn = document.getElementById('resendSignupCodeBtn');
+
+      if (verifySignupForm) {
+        verifySignupForm.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          clearAlert();
+          const code = document.getElementById('signupVerifyCode').value.trim();
+          verifySignupBtn.disabled = true;
+          verifySignupBtn.textContent = 'Verifying...';
+          try {
+            const res = await fetch('/api/auth/verify-signup', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ email: pendingSignupEmail, code }),
+            });
+            const data = await res.json();
+            if (res.ok && data.token) {
+              const verifiedUser = data.user || { email: pendingSignupEmail };
+              localStorage.setItem('pakflow_token', data.token);
+              localStorage.setItem('token', data.token);
+              try { localStorage.setItem('pakflow_user_cache', JSON.stringify(verifiedUser)); } catch (_) {}
+              syncExtensionBridgeLogin(data.token, verifiedUser);
+              showDash(verifiedUser);
+            } else {
+              showAlert(data.message || 'Invalid or expired verification code', false);
+            }
+          } catch (_) {
+            showAlert('Network error while verifying code.', false);
+          } finally {
+            verifySignupBtn.disabled = false;
+            verifySignupBtn.textContent = 'Verify & Create Account';
+          }
+        });
+      }
+
+      if (resendSignupCodeBtn) {
+        resendSignupCodeBtn.addEventListener('click', async () => {
+          if (!pendingSignupEmail) return;
+          clearAlert();
+          try {
+            const res = await fetch('/api/auth/resend-signup-code', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ email: pendingSignupEmail }),
+            });
+            const data = await res.json();
+            showAlert(data.message || (res.ok ? 'Code resent!' : 'Failed to resend code'), res.ok && data.success);
+          } catch (_) {
+            showAlert('Network error.', false);
+          }
+        });
+      }
+
+      const openForgotBtn = document.getElementById('openForgotBtn');
+      const backToLoginBtn = document.getElementById('backToLoginBtn');
+      const forgotBox = document.getElementById('forgotBox');
+      const forgotStep1Form = document.getElementById('forgotStep1Form');
+      const forgotStep2Form = document.getElementById('forgotStep2Form');
+      const sendCodeBtn = document.getElementById('sendCodeBtn');
+      const resetPassBtn = document.getElementById('resetPassBtn');
+
+      if (openForgotBtn && forgotBox) {
+        openForgotBtn.addEventListener('click', () => {
+          clearAlert();
+          authForm.classList.add('hidden');
+          const tabsEl = document.querySelector('.auth-tabs');
+          if (tabsEl) tabsEl.classList.add('hidden');
+          document.getElementById('authFooterSwitch').classList.add('hidden');
+          const authCardEl = document.querySelector('.auth-card');
+          const authLogoImgEl = document.getElementById('authLogoImg');
+          const authForgotIconEl = document.getElementById('authForgotIcon');
+          const authPerksEl = document.getElementById('authPerks');
+          const authModePillEl = document.getElementById('authModePill');
+          if (authModePillEl) authModePillEl.classList.add('hidden');
+          if (authCardEl) authCardEl.classList.add('is-forgot');
+          if (authLogoImgEl) authLogoImgEl.classList.add('hidden');
+          if (authPerksEl) authPerksEl.classList.add('hidden');
+          if (authForgotIconEl) authForgotIconEl.classList.remove('hidden');
+          forgotBox.classList.remove('hidden');
+          forgotStep2Form.classList.add('hidden');
+          document.getElementById('authHeading').textContent = 'Forgot password?';
+          document.getElementById('authSubheading').textContent = "Enter your account email and we'll send you a link to reset your password.";
+        });
+      }
+      if (backToLoginBtn) {
+        backToLoginBtn.addEventListener('click', () => setMode('login'));
+      }
+      if (forgotStep1Form) {
+        forgotStep1Form.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          clearAlert();
+          const email = document.getElementById('forgotEmail').value.trim();
+          sendCodeBtn.disabled = true;
+          sendCodeBtn.textContent = 'Sending link...';
+          try {
+            const res = await fetch('/api/auth/forgot-password', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ email }),
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+              showAlert(data.message || 'Reset link sent! Please check your email.', true);
+            } else {
+              showAlert(data.message || 'Failed to send reset link', false);
+            }
+          } catch (_) {
+            showAlert('Network error. Please try again.', false);
+          } finally {
+            sendCodeBtn.disabled = false;
+            sendCodeBtn.textContent = 'Send Reset Link';
+          }
+        });
+      }
+      if (forgotStep2Form) {
+        forgotStep2Form.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          clearAlert();
+          const params = new URLSearchParams(location.search);
+          const token = params.get('token') || '';
+          const newPassword = document.getElementById('resetNewPass').value;
+          resetPassBtn.disabled = true;
+          resetPassBtn.textContent = 'Updating...';
+          try {
+            const res = await fetch('/api/auth/reset-password', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ token, newPassword }),
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+              history.replaceState(null, '', '/login');
+              setMode('login');
+              showAlert(data.message || 'Password reset successfully! Please sign in.', true);
+            } else {
+              showAlert(data.message || 'Invalid or expired reset link', false);
+            }
+          } catch (_) {
+            showAlert('Network error. Please try again.', false);
+          } finally {
+            resetPassBtn.disabled = false;
+            resetPassBtn.textContent = 'Reset Password';
+          }
+        });
+      }
+
+      const togglePassBtn = document.getElementById('togglePassBtn');
+      const authPassInput = document.getElementById('authPassword');
+      if (togglePassBtn && authPassInput) {
+        togglePassBtn.addEventListener('click', () => {
+          const isPwd = authPassInput.type === 'password';
+          authPassInput.type = isPwd ? 'text' : 'password';
+          togglePassBtn.textContent = isPwd ? '🙈' : '👁';
+        });
+      }
+
+      if (tabLogin) tabLogin.addEventListener('click', () => setMode('login'));
+      if (tabSignup) tabSignup.addEventListener('click', () => setMode('signup'));
+
+      function renderUser(user) {
+        currentUser = user;
+        const name = (user.name || user.username || user.email || 'User').toString();
+        const email = (user.email || '').toString();
+        const plan = (user.plan || 'basic').toString().toLowerCase();
+        const isBasic = ['basic', 'free', 'trial', 'vibe', 'starter'].includes(plan);
+        const credits = isBasic ? 0 : 45000;
+        const creditsTotal = isBasic ? 0 : 45000;
+        const pct = isBasic ? 0 : 100;
+        const days = Number(user.daysRemaining ?? user.daysLeft ?? 0);
+        const planBadge = plan === 'ultra' || plan === 'max' ? 'Flow Ultra'
+          : plan === 'pro' || plan === 'plus' ? 'Flow Plus'
+          : plan === 'heavy' ? 'Flow Heavy'
+          : 'Flow Basic';
+
+        document.getElementById('planPill').textContent = planBadge;
+        avatarBtn.textContent = name.trim().charAt(0).toUpperCase() || 'P';
+        document.getElementById('ddName').textContent = name.toUpperCase();
+        document.getElementById('ddEmail').textContent = email;
+        document.getElementById('ddCreditsVal').innerHTML =
+          credits.toLocaleString() + ' <span>/ ' + creditsTotal.toLocaleString() + '</span>';
+        document.getElementById('ddProgress').style.width = pct + '%';
+        document.getElementById('ddDays').textContent = days + ' days left in plan';
+      }
+
+      function hideBootLoader() {
+        const bl = document.getElementById('bootLoader');
+        if (bl && !bl.classList.contains('is-done')) {
+          bl.classList.add('is-done');
+        }
+      }
+
+      function showLanding() {
+        hideBootLoader();
+        aboutView.classList.add('hidden');
+        authView.classList.add('hidden');
+        dashView.classList.add('hidden');
+        settingsView.classList.add('hidden');
+        pricingView.classList.add('hidden');
+        landingView.classList.remove('hidden');
+      }
+
+      function showAbout() {
+        hideBootLoader();
+        landingView.classList.add('hidden');
+        authView.classList.add('hidden');
+        dashView.classList.add('hidden');
+        settingsView.classList.add('hidden');
+        pricingView.classList.add('hidden');
+        aboutView.classList.remove('hidden');
+        if (location.pathname !== '/about') {
+          history.replaceState(null, '', '/about');
+        }
+      }
+
+      function showAuth(targetMode) {
+        hideBootLoader();
+        if (targetMode) mode = targetMode;
+        landingView.classList.add('hidden');
+        aboutView.classList.add('hidden');
+        dashView.classList.add('hidden');
+        settingsView.classList.add('hidden');
+        pricingView.classList.add('hidden');
+        authView.classList.remove('hidden');
+        setMode(mode);
+        const targetUrl = mode === 'signup' ? '/signup' : '/login';
+        if (location.pathname !== targetUrl && location.pathname !== '/reset-password') {
+          history.replaceState(null, '', targetUrl);
+        }
+      }
+
+      function showDash(user) {
+        hideBootLoader();
+        renderUser(user);
+        landingView.classList.add('hidden');
+        aboutView.classList.add('hidden');
+        authView.classList.add('hidden');
+        settingsView.classList.add('hidden');
+        pricingView.classList.add('hidden');
+        dashView.classList.remove('hidden');
+        if (location.pathname !== '/dashboard') {
+          history.replaceState(null, '', '/dashboard');
+        }
+      }
+
+      function showSettings() {
+        hideBootLoader();
+        landingView.classList.add('hidden');
+        aboutView.classList.add('hidden');
+        authView.classList.add('hidden');
+        dashView.classList.add('hidden');
+        pricingView.classList.add('hidden');
+        settingsView.classList.remove('hidden');
+        settingsAlert.className = 'auth-alert hidden';
+        document.getElementById('settingsCurrentEmail').textContent = (currentUser && currentUser.email) ? currentUser.email : '-';
+        if (location.pathname !== '/settings') {
+          history.replaceState(null, '', '/settings');
+        }
+      }
+
+      function showPricing() {
+        hideBootLoader();
+        landingView.classList.add('hidden');
+        aboutView.classList.add('hidden');
+        authView.classList.add('hidden');
+        dashView.classList.add('hidden');
+        settingsView.classList.add('hidden');
+        pricingBackBtn.textContent = currentUser ? '← Back to Dashboard' : '← Back to Home';
+        pricingView.classList.remove('hidden');
+        if (location.pathname !== '/pricing') {
+          history.replaceState(null, '', '/pricing');
+        }
+      }
+
+      function showSettingsAlert(msg, isOk) {
+        settingsAlert.textContent = msg;
+        settingsAlert.className = 'auth-alert ' + (isOk ? 'ok' : 'err');
+      }
+
+      settingsBackBtn.addEventListener('click', () => {
+        if (currentUser) showDash(currentUser);
+      });
+
+      changePasswordForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const token = localStorage.getItem('pakflow_token') || localStorage.getItem('token');
+        const currentPassword = document.getElementById('curPass').value;
+        const newPassword = document.getElementById('newPass').value;
+        try {
+          const res = await fetch('/api/user/change-password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+            body: JSON.stringify({ currentPassword, newPassword }),
+          });
+          const data = await res.json();
+          if (res.ok && data.success) {
+            showSettingsAlert(data.message || 'Password updated successfully', true);
+            changePasswordForm.reset();
+          } else {
+            showSettingsAlert(data.message || 'Failed to update password', false);
+          }
+        } catch (_) {
+          showSettingsAlert('Network error while updating password', false);
+        }
+      });
+
+      changeEmailForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const token = localStorage.getItem('pakflow_token') || localStorage.getItem('token');
+        const newEmail = document.getElementById('newEmailInput').value.trim();
+        try {
+          const res = await fetch('/api/user/change-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+            body: JSON.stringify({ newEmail }),
+          });
+          const data = await res.json();
+          if (res.ok && data.success) {
+            if (data.token) {
+              localStorage.setItem('pakflow_token', data.token);
+              localStorage.setItem('token', data.token);
+            }
+            if (data.user) {
+              renderUser(data.user);
+            } else if (currentUser) {
+              currentUser.email = newEmail;
+              renderUser(currentUser);
+            }
+            document.getElementById('settingsCurrentEmail').textContent = newEmail;
+            showSettingsAlert(data.message || 'Email updated successfully', true);
+            changeEmailForm.reset();
+          } else {
+            showSettingsAlert(data.message || 'Failed to update email', false);
+          }
+        } catch (_) {
+          showSettingsAlert('Network error while updating email', false);
+        }
+      });
+
+      deleteAccountBtn.addEventListener('click', async () => {
+        if (!confirm('Are you sure you want to permanently delete your account?')) return;
+        const token = localStorage.getItem('pakflow_token') || localStorage.getItem('token');
+        deleteAccountBtn.disabled = true;
+        try {
+          const res = await fetch('/api/user/account', {
+            method: 'DELETE',
+            headers: { Authorization: 'Bearer ' + token },
+          });
+          const data = await res.json();
+          if (res.ok && data.success) {
+            localStorage.removeItem('pakflow_token');
+            localStorage.removeItem('token');
+            localStorage.removeItem('pakflow_user_cache');
+            syncExtensionBridgeLogout();
+            currentUser = null;
+            history.replaceState(null, '', '/');
+            showLanding();
+          } else {
+            showSettingsAlert(data.message || 'Failed to delete account', false);
+          }
+        } catch (_) {
+          showSettingsAlert('Network error while deleting account', false);
+        } finally {
+          deleteAccountBtn.disabled = false;
+        }
+      });
+
+      heroCreateBtn.addEventListener('click', () => showAuth('login'));
+      navLoginBtn.addEventListener('click', () => showAuth('login'));
+      navSignupBtn.addEventListener('click', () => showAuth('signup'));
+      authBackBtn.addEventListener('click', () => {
+        history.replaceState(null, '', '/');
+        showLanding();
+      });
+
+      authForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        clearAlert();
+        const email = document.getElementById('authEmail').value.trim();
+        const password = document.getElementById('authPassword').value;
+        const name = document.getElementById('authName').value.trim();
+
+        authSubmitBtn.disabled = true;
+        authSubmitBtn.textContent = mode === 'signup' ? 'Creating account...' : 'Signing in...';
+
+        try {
+          const endpoint = mode === 'signup' ? '/api/auth/register' : '/api/auth/login';
+          const payload = mode === 'signup'
+            ? { name, email, password, deviceId: getDeviceId() }
+            : { email, password, deviceId: getDeviceId() };
+
+          const res = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+          const data = await res.json();
+          if (res.ok && data.requiresVerification) {
+            pendingSignupEmail = data.email || email;
+            authForm.classList.add('hidden');
+            const _tabs = document.querySelector('.auth-tabs');
+            if (_tabs) _tabs.classList.add('hidden');
+            const _perks = document.getElementById('authPerks');
+            if (_perks) _perks.classList.add('hidden');
+            document.getElementById('authFooterSwitch').classList.add('hidden');
+            document.getElementById('verifySignupBox').classList.remove('hidden');
+            document.getElementById('authHeading').textContent = 'Verify Your Email';
+            document.getElementById('authSubheading').textContent = 'Enter the 6-digit code sent to ' + pendingSignupEmail;
+            showAlert(data.message || 'Verification code sent to your email.', true);
+          } else if (!res.ok || !data.token) {
+            showAlert(data.message || data.error || 'Authentication failed', false);
+          } else {
+            const signedInUser = data.user || { email };
+            localStorage.setItem('pakflow_token', data.token);
+            localStorage.setItem('token', data.token);
+            try { localStorage.setItem('pakflow_user_cache', JSON.stringify(signedInUser)); } catch (_) {}
+            syncExtensionBridgeLogin(data.token, signedInUser);
+            showDash(signedInUser);
+          }
+        } catch (_err) {
+          showAlert('Network error. Please try again.', false);
+        } finally {
+          authSubmitBtn.disabled = false;
+          authSubmitBtn.textContent = mode === 'signup' ? 'Create Account' : 'Sign In';
+        }
+      });
+
+      avatarBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        dropdown.classList.toggle('hidden');
+      });
+
+      document.addEventListener('click', (e) => {
+        if (!dropdown.contains(e.target) && e.target !== avatarBtn) {
+          dropdown.classList.add('hidden');
+        }
+      });
+
+      signOutBtn.addEventListener('click', async () => {
+        const token = localStorage.getItem('pakflow_token') || localStorage.getItem('token');
+        try {
+          await fetch('/api/auth/logout', {
+            method: 'POST',
+            headers: token ? { Authorization: 'Bearer ' + token } : {},
+          });
+        } catch (_) {}
+        localStorage.removeItem('pakflow_token');
+        localStorage.removeItem('token');
+        localStorage.removeItem('pakflow_user_cache');
+        syncExtensionBridgeLogout();
+        dropdown.classList.add('hidden');
+        history.replaceState(null, '', '/login');
+        mode = 'login';
+        showAuth();
+      });
+
+      document.querySelectorAll('[data-modal]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          dropdown.classList.add('hidden');
+          const kind = btn.getAttribute('data-modal');
+          const u = currentUser || {};
+          if (kind === 'settings') {
+            showSettings();
+            return;
+          } else if (kind === 'plans') {
+            showPricing();
+            return;
+          } else {
+            modalTitle.textContent = 'My Devices';
+            modalBody.innerHTML =
+              '<div class="info-row"><span>Active Device ID</span><strong>' + getDeviceId() + '</strong></div>' +
+              '<div class="info-row"><span>Device Switches</span><strong>' + Number(u.deviceSwitchCount || 0) + '</strong></div>';
+          }
+          infoModal.classList.remove('hidden');
+        });
+      });
+
+      const navPricingBtn = document.getElementById('navPricingBtn');
+      if (navPricingBtn) {
+        navPricingBtn.addEventListener('click', () => {
+          pricingBackBtn.textContent = currentUser ? '← Back to Dashboard' : '← Back to Home';
+          showPricing();
+        });
+      }
+
+      pricingBackBtn.addEventListener('click', () => {
+        if (currentUser) {
+          showDash(currentUser);
+        } else {
+          history.replaceState(null, '', '/');
+          showLanding();
+        }
+      });
+
+      const cornerToast = document.getElementById('cornerToast');
+      const cornerToastTitle = document.getElementById('cornerToastTitle');
+      const cornerToastMsg = document.getElementById('cornerToastMsg');
+      const cornerToastClose = document.getElementById('cornerToastClose');
+      let toastTimer = null;
+
+      function showCornerToast(title, msg) {
+        cornerToastTitle.textContent = title;
+        cornerToastMsg.textContent = msg;
+        cornerToast.classList.remove('hidden');
+        if (toastTimer) clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => cornerToast.classList.add('hidden'), 4500);
+      }
+
+      cornerToastClose.addEventListener('click', () => {
+        if (toastTimer) clearTimeout(toastTimer);
+        cornerToast.classList.add('hidden');
+      });
+
+      document.querySelectorAll('[data-get-plan]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const planName = btn.getAttribute('data-get-plan') || 'Plan';
+          showCornerToast('Contact Your Reseller', 'To get the ' + planName + ' plan, please contact your reseller.');
+        });
+      });
+
+      modalClose.addEventListener('click', () => infoModal.classList.add('hidden'));
+      infoModal.addEventListener('click', (e) => {
+        if (e.target === infoModal) infoModal.classList.add('hidden');
+      });
+
+      async function boot() {
+        const token = localStorage.getItem('pakflow_token') || localStorage.getItem('token');
+        if (!token) {
+          if (location.pathname === '/reset-password' && new URLSearchParams(location.search).get('token')) {
+            showAuth('login');
+            authForm.classList.add('hidden');
+            const _tabs = document.querySelector('.auth-tabs');
+            if (_tabs) _tabs.classList.add('hidden');
+            const _perks = document.getElementById('authPerks');
+            if (_perks) _perks.classList.add('hidden');
+            document.getElementById('authFooterSwitch').classList.add('hidden');
+            forgotBox.classList.remove('hidden');
+            forgotStep1Form.classList.add('hidden');
+            forgotStep2Form.classList.remove('hidden');
+            document.getElementById('authHeading').textContent = 'Set New Password';
+            document.getElementById('authSubheading').textContent = 'Enter your new password below';
+          } else if (location.pathname === '/about') {
+            showAbout();
+          } else if (location.pathname === '/pricing') {
+            showPricing();
+          } else if (location.pathname === '/login' || location.pathname === '/register' || location.pathname === '/signup') {
+            showAuth(mode);
+          } else {
+            showLanding();
+          }
+          return;
+        }
+        // Instant cached render on refresh so there is zero wait/black screen
+        let renderedFromCache = false;
+        try {
+          const cachedRaw = localStorage.getItem('pakflow_user_cache');
+          if (cachedRaw) {
+            const cachedUser = JSON.parse(cachedRaw);
+            if (cachedUser && (cachedUser.email || cachedUser.id)) {
+              renderedFromCache = true;
+              if (location.pathname === '/settings') {
+                renderUser(cachedUser);
+                showSettings();
+              } else if (location.pathname === '/pricing') {
+                renderUser(cachedUser);
+                showPricing();
+              } else {
+                showDash(cachedUser);
+              }
+            }
+          }
+        } catch (_) {}
+
+        try {
+          const res = await fetch('/api/auth/me', {
+            headers: { Authorization: 'Bearer ' + token },
+          });
+          const data = await res.json();
+          if (res.ok && data && data.authenticated !== false && (data.user || data.email)) {
+            const freshUser = data.user || data;
+            const activeTok = data.token || token;
+            if (data.token) {
+              localStorage.setItem('pakflow_token', data.token);
+              localStorage.setItem('token', data.token);
+            }
+            try { localStorage.setItem('pakflow_user_cache', JSON.stringify(freshUser)); } catch (_) {}
+            syncExtensionBridgeLogin(activeTok, freshUser);
+            if (location.pathname === '/settings') {
+              renderUser(freshUser);
+              if (!renderedFromCache) showSettings();
+            } else if (location.pathname === '/pricing') {
+              renderUser(freshUser);
+              if (!renderedFromCache) showPricing();
+            } else {
+              if (!renderedFromCache) showDash(freshUser);
+              else renderUser(freshUser);
+            }
+            return;
+          }
+        } catch (_) {
+          if (renderedFromCache) return;
+        }
+        localStorage.removeItem('pakflow_token');
+        localStorage.removeItem('token');
+        localStorage.removeItem('pakflow_user_cache');
+        showLanding();
+      }
+
+      let lastSessionCheckMs = Date.now();
+      let sessionCheckInFlight = false;
+      async function verifyActiveSession() {
+        const token = localStorage.getItem('pakflow_token') || localStorage.getItem('token');
+        if (!token || !currentUser || sessionCheckInFlight) return;
+        sessionCheckInFlight = true;
+        lastSessionCheckMs = Date.now();
+        try {
+          const res = await fetch('/api/auth/me', {
+            headers: { Authorization: 'Bearer ' + token },
+          });
+          const data = await res.json();
+          if (res.status === 401 || (data && (data.forceLogout || data.loggedOutOtherDevice || data.authenticated === false))) {
+            localStorage.removeItem('pakflow_token');
+            localStorage.removeItem('token');
+            localStorage.removeItem('pakflow_user_cache');
+            syncExtensionBridgeLogout();
+            currentUser = null;
+            showAuth('login');
+            showAlert((data && (data.message || data.error)) || 'Logged out: Your account was signed in on another device.', false);
+          }
+        } catch (_) {} finally {
+          sessionCheckInFlight = false;
+        }
+      }
+
+      setInterval(() => {
+        if (document.visibilityState === 'visible') {
+          verifyActiveSession();
+        }
+      }, 90000);
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible' && (Date.now() - lastSessionCheckMs) >= 30000) {
+          verifyActiveSession();
+        }
+      });
+
+      const heroTypedEl = document.getElementById('heroTypedText');
+      (function startTypewriter() {
+        if (!heroTypedEl) return;
+        const full = 'AI VIDEO.\nUNLIMITED.\nCREATION.';
+        let step = 0;
+        function tick() {
+          heroTypedEl.innerHTML = full.slice(0, step).replace(/\n/g, '<br />');
+          if (step < full.length) {
+            step++;
+            setTimeout(tick, 70);
+          }
+        }
+        tick();
+      })();
+
+      const genBtnEl = document.getElementById('generateVideoBtn');
+      if (genBtnEl) {
+        const signalPrepareFlow = () => {
+          const tok = localStorage.getItem('pakflow_token') || localStorage.getItem('token');
+          if (tok && currentUser) syncExtensionBridgeLogin(tok, currentUser);
+          try { window.postMessage({ type: 'PAKFLOW_PREPARE_FLOW' }, '*'); } catch (_) {}
+        };
+        genBtnEl.addEventListener('mouseenter', signalPrepareFlow, { passive: true });
+        genBtnEl.addEventListener('pointerdown', signalPrepareFlow, { passive: true });
+        genBtnEl.addEventListener('click', signalPrepareFlow, { passive: true });
+      }
+
+      boot();
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,73 @@
+DirectoryIndex index.php index.html
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  # Pass Authorization header to PHP (Apache / LiteSpeed / FastCGI)
+  RewriteCond %{HTTP:Authorization} .
+  RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+  # Redirect /index.php to clean / (avoid .php in URL)
+  RewriteCond %{THE_REQUEST} \s/index\.php[\s?] [NC]
+  RewriteRule ^index\.php$ / [R=301,L]
+
+  # Block direct web access to sensitive directories and files (including .git on Hostinger Git deploy)
+  RewriteRule ^(\.git|\.github|data|database|config|src|server|node_modules|tmp|views|scripts|docs)(/|$) - [F,L,NC]
+  RewriteRule ^(\.env.*|\.gitignore|\.gitattributes|package(-lock)?\.json|composer\.(json|lock)|.*\.log|.*\.sql|.*\.md|[^/]+\.zip|server\.js|app\.js|index\.js|build\.js)$ - [F,L,NC]
+
+  # Allow internally rewritten static asset paths to be served directly by Apache/LiteSpeed
+  RewriteRule ^(dist/(assets|videos|uploads)/|public/uploads/) - [L]
+  RewriteRule ^dist/[^/]+\.(png|jpe?g|webp|gif|svg|ico|css|js|woff2?|mp4|webm|txt)$ - [L,NC]
+
+  # Direct static delivery for /uploads/* (bypass PHP worker overhead)
+  RewriteCond %{REQUEST_METHOD} ^(GET|HEAD)$
+  RewriteCond %{REQUEST_URI} ^/uploads/(.+)$ [NC]
+  RewriteCond %{DOCUMENT_ROOT}/public/uploads/%1 -f
+  RewriteRule ^uploads/(.+)$ public/uploads/$1 [L]
+
+  RewriteCond %{REQUEST_METHOD} ^(GET|HEAD)$
+  RewriteCond %{REQUEST_URI} ^/uploads/(.+)$ [NC]
+  RewriteCond %{DOCUMENT_ROOT}/dist/uploads/%1 -f
+  RewriteRule ^uploads/(.+)$ dist/uploads/$1 [L]
+
+  # Direct static delivery for dist/* assets, videos, images (keep /downloads/* & HTML on PHP)
+  RewriteCond %{REQUEST_METHOD} ^(GET|HEAD)$
+  RewriteCond %{REQUEST_URI} !^/(index\.html|downloads/) [NC]
+  RewriteCond %{REQUEST_URI} \.(js|css|png|jpe?g|webp|gif|svg|ico|woff2?|mp4|webm|map|txt)$ [NC]
+  RewriteCond %{DOCUMENT_ROOT}/dist/$1 -f
+  RewriteRule ^(.+)$ dist/$1 [L]
+
+  # Route all remaining requests through index.php
+  RewriteCond %{REQUEST_URI} !^/index\.php$ [NC]
+  RewriteRule ^ index.php [QSA,L]
+</IfModule>
+
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/plain text/css text/javascript application/javascript application/x-javascript application/json application/xml image/svg+xml
+</IfModule>
+
+FileETag MTime Size
+
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType text/css "access plus 30 days"
+  ExpiresByType application/javascript "access plus 30 days"
+  ExpiresByType text/javascript "access plus 30 days"
+  ExpiresByType image/png "access plus 30 days"
+  ExpiresByType image/jpeg "access plus 30 days"
+  ExpiresByType image/webp "access plus 30 days"
+  ExpiresByType image/gif "access plus 30 days"
+  ExpiresByType image/svg+xml "access plus 30 days"
+  ExpiresByType image/x-icon "access plus 30 days"
+  ExpiresByType video/mp4 "access plus 30 days"
+  ExpiresByType video/webm "access plus 30 days"
+  ExpiresByType font/woff2 "access plus 1 year"
+</IfModule>
+
+<IfModule mod_headers.c>
+  Header set Connection keep-alive
+  <FilesMatch "\.(js|css|png|jpe?g|webp|gif|svg|ico|woff2|mp4|webm)$">
+    Header set Cache-Control "public, max-age=2592000"
+  </FilesMatch>
+</IfModule>
