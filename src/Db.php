@@ -1105,6 +1105,22 @@ final class Db
                 'updatedAt' => $now,
             ],
             'allowTrialExtensionAccess' => false,
+            'minExtVersion' => 1.5,
+            'accessPolicy' => [
+                'requirePortalOpen' => true,
+                'blockOnLogout' => true,
+                'blockOnExpired' => true,
+                'portalGraceSeconds' => 15,
+            ],
+            'serverShuffle' => [
+                'enabled' => false,
+                'intervalMinutes' => 180,
+                'shuffleEpoch' => 1,
+                'defaultSlot' => 1,
+                'poolSlots' => [],
+                'lastShuffledAt' => null,
+            ],
+            'welcomeMessageTemplate' => "🎉 Welcome to PakFlow!\nYour account is ready:\n\n🌐 Website: {{site_link}}\n📧 Email: {{email}}\n🔑 Password: {{password}}\n📦 Plan: {{plan}} ({{days}} Days)\n\nDownload the extension from your dashboard and start creating!",
         ];
     }
 

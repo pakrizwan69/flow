@@ -1,0 +1,34 @@
+#pakflow-my-projects-root{left:20px!important;right:auto!important;bottom:20px!important;color:#f8f7ff;color-scheme:dark}
+#pakflow-my-projects-root *{box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif!important}
+#pakflow-fp-toggle-btn{min-height:44px!important;padding:10px 18px!important;gap:8px!important;background:#181421!important;border:1px solid #7950b9!important;box-shadow:none!important;font-size:13px!important}
+#pakflow-fp-toggle-btn:hover{background:#261b39!important;border-color:#a878f5!important}
+#pakflow-fp-count,.pakflow-saved-count{background:#2c2140!important;border:1px solid #61408b!important;color:#c8afff!important;border-radius:999px;padding:4px 9px!important;font-size:11px!important;font-weight:700}
+.pakflow-history-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.78);backdrop-filter:blur(6px);z-index:0}
+.pakflow-history-backdrop[hidden]{display:none}
+#pakflow-fp-drawer{position:fixed!important;inset:5vh auto auto 50%!important;transform:translateX(-50%)!important;width:min(1120px,calc(100vw - 48px))!important;height:90vh!important;max-height:90vh!important;background:#111119!important;border:1px solid #49316e!important;border-radius:18px!important;box-shadow:0 24px 70px #0008!important;padding:20px 22px 0!important;z-index:1}
+.pakflow-history-header{display:flex!important;align-items:center;justify-content:space-between;gap:12px;flex-shrink:0;padding:0 16px 12px 4px!important;border-bottom:1px solid #2b2934!important;background:transparent!important}
+.pakflow-history-heading{display:flex;align-items:center;gap:10px;min-width:0}
+#pakflow-history-title{font:800 16px/1.4 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;margin:0;color:#fff}
+.pakflow-saved-count{white-space:nowrap}
+#pakflow-fp-close{width:auto!important;height:auto!important;white-space:nowrap;padding:7px 13px!important;border:1px solid #494552!important;border-radius:8px!important;background:#1d1d28!important;color:white!important;font-size:12px!important;font-weight:700}
+#pakflow-fp-list{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr));grid-auto-rows:max-content;gap:16px;padding:14px 16px 20px 0!important;max-height:none!important;min-height:0;flex:1;align-content:start;overflow-y:auto!important;scrollbar-width:thin;scrollbar-color:#493366 transparent}
+#pakflow-fp-list>.pakflow-project-card{display:flex!important;flex-direction:column!important;align-items:stretch!important;justify-content:flex-start!important;position:relative;gap:0!important;padding:0!important;margin:0!important;border:1px solid #302c39!important;border-radius:16px!important;background:#14131c!important;overflow:hidden;min-width:0}
+.pakflow-project-preview{height:140px;position:relative;background:linear-gradient(135deg,#201c2e,#15131d);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px;color:#9875dc;font-size:12px;font-weight:700;flex-shrink:0}
+.pakflow-preview-play{font-size:26px;line-height:1}
+.pakflow-project-preview img{position:absolute;width:100%;height:100%;object-fit:cover;inset:0}
+.pakflow-project-info{padding:14px 14px 0!important;min-width:0;flex:initial!important;cursor:pointer}
+.pakflow-project-title{display:block;font-size:13px!important;font-weight:750!important;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.pakflow-project-date{font-size:11px;color:#b5acc9;margin-top:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pakflow-project-actions{display:flex!important;gap:6px!important;padding:16px 14px 14px!important;width:100%}
+.pakflow-project-open{flex:1;min-width:0;background:linear-gradient(110deg,#8e51f5,#7624dd)!important;color:white!important;border:0!important;border-radius:9px!important;padding:10px 6px!important;font-size:12px!important;font-weight:750!important;cursor:pointer}
+.pakflow-project-remove{position:absolute;top:8px;right:8px;width:26px;height:26px;padding:0!important;border:1px solid #413b4c!important;border-radius:50%!important;background:#111119d9!important;color:#f3a7ae!important;font-size:16px!important;cursor:pointer}
+.pakflow-project-rename{display:none}
+.pakflow-history-open>#pakflow-fp-toggle-btn{visibility:hidden}
+#pakflow-my-projects-root button:focus-visible{outline:2px solid #c4a1ff!important;outline-offset:3px}
+#pakflow-my-projects-root button:hover{filter:brightness(1.12)}
+#pakflow-fp-list>div:only-child:not(.pakflow-project-card){grid-column:1/-1}
+@media(max-width:950px){#pakflow-fp-list{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:768px),(hover:none) and (pointer:coarse){#pakflow-my-projects-root{left:16px!important;right:auto!important;bottom:142px!important;bottom:var(--pakflow-mobile-projects-bottom,calc(142px + env(safe-area-inset-bottom,0px)))!important}#pakflow-fp-toggle-btn{min-height:40px!important;padding:8px 15px!important;font-size:12.5px!important}}
+@media(max-width:720px){#pakflow-fp-list{grid-template-columns:repeat(2,minmax(0,1fr))}.pakflow-history-heading{flex-wrap:wrap;gap:6px}#pakflow-history-title{font-size:14px}#pakflow-fp-drawer{padding:16px 14px 0!important;width:calc(100vw - 24px)!important}.pakflow-history-header{padding-right:0!important}}
+@media(max-width:440px){#pakflow-fp-list{grid-template-columns:minmax(0,1fr);padding-right:0!important}.pakflow-project-preview{height:160px}#pakflow-my-projects-root{left:16px!important;right:auto!important;bottom:142px!important;bottom:var(--pakflow-mobile-projects-bottom,calc(142px + env(safe-area-inset-bottom,0px)))!important}}
+[data-pakflow-hide-reset="true"]{display:none!important;visibility:hidden!important;height:0!important;min-height:0!important;max-height:0!important;margin:0!important;padding:0!important;overflow:hidden!important;opacity:0!important;pointer-events:none!important}

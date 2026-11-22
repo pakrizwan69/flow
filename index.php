@@ -89,8 +89,8 @@ if ($method === 'GET' || $method === 'HEAD') {
         }
     }
 
-    // Other static files in dist/ (logos, favicons, banners, etc., excluding index.html)
-    if ($reqPath !== '/' && $reqPath !== '/index.html') {
+    // Other static files in dist/ (logos, favicons, banners, etc., excluding index.html and /downloads/*)
+    if ($reqPath !== '/' && $reqPath !== '/index.html' && !str_starts_with($reqPath, '/downloads/')) {
         $file = $safeResolve($distDir, $reqPath);
         if ($file !== null) {
             $isMedia = preg_match('/\.(png|jpe?g|webp|gif|svg|ico|woff2?|mp4|webm)$/i', $file) === 1;
@@ -99,7 +99,23 @@ if ($method === 'GET' || $method === 'HEAD') {
     }
 }
 
-// /downloads/* routes (handled before loading DB/route classes for zero-overhead downloads)
+// /downloads/* routes (supports dynamic regenerated versions + legacy aliases)
+if ($method === 'GET' && ($reqPath === '/downloads/latest' || $reqPath === '/downloads/PakFlow_latest.zip')) {
+    require_once __DIR__ . '/src/Env.php';
+    require_once __DIR__ . '/src/Database.php';
+    require_once __DIR__ . '/src/Db.php';
+    \App\Env::load(__DIR__);
+    try {
+        $extFlow = \App\Db::readSettings()['extensions']['flow'] ?? [];
+        $dynName = basename((string)($extFlow['fileName'] ?? 'PakFlow_v1.7.zip'));
+        foreach (["$distDir/downloads/$dynName", "$publicDir/downloads/$dynName"] as $f) {
+            if (is_file($f)) {
+                Http::sendFile($f, 'application/zip', $dynName, 'no-cache, no-store, must-revalidate');
+            }
+        }
+    } catch (\Throwable $_e) {}
+}
+
 $flowAliases = [
     '/downloads/PakFlow_v1.7.zip', '/downloads/pakflowv1.7.zip', '/downloads/Pakflow1.7.zip',
     '/downloads/PakFlow_v1.6.zip', '/downloads/pakflowv1.6.zip', '/downloads/Pakflow1.6.zip',
@@ -111,11 +127,18 @@ $flowAliases = [
     '/downloads/FlowByPak_Extension_Final.zip',
 ];
 if ($method === 'GET' && in_array($reqPath, $flowAliases, true)) {
+    // First check if a newer regenerated zip exists in dist/public downloads
+    $exactBase = basename($reqPath);
+    foreach (["$distDir/downloads/$exactBase", "$publicDir/downloads/$exactBase"] as $exactF) {
+        if (is_file($exactF)) {
+            Http::sendFile($exactF, 'application/zip', $exactBase, 'no-cache, no-store, must-revalidate');
+        }
+    }
     $names = ['PakFlow_v1.7.zip', 'Pakflow1.7.zip', 'PakFlow_v1.6.zip', 'Pakflow1.6.zip', 'PakFlow_v1.5.zip', 'Pakflow1.5.zip', 'PakFlow_v1.4.zip', 'Pakflow1.4.zip', 'PakFlow_v1.3.zip', 'Pakflow1.3.zip', 'PakFlow_v1.2.zip', 'PakFlow_v1.1.zip'];
     foreach ($names as $n) {
-        foreach (["$publicDir/downloads/$n", "$distDir/downloads/$n"] as $f) {
+        foreach (["$distDir/downloads/$n", "$publicDir/downloads/$n"] as $f) {
             if (is_file($f)) {
-                Http::sendFile($f, 'application/zip', 'PakFlow_v1.7.zip', 'no-cache, no-store, must-revalidate');
+                Http::sendFile($f, 'application/zip', $n, 'no-cache, no-store, must-revalidate');
             }
         }
     }
@@ -237,11 +260,40 @@ if ($method === 'GET' && in_array($reqPath, ['/api/slots/version', '/api/cookies
         $size = @filesize($slotsFile) ?: 0;
         $ver = "$mtime-$size";
     }
+    $policyMeta = null;
+    $shuffleMeta = null;
+    try {
+        require_once __DIR__ . '/src/Database.php';
+        require_once __DIR__ . '/src/Db.php';
+        $st = \App\Db::readSettings();
+        $ap = is_array($st['accessPolicy'] ?? null) ? $st['accessPolicy'] : [];
+        $policyMeta = [
+            'requirePortalOpen' => !empty($ap['requirePortalOpen']),
+            'blockOnLogout' => !array_key_exists('blockOnLogout', $ap) || (bool)$ap['blockOnLogout'],
+            'blockOnExpired' => !array_key_exists('blockOnExpired', $ap) || (bool)$ap['blockOnExpired'],
+            'portalGraceSeconds' => max(3, min(120, (int)($ap['portalGraceSeconds'] ?? 15))),
+        ];
+        $sh = is_array($st['serverShuffle'] ?? null) ? $st['serverShuffle'] : [];
+        $intervalMin = max(5, min(43200, (int)($sh['intervalMinutes'] ?? 180)));
+        $shEnabled = !empty($sh['enabled']);
+        $shEpoch = max(1, (int)($sh['shuffleEpoch'] ?? 1));
+        $shBucket = (int)floor(time() / ($intervalMin * 60));
+        $shuffleMeta = [
+            'enabled' => $shEnabled,
+            'intervalMinutes' => $intervalMin,
+            'defaultSlot' => max(1, min(10, (int)($sh['defaultSlot'] ?? 1))),
+            'shuffleEpoch' => $shEpoch,
+            'shufflePeriod' => (string)($shEnabled ? ($shBucket + ($shEpoch * 100000)) : $shEpoch),
+            'lastShuffledAt' => $sh['lastShuffledAt'] ?? null,
+        ];
+    } catch (\Throwable $_metaErr) {}
     header('Cache-Control: public, max-age=3, stale-while-revalidate=5');
     Http::json([
         'success' => true,
         'version' => $ver,
         'slot' => $slotNum > 0 ? $slotNum : null,
+        'accessPolicy' => $policyMeta,
+        'serverShuffle' => $shuffleMeta,
     ]);
 }
 

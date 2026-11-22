@@ -1,0 +1,470 @@
+/* PakFlow Admin & Reseller UI Enhancer — Responsive Modal Fixes + Controls Drawer + Copy Welcome Template */
+
+/* 1. Make existing React Add User / Create User & Edit modals 100% responsive on all screens */
+div.fixed.inset-0[class*="z-50"],
+div.fixed.inset-0[class*="z-[60]"],
+div.fixed.inset-0[class*="z-[100]"] {
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch;
+  padding: 14px !important;
+}
+
+div.fixed.inset-0[class*="z-50"] > div[class*="rounded-3xl"],
+div.fixed.inset-0[class*="z-50"] > div[class*="rounded-2xl"],
+div.fixed.inset-0[class*="z-[60]"] > div[class*="rounded-3xl"] {
+  max-height: calc(100dvh - 28px) !important;
+  overflow-y: auto !important;
+  margin: auto !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+div.fixed.inset-0[class*="z-50"] form input,
+div.fixed.inset-0[class*="z-50"] form select,
+div.fixed.inset-0[class*="z-50"] form textarea {
+  min-width: 0 !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+@media (max-width: 640px) {
+  div.fixed.inset-0[class*="z-50"] > div[class*="rounded-3xl"],
+  div.fixed.inset-0[class*="z-50"] > div[class*="rounded-2xl"] {
+    padding: 18px 16px !important;
+    border-radius: 20px !important;
+  }
+  div.fixed.inset-0[class*="z-50"] form .grid-cols-2,
+  div.fixed.inset-0[class*="z-50"] form [class*="grid-cols-2"] {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+}
+
+/* 2. Floating Dock Button (Admin Controls / Reseller Template) */
+.pf-enh-dock {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 9990;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.pf-enh-fab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 18px;
+  border-radius: 999px;
+  border: 1px solid rgba(168, 85, 247, 0.45);
+  background: linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%);
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 12px 30px rgba(124, 58, 237, 0.4), 0 4px 12px rgba(0, 0, 0, 0.5);
+  transition: transform 0.16s ease, box-shadow 0.16s ease, opacity 0.15s ease;
+}
+
+.pf-enh-fab:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 36px rgba(124, 58, 237, 0.52), 0 6px 16px rgba(0, 0, 0, 0.6);
+}
+
+.pf-enh-fab-secondary {
+  border-color: rgba(16, 185, 129, 0.45);
+  background: linear-gradient(135deg, #059669 0%, #0d9488 100%);
+  box-shadow: 0 10px 26px rgba(16, 185, 129, 0.32), 0 4px 12px rgba(0, 0, 0, 0.45);
+}
+
+@media (max-width: 640px) {
+  .pf-enh-dock {
+    right: 12px;
+    bottom: 12px;
+    flex-direction: column;
+    align-items: flex-end;
+  }
+  .pf-enh-fab {
+    padding: 10px 14px;
+    font-size: 12px;
+  }
+}
+
+/* 3. Modal Overlay & Card */
+.pf-enh-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  background: rgba(2, 2, 8, 0.82);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  overflow-y: auto;
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  color: #f4f4f5;
+}
+
+.pf-enh-backdrop.pf-hidden {
+  display: none !important;
+}
+
+.pf-enh-modal {
+  width: 100%;
+  max-width: 780px;
+  max-height: calc(100dvh - 32px);
+  background: #0f101a;
+  border: 1px solid rgba(168, 85, 247, 0.3);
+  border-radius: 22px;
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.82), 0 0 60px rgba(124, 58, 237, 0.14);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  margin: auto;
+}
+
+.pf-enh-modal.pf-modal-sm {
+  max-width: 540px;
+}
+
+.pf-enh-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 22px;
+  background: rgba(255, 255, 255, 0.03);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+}
+
+.pf-enh-head h3 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: -0.01em;
+}
+
+.pf-enh-head p {
+  margin: 3px 0 0;
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+.pf-enh-close {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.05);
+  color: #d4d4d8;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.pf-enh-close:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+}
+
+.pf-enh-tabs {
+  display: flex;
+  gap: 6px;
+  padding: 12px 22px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  overflow-x: auto;
+  flex-shrink: 0;
+  scrollbar-width: none;
+}
+
+.pf-enh-tabs::-webkit-scrollbar { display: none; }
+
+.pf-enh-tab {
+  padding: 9px 14px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: #a1a1aa;
+  font-size: 12.5px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.pf-enh-tab:hover { color: #ffffff; }
+
+.pf-enh-tab.active {
+  color: #c4b5fd;
+  border-bottom-color: #a855f7;
+}
+
+.pf-enh-body {
+  padding: 20px 22px 24px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.pf-enh-section {
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 16px 18px;
+  margin-bottom: 16px;
+}
+
+.pf-enh-section:last-child { margin-bottom: 0; }
+
+.pf-enh-section h4 {
+  margin: 0 0 6px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.pf-enh-hint {
+  margin: 0 0 14px;
+  font-size: 12px;
+  color: #9ca3af;
+  line-height: 1.5;
+}
+
+.pf-enh-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+@media (max-width: 600px) {
+  .pf-enh-grid { grid-template-columns: 1fr; }
+  .pf-enh-body { padding: 16px; }
+  .pf-enh-head { padding: 14px 16px; }
+  .pf-enh-tabs { padding: 10px 16px 0; }
+}
+
+.pf-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-bottom: 12px;
+}
+
+.pf-field:last-child { margin-bottom: 0; }
+
+.pf-field label {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #d4d4d8;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.pf-input,
+.pf-select,
+.pf-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: #080910;
+  color: #f4f4f5;
+  font-size: 13px;
+  padding: 10px 12px;
+  font-family: inherit;
+}
+
+.pf-textarea {
+  min-height: 150px;
+  resize: vertical;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
+.pf-input:focus,
+.pf-select:focus,
+.pf-textarea:focus {
+  outline: none;
+  border-color: #a855f7;
+  box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.18);
+}
+
+.pf-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.pf-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 11px 13px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  margin-bottom: 10px;
+}
+
+.pf-toggle-row strong {
+  display: block;
+  font-size: 13px;
+  color: #ffffff;
+}
+
+.pf-toggle-row span {
+  display: block;
+  font-size: 11.5px;
+  color: #9ca3af;
+  margin-top: 2px;
+}
+
+.pf-toggle-row input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  accent-color: #9333ea;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.pf-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 10px 16px;
+  border-radius: 11px;
+  border: 0;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.15s ease, transform 0.12s ease;
+  text-decoration: none;
+}
+
+.pf-btn:hover { opacity: 0.92; }
+.pf-btn:active { transform: scale(0.98); }
+.pf-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+
+.pf-btn-primary {
+  background: linear-gradient(135deg, #9333ea 0%, #6366f1 100%);
+  color: #ffffff;
+}
+
+.pf-btn-emerald {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: #ffffff;
+}
+
+.pf-btn-amber {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: #09090b;
+}
+
+.pf-btn-ghost {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #e4e4e7;
+}
+
+.pf-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0 12px;
+}
+
+.pf-chip {
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(168, 85, 247, 0.35);
+  background: rgba(168, 85, 247, 0.12);
+  color: #e9d5ff;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.pf-chip:hover {
+  background: rgba(168, 85, 247, 0.25);
+}
+
+.pf-pool-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 6px;
+}
+
+@media (max-width: 560px) {
+  .pf-pool-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+.pf-pool-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+}
+
+.pf-pool-item input { accent-color: #10b981; }
+
+.pf-status-banner {
+  padding: 10px 13px;
+  border-radius: 11px;
+  font-size: 12.5px;
+  font-weight: 600;
+  margin-bottom: 14px;
+  display: none;
+}
+
+.pf-status-banner.show { display: block; }
+.pf-status-banner.ok {
+  background: rgba(16, 185, 129, 0.14);
+  border: 1px solid rgba(16, 185, 129, 0.36);
+  color: #6ee7b7;
+}
+.pf-status-banner.err {
+  background: rgba(239, 68, 68, 0.14);
+  border: 1px solid rgba(239, 68, 68, 0.36);
+  color: #fca5a5;
+}
+
+.pf-meta-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  border-radius: 999px;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.32);
+  color: #6ee7b7;
+  font-size: 11.5px;
+  font-weight: 700;
+}
+
+.pf-preview-box {
+  background: #07080d;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: #d4d4d8;
+  white-space: pre-wrap;
+  word-break: break-word;
+}

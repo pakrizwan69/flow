@@ -25,6 +25,38 @@ final class ResellerRoutes
             self::changePassword($r);
             return true;
         }
+        if ($method === 'GET' && $path === '/reseller/message-template') {
+            $r = Helpers::requireReseller();
+            $settings = Db::readSettings();
+            $defaultTpl = (string)($settings['welcomeMessageTemplate'] ?? Db::defaultSettings()['welcomeMessageTemplate']);
+            $customTpl = trim((string)($r['welcomeMessageTemplate'] ?? ''));
+            Http::json([
+                'success' => true,
+                'template' => $customTpl !== '' ? $customTpl : $defaultTpl,
+                'isCustom' => $customTpl !== '',
+                'whatsapp' => (string)($r['whatsapp'] ?? ''),
+            ]);
+        }
+        if ($method === 'PUT' && $path === '/reseller/message-template') {
+            $r = Helpers::requireReseller();
+            $body = Http::body();
+            $tpl = trim((string)($body['template'] ?? ''));
+            $resellers = Db::readResellers();
+            foreach ($resellers as $i => $item) {
+                if ((int)($item['id'] ?? 0) === (int)$r['id']) {
+                    if ($tpl === '') {
+                        unset($resellers[$i]['welcomeMessageTemplate']);
+                    } else {
+                        $resellers[$i]['welcomeMessageTemplate'] = $tpl;
+                    }
+                    Db::writeResellers($resellers);
+                    break;
+                }
+            }
+            $settings = Db::readSettings();
+            $effective = $tpl !== '' ? $tpl : (string)($settings['welcomeMessageTemplate'] ?? Db::defaultSettings()['welcomeMessageTemplate']);
+            Http::json(['success' => true, 'message' => 'Message template saved!', 'template' => $effective]);
+        }
         if ($method === 'POST' && $path === '/reseller/payments') {
             $r = Helpers::requireReseller();
             self::submitPayment($r);

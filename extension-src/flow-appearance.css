@@ -1,0 +1,39 @@
+/* Disable the Flow landing blur/black overlay and button elevation completely. */
+html body #ct-blur-overlay,
+#ct-blur-overlay {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  filter: none !important;
+}
+
+html body button[data-elevate-btn='true'],
+button[data-elevate-btn='true'] {
+  box-shadow: none !important;
+  z-index: auto !important;
+}
+
+[data-pakflow-hide-reset="true"] {
+  display: none !important;
+  visibility: hidden !important;
+  height: 0 !important;
+  min-height: 0 !important;
+  max-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+[data-pakflow-unclickable-dots="true"],
+[data-pakflow-unclickable-dots="true"] * {
+  pointer-events: none !important;
+  cursor: default !important;
+}

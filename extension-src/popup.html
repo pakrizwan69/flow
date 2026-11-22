@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Flow Extension</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <main class="app-container">
+    <!-- LOGIN VIEW -->
+    <div id="loginView" class="hidden">
+      <div class="top-header">
+        <div class="top-brand-wrap">
+          <img src="logo.png" alt="PakFlow" class="top-logo-img">
+          <div class="top-brand-text">
+            <div class="top-title-row">
+              <span class="top-brand">PakFlow</span>
+              <span class="top-version">v1.7</span>
+            </div>
+            <div class="top-sub">Google Flow &amp; Nano Banana</div>
+          </div>
+        </div>
+      </div>
+      <div class="auth-card">
+        <div class="auth-title">Welcome back</div>
+        <p class="auth-sub">Sign in with your Flow account to continue.</p>
+        <form id="loginForm" autocomplete="off">
+          <div class="form-group">
+            <label for="userEmailInput">Email Address</label>
+            <input id="userEmailInput" type="email" placeholder="you@example.com" required autocomplete="username">
+          </div>
+          <div class="form-group">
+            <label for="userPasswordInput">Password</label>
+            <input id="userPasswordInput" type="password" placeholder="••••••••••••" required autocomplete="current-password">
+          </div>
+          <button id="userLoginBtn" type="submit" class="btn-blue">Login</button>
+          <a class="btn-dark" href="https://flowbypak.com/" target="_blank" rel="noopener noreferrer">Open Portal ↗</a>
+          <button id="quickLoginBtn" type="button" class="hidden-element"></button>
+          <button id="openLocalhostBtn" type="button" class="hidden-element"></button>
+        </form>
+        <p id="loginStatus" class="status-msg hidden" role="status" aria-live="polite"></p>
+      </div>
+      <div class="footer-note">
+        New here? <a href="https://flowbypak.com/register" target="_blank" rel="noopener noreferrer">Create Account ↗</a>
+      </div>
+    </div>
+
+    <!-- MAIN VIEW -->
+    <div id="mainView" class="hidden">
+      <div class="top-header">
+        <div class="top-brand-wrap">
+          <img src="logo.png" alt="PakFlow" class="top-logo-img">
+          <div class="top-brand-text">
+            <div class="top-title-row">
+              <span class="top-brand">PakFlow</span>
+              <span class="top-version">v1.7</span>
+            </div>
+            <div class="top-sub">Google Flow &amp; Nano Banana</div>
+          </div>
+        </div>
+        <span class="connected-pill">
+          <span class="dot-green"></span>
+          <span>Connected</span>
+        </span>
+      </div>
+
+      <div id="userInfoBar" class="profile-card">
+        <div class="avatar-circle" id="customAvatar">FL</div>
+        <div class="profile-meta">
+          <div id="userEmailBadge" class="profile-name">Flow User</div>
+          <div id="userPlanBadge" class="profile-plan">Ultra Plan</div>
+        </div>
+        <button id="logoutBtn" type="button" class="signout-icon-btn" title="Sign Out" aria-label="Sign Out">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+            <polyline points="16 17 21 12 16 7"/>
+            <line x1="21" y1="12" x2="9" y2="12"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-box">
+          <div class="stat-value" id="customCreditsVal">0</div>
+          <div class="stat-label">Credits Left</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-value" id="customDaysLeftVal">30</div>
+          <div class="stat-label">Days Left</div>
+          <span id="customSessionCookieVal" class="hidden-element">1</span>
+        </div>
+      </div>
+
+      <div class="session-active-bar" id="accessReadyCard">
+        <span class="dot-green"></span>
+        <span id="readyDescText">On Google Flow — Session Active</span>
+      </div>
+
+      <div id="sessionInjectorBox">
+        <a id="openFlowDirectBtn" href="https://flow.google.com" target="_blank" rel="noopener noreferrer" class="btn-open-flow">Open Flow</a>
+        <div id="sessionButtonsGrid" class="session-buttons-grid" aria-label="Active Sessions"></div>
+      </div>
+
+      <div id="serverBasicLockedNotice" class="lock-notice-box hidden">
+        <strong>Sessions Locked on Basic Plan</strong>
+        <p>Upgrade your plan to inject Google Flow sessions.</p>
+      </div>
+
+      <p id="status" class="status-pill hidden operation-message" role="status" aria-live="polite"></p>
+
+      <div class="footer-note">Flow Extension &middot; Managed session access</div>
+
+      <!-- Hidden compatibility elements used by popup.js -->
+      <div class="hidden-element" aria-hidden="true">
+        <div id="mainHeaderDaysBadge"><span id="mainHeaderDaysText">30 Days Left</span></div>
+        <span id="userDaysBadge">30 Days Left</span>
+        <div id="serverHubCard">
+          <span id="serverCountBadge">Active Sessions</span>
+          <span id="injectCycleIcon"></span>
+          <span id="injectCycleTitle">Server 1 Selected</span>
+          <span id="injectCycleSub">Connecting your session…</span>
+          <span id="injectCycleBadge">1 / 1</span>
+          <div id="sessionLoopDots"></div>
+          <span id="sessionLoopHint"></span>
+        </div>
+        <div id="serverDropdownRow">
+          <select id="serverFileSelect"></select>
+          <button id="refreshServerBtn" type="button"></button>
+        </div>
+        <div id="serverPillsLabelRow"><span id="serverHintText"></span></div>
+        <div id="serverPillsGrid"></div>
+        <div id="readyIconWrap"><span id="readyCheckIcon"></span></div>
+        <h2 id="readyTitleText">Flow AI Studio Ready</h2>
+        <div id="readyPulseBadge"><span id="readyPulseDot"></span><span id="readySyncBadge">ONLINE</span></div>
+        <button id="injectCycleSessionBtn" type="button"></button>
+        <button id="launchFlowBtn" type="button"><span id="launchBtnIcon"></span><span id="launchBtnText">Open Google Flow</span></button>
+        <button id="fetchServerBtn" type="button"></button>
+        <button id="uploadServerBtn" type="button"></button>
+        <button id="injectButton" type="button"></button>
+        <button id="uploadButton" type="button"></button>
+        <textarea id="cookieInput"></textarea>
+        <input id="cookieFile" type="file">
+        <button id="openLocalhostMainBtn" type="button"></button>
+        <button id="openLocalhostLinkBtn" type="button"></button>
+        <span id="autoSyncBadge"></span>
+        <span id="autoSyncMeta"></span>
+      </div>
+    </div>
+
+    <!-- MAINTENANCE VIEW -->
+    <div id="maintenanceView" class="hidden">
+      <div class="auth-card">
+        <div class="auth-title">Scheduled Maintenance</div>
+        <p id="maintenanceNoticeText" class="auth-sub">Service will resume shortly.</p>
+        <button id="retryMaintenanceBtn" class="btn-blue">↻ Check Server Status</button>
+      </div>
+    </div>
+  </main>
+
+  <script src="popup-preinit.js"></script>
+  <script src="error-shield.js"></script>
+  <script src="cookie-core.js"></script>
+  <script src="flow-launch.js"></script>
+  <script src="popup.js"></script>
+  <script src="nano-mode-ui.js"></script>
+  <script src="popup-custom.js"></script>
+</body>
+</html>

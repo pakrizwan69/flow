@@ -12,8 +12,8 @@ DirectoryIndex index.php index.html
   RewriteCond %{THE_REQUEST} \s/index\.php[\s?] [NC]
   RewriteRule ^index\.php$ / [R=301,L]
 
-  # Block direct web access to sensitive directories and files (including .git on Hostinger Git deploy)
-  RewriteRule ^(\.git|\.github|data|database|config|src|server|node_modules|tmp|views|scripts|docs)(/|$) - [F,L,NC]
+  # Block direct web access to sensitive directories and files (including .git & extension-src on Hostinger Git deploy)
+  RewriteRule ^(\.git|\.github|extension-src|data|database|config|src|server|node_modules|tmp|views|scripts|docs)(/|$) - [F,L,NC]
   RewriteRule ^(\.env.*|\.gitignore|\.gitattributes|package(-lock)?\.json|composer\.(json|lock)|.*\.log|.*\.sql|.*\.md|[^/]+\.zip|server\.js|app\.js|index\.js|build\.js)$ - [F,L,NC]
 
   # Allow internally rewritten static asset paths to be served directly by Apache/LiteSpeed

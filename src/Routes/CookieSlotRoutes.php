@@ -428,11 +428,21 @@ final class CookieSlotRoutes
         }
 
         $slotsVer = $maxVer > 0 ? (string)$maxVer : Db::getSlotsVersion();
+        $settings = Db::readSettings();
+        $assignedServer = !$isNanoMode
+            ? Helpers::computeUserAssignedSlot($access['user'] ?? null, $scopedSlots, $settings)
+            : null;
+        $accessPolicy = array_merge(
+            Db::defaultSettings()['accessPolicy'],
+            is_array($settings['accessPolicy'] ?? null) ? $settings['accessPolicy'] : []
+        );
 
         Http::json([
             'success' => true,
             'mode' => $isNanoMode ? 'nano_banana' : ($isAllMode ? 'all' : 'google_flow'),
             'slotsVersion' => $slotsVer,
+            'assignedServer' => $assignedServer,
+            'accessPolicy' => $accessPolicy,
             'count' => count($files),
             'files' => $files,
             'slots' => $files,
@@ -496,8 +506,19 @@ final class CookieSlotRoutes
             $activeSlot = $rr['slot'];
             $assignedIndex = $rr['assignedIndex'];
         }
-        if (!$activeSlot && !empty($activeSlots)) {
-            $activeSlot = $activeSlots[0];
+        if (!$activeSlot && !$isNanoMode && !empty($activeSlots)) {
+            $assigned = Helpers::computeUserAssignedSlot($access['user'] ?? null, $poolSlots);
+            $assignedNum = (int)($assigned['defaultSlot'] ?? 0);
+            foreach ($activeSlots as $idx => $as) {
+                if ((int)$as['slotNumber'] === $assignedNum) {
+                    $activeSlot = $as;
+                    $assignedIndex = $idx;
+                    break;
+                }
+            }
+            if (!$activeSlot) {
+                $activeSlot = $activeSlots[0];
+            }
         }
         if (!$activeSlot) {
             foreach ($poolSlots as $s) {

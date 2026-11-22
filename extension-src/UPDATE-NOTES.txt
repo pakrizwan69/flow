@@ -1,0 +1,55 @@
+PakFlow v1.3.7
+
+Latest fixes:
+- Removed the other-extension blocker completely, including its background module
+  and management permission. PakFlow no longer disables other extensions.
+- Refreshing https://flow.google.com/about or /about/ redirects once to
+  https://flow.google.com/. Normal visits to /about are unchanged. Project-page
+  reloads are unchanged. A Google redirect back to /about does not trigger a loop.
+- Open Google Flow waits for a successful selected-server session sync before
+  opening or refreshing a Flow tab. Previously it opened before sync finished.
+- Busy syncs are retried. Expired/failed sessions and server changes during
+  setup show an error instead of opening an unprepared tab.
+- An existing Flow home/about tab is reused. Existing project tabs are preserved.
+- The Only PakFlow mode panel and background blocking module are both removed.
+- Removed the injected model-name, price and credit balance overrides.
+- Google Flow supplies the model choices, costs and credit balance shown
+  in its own interface. The editor menu and credit reset line are visible
+  whenever Google Flow renders them.
+
+Previous changes retained:
+- Per-server histories/counts and persistent original-server project ownership.
+- Bottom-left My Projects button and dark project card grid.
+- Account-menu name PakFlow and email from the PakFlow extension login.
+- Black landing overlay without blur.
+
+Update:
+1. Replace files in the SAME existing unpacked PakFlow folder. Do not uninstall
+   first; this preserves local history/settings.
+2. Open chrome://extensions and Reload PakFlow.
+3. Close ALL old Flow tabs. Open PakFlow, select your server, and click Open
+   Google Flow. Keep the popup open while it says Connecting Flow.
+4. If session setup fails, the popup now shows the error. Reconnect the server
+   or sign in again as indicated. The launcher does not bypass authentication.
+
+Other extensions:
+- Extensions disabled by an earlier PakFlow version are not automatically re-enabled.
+  After updating/reloading PakFlow, turn them on manually in chrome://extensions.
+
+Verification:
+- v1.3.7 verified that no blocker module/import or management permission remains.
+- v1.3.6 tested editor menu hiding, dynamic/reused menus, unlabelled div rows,
+  empty menu removal and restoration after leaving the editor.
+- v1.3.5 checked original fake model and price overlays in headless Chrome,
+  with frontend balance unchanged after generation/progress events.
+- v1.3.4 verified real browser reloads on /about, trailing-slash/query URLs,
+  root, project pages, other hosts and a simulated root-to-about auth redirect.
+- Actual launch callback tested in headless Chrome with mocked session responses:
+  delayed success, busy retry, expiry, server change, signout, landing-tab reuse.
+- v1.3.3 verified that generate/progress events do not subtract frontend credits;
+  native model and quoted cost remain displayed.
+- Account display, server isolation, black overlay and mocked management tests pass.
+- No live signed-in session or real Chrome management enforcement verified locally.
+
+Google rates can change; the prompt Settings quote is authoritative:
+https://support.google.com/flow/answer/16526234?hl=en

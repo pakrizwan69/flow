@@ -234,6 +234,7 @@ final class AuthRoutes
             if ($target) {
                 $target['sessionVersion'] = (int)($target['sessionVersion'] ?? 1) + 1;
                 $target['singleDeviceEnforced'] = true;
+                $target['sessionLoggedOut'] = true;
                 $target['updatedAt'] = Db::isoNow();
                 Db::upsertSingleUser($target);
             }
@@ -248,6 +249,7 @@ final class AuthRoutes
             if (($u['id'] ?? null) === ($target['id'] ?? null) && Db::sanitizeEmail($u['email'] ?? '') === Db::sanitizeEmail($target['email'] ?? '')) {
                 $users[$i]['sessionVersion'] = (int)($u['sessionVersion'] ?? 1) + 1;
                 $users[$i]['singleDeviceEnforced'] = true;
+                $users[$i]['sessionLoggedOut'] = true;
                 $users[$i]['updatedAt'] = Db::isoNow();
                 Db::writeUsers($users, ['immediate' => true]);
                 break;
@@ -432,7 +434,32 @@ final class AuthRoutes
         $socialExtId = $user['activeSocialExtDeviceId'] ?? null;
         $webId = $user['activeWebDeviceId'] ?? null;
 
-        if ($isSocialExtLogin) {
+        // If web portal login detects an active session on another device, ask user to 1-click logout existing session
+        $forceLogoutExisting = !empty($body['forceLogoutExisting']);
+        $shouldPromptExisting = (!$isExtLoginRequest || !empty($body['promptExistingSession'])) && !$forceLogoutExisting;
+        if ($shouldPromptExisting && empty($user['sessionLoggedOut']) && !empty($user['lastLoginAt'])) {
+            $lastTs = strtotime((string)$user['lastLoginAt']) ?: 0;
+            $recentSession = ($lastTs > 0 && (time() - $lastTs) < 86400);
+            $otherDeviceActive = ($webId && $webId !== $currentDeviceId)
+                || ($flowExtId && $flowExtId !== $currentDeviceId && !$isSameIp);
+            if ($recentSession && $otherDeviceActive) {
+                Http::json([
+                    'success' => false,
+                    'existingSession' => true,
+                    'error' => 'ExistingSessionActive',
+                    'message' => 'Your account is already signed in on another device. Click below to logout the existing session and sign in here.',
+                ], 409);
+            }
+        }
+
+        if ($forceLogoutExisting) {
+            $user['sessionVersion'] += 1;
+            $user['deviceSwitchCount'] += 1;
+            $user['activeWebDeviceId'] = $currentDeviceId;
+            $user['activeFlowExtDeviceId'] = null;
+            $user['activeExtDeviceId'] = null;
+            $user['activeDeviceId'] = $currentDeviceId;
+        } elseif ($isSocialExtLogin) {
             if ($socialExtId && $socialExtId !== $currentDeviceId && !$isSameIp) {
                 $user['sessionVersion'] += 1;
                 $user['deviceSwitchCount'] += 1;
@@ -458,6 +485,7 @@ final class AuthRoutes
         }
 
         $user['singleDeviceEnforced'] = true;
+        $user['sessionLoggedOut'] = false;
         $user['lastLoginAt'] = Db::isoNow();
         $user['lastLoginIp'] = $currentIp;
 
@@ -470,6 +498,14 @@ final class AuthRoutes
         Helpers::recordActiveClientSession($user);
 
         $safeUser = Helpers::formatSafeUser($user);
+        $supportWa = Helpers::resolveUserSupportWhatsapp($user, $settings);
+        $safeUser['supportWhatsapp'] = $supportWa;
+        $accessPolicy = array_merge(
+            Db::defaultSettings()['accessPolicy'],
+            is_array($settings['accessPolicy'] ?? null) ? $settings['accessPolicy'] : []
+        );
+        $assignedServer = Helpers::computeUserAssignedSlot($user, Db::readSlotsByRange(1, 10), $settings);
+
         $token = Db::generateToken([
             'userId' => $user['id'],
             'email' => $user['email'],
@@ -481,6 +517,9 @@ final class AuthRoutes
             'success' => true,
             'token' => $token,
             'user' => $safeUser,
+            'supportWhatsapp' => $supportWa,
+            'accessPolicy' => $accessPolicy,
+            'assignedServer' => $assignedServer,
             'daysLeft' => $safeUser['daysLeft'],
             'deviceSwitchCount' => $user['deviceSwitchCount'],
             'deviceSwitchesRemaining' => 999999,
@@ -505,7 +544,16 @@ final class AuthRoutes
             ], 403);
         }
 
+        $settings = Db::readSettings();
         $safeUser = Helpers::formatSafeUser($user);
+        $supportWa = Helpers::resolveUserSupportWhatsapp($user, $settings);
+        $safeUser['supportWhatsapp'] = $supportWa;
+        $accessPolicy = array_merge(
+            Db::defaultSettings()['accessPolicy'],
+            is_array($settings['accessPolicy'] ?? null) ? $settings['accessPolicy'] : []
+        );
+        $assignedServer = Helpers::computeUserAssignedSlot($user, Db::readSlotsByRange(1, 10), $settings);
+
         $refreshedToken = Db::generateToken([
             'userId' => $user['id'],
             'email' => $user['email'],
@@ -518,6 +566,9 @@ final class AuthRoutes
             'authenticated' => true,
             'token' => $refreshedToken,
             'user' => $safeUser,
+            'supportWhatsapp' => $supportWa,
+            'accessPolicy' => $accessPolicy,
+            'assignedServer' => $assignedServer,
         ], $safeUser));
     }
 

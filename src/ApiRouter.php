@@ -17,14 +17,21 @@ final class ApiRouter
         $isExtPath = $apiPath === '/user/login' || $apiPath === '/user/me';
 
         if ($isExtOrigin || $isExtPath) {
-            if (Helpers::getPakFlowExtVersion() < Helpers::MIN_PAKFLOW_EXT_VERSION) {
+            $minVer = Helpers::MIN_PAKFLOW_EXT_VERSION;
+            try {
+                $cfgMin = Db::readSettings()['minExtVersion'] ?? null;
+                if (is_numeric($cfgMin) && (float)$cfgMin >= 1.0) {
+                    $minVer = (float)$cfgMin;
+                }
+            } catch (\Throwable $_e) {}
+            if (Helpers::getPakFlowExtVersion() < $minVer) {
                 Http::json([
                     'success' => false,
                     'authenticated' => false,
                     'forceLogout' => true,
                     'outdatedExtension' => true,
                     'error' => 'Extension Outdated',
-                    'message' => 'Download latest extension (v1.5) from your dashboard.',
+                    'message' => "Download latest extension (v{$minVer}) from your dashboard.",
                 ], 403);
             }
         }

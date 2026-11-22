@@ -1984,6 +1984,85 @@
       padding: 0 2px;
     }
     .corner-toast-close:hover { color: #fff; }
+    /* Floating WhatsApp Support Button (Reseller / Platform) */
+    .wa-float-btn {
+      position: fixed;
+      right: 22px;
+      bottom: 22px;
+      z-index: 75;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 18px 12px 14px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, #25d366 0%, #128c7e 100%);
+      color: #ffffff;
+      text-decoration: none;
+      font-size: 13.5px;
+      font-weight: 700;
+      box-shadow: 0 12px 32px rgba(37, 211, 102, 0.36), 0 4px 12px rgba(0, 0, 0, 0.45);
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      transition: transform 0.16s ease, box-shadow 0.16s ease;
+    }
+    .wa-float-btn:hover {
+      transform: translateY(-2px) scale(1.02);
+      box-shadow: 0 16px 38px rgba(37, 211, 102, 0.48), 0 6px 16px rgba(0, 0, 0, 0.55);
+    }
+    .wa-float-btn svg { width: 22px; height: 22px; flex-shrink: 0; }
+    @media (max-width: 640px) {
+      .wa-float-btn { right: 16px; bottom: 16px; padding: 13px; }
+      .wa-float-btn .wa-float-label { display: none; }
+    }
+
+    /* Existing Session Confirmation Modal */
+    .session-modal-card {
+      max-width: 400px;
+      text-align: center;
+      border: 1px solid rgba(168, 85, 247, 0.35);
+      box-shadow: 0 24px 70px rgba(0, 0, 0, 0.8), 0 0 45px rgba(168, 85, 247, 0.16);
+    }
+    .session-modal-icon {
+      width: 52px;
+      height: 52px;
+      margin: 0 auto 14px;
+      border-radius: 14px;
+      background: rgba(245, 158, 11, 0.14);
+      border: 1px solid rgba(245, 158, 11, 0.35);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+    }
+    .session-modal-title { font-size: 18px; font-weight: 800; color: #fff; margin-bottom: 8px; }
+    .session-modal-desc { font-size: 13.5px; color: #a1a1aa; line-height: 1.55; margin-bottom: 20px; }
+    .session-modal-actions { display: flex; flex-direction: column; gap: 10px; }
+    .btn-kick-signin {
+      width: 100%;
+      padding: 12px 18px;
+      border: 0;
+      border-radius: 11px;
+      background: linear-gradient(135deg, #9333ea 0%, #ec4899 100%);
+      color: #ffffff;
+      font-size: 13.5px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: opacity 0.15s ease, transform 0.12s ease;
+    }
+    .btn-kick-signin:hover { opacity: 0.92; }
+    .btn-kick-signin:disabled { opacity: 0.55; cursor: not-allowed; }
+    .btn-kick-cancel {
+      width: 100%;
+      padding: 10px 16px;
+      border-radius: 11px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(255, 255, 255, 0.04);
+      color: #d4d4d8;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn-kick-cancel:hover { background: rgba(255, 255, 255, 0.09); color: #fff; }
+
     @media (max-width: 640px) {
       .hero-banner { padding: 32px 24px; min-height: 320px; }
       .topbar { padding: 14px 16px; }
@@ -2419,9 +2498,9 @@
   <!-- Clean Dashboard Theme -->
   <section id="dashView" class="dash-wrap hidden">
     <header class="topbar">
-      <a class="topbar-notice" href="/downloads/PakFlow_v1.7.zip" download="PakFlow_v1.7.zip">
+      <a class="topbar-notice" id="extReleaseLink" href="/downloads/latest" download="PakFlow_v1.7.zip">
         <span class="topbar-notice-dot" aria-hidden="true"></span>
-        <span>Pakflow v1.7 is live now</span>
+        <span id="extReleaseLabel">PakFlow v1.7 is live now</span>
         <span class="topbar-notice-cta">Download &rarr;</span>
       </a>
       <div class="plan-pill" id="planPill">Flow Ultra</div>
@@ -2444,7 +2523,7 @@
           <button type="button" class="dd-item" data-modal="settings">⚙ Settings</button>
           <button type="button" class="dd-item" data-modal="plans">💳 Plan &amp; Pricing</button>
           <button type="button" class="dd-item" data-modal="devices">🛡 My Devices</button>
-          <a class="dd-item" href="/downloads/PakFlow_v1.7.zip" download="PakFlow_v1.7.zip">⬇ Get Extension</a>
+          <a class="dd-item" id="ddExtLink" href="/downloads/latest" download="PakFlow_v1.7.zip">⬇ Get Extension (v1.7)</a>
           <button type="button" class="dd-item signout" id="signOutBtn">↪ Sign Out</button>
         </div>
       </div>
@@ -2627,6 +2706,25 @@
     <button type="button" class="corner-toast-close" id="cornerToastClose" aria-label="Close">&times;</button>
   </div>
 
+  <!-- Floating WhatsApp Support Button (User Dashboard / Reseller-aware) -->
+  <a id="waFloatBtn" class="wa-float-btn hidden" href="#" target="_blank" rel="noopener noreferrer" aria-label="WhatsApp Support">
+    <svg viewBox="0 0 32 32" fill="currentColor" aria-hidden="true"><path d="M16.004 3C8.834 3 3 8.834 3 16.004c0 2.29.598 4.525 1.734 6.494L3 29l6.678-1.752A12.94 12.94 0 0 0 16.004 29C23.174 29 29 23.166 29 16.004 29 8.834 23.174 3 16.004 3zm7.584 18.374c-.317.893-1.857 1.706-2.556 1.81-.65.098-1.472.14-2.376-.148-.548-.175-1.25-.408-2.148-.797-3.778-1.631-6.246-5.436-6.434-5.687-.188-.251-1.536-2.044-1.536-3.898 0-1.855.972-2.767 1.317-3.144.345-.377.752-.472 1.003-.472.251 0 .502.002.721.013.232.012.543-.088.849.647.314.752 1.066 2.607 1.16 2.796.094.188.157.408.031.659-.125.251-.188.408-.377.628-.188.22-.396.49-.565.659-.188.188-.384.392-.165.768.22.377.977 1.612 2.099 2.612 1.442 1.286 2.658 1.685 3.035 1.873.377.188.596.157.816-.094.22-.251.941-1.098 1.192-1.475.251-.377.502-.314.847-.188.345.125 2.196 1.035 2.573 1.224.377.188.628.282.722.439.094.157.094.91-.223 1.803z"/></svg>
+    <span class="wa-float-label" id="waFloatLabel">WhatsApp Support</span>
+  </a>
+
+  <!-- Existing Session Modal (Login 1-Click Logout Existing Device) -->
+  <div id="existingSessionModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="existingSessionTitle">
+    <div class="modal-card session-modal-card">
+      <div class="session-modal-icon" aria-hidden="true">&#128274;</div>
+      <h3 id="existingSessionTitle" class="session-modal-title">Already Logged In</h3>
+      <p id="existingSessionMsg" class="session-modal-desc">This account is active on another device. Click below to sign out the existing session and login here.</p>
+      <div class="session-modal-actions">
+        <button type="button" class="btn-kick-signin" id="kickExistingSessionBtn">Logout Existing Session &amp; Login</button>
+        <button type="button" class="btn-kick-cancel" id="cancelExistingSessionBtn">Cancel</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Info Modal -->
   <div id="infoModal" class="modal-backdrop hidden">
     <div class="modal-card">
@@ -2672,6 +2770,57 @@
 
       let mode = (location.pathname === '/register' || location.pathname === '/signup') ? 'signup' : 'login';
       let currentUser = null;
+      let pendingForceLoginCreds = null;
+
+      const waFloatBtn = document.getElementById('waFloatBtn');
+      const waFloatLabel = document.getElementById('waFloatLabel');
+      const existingSessionModal = document.getElementById('existingSessionModal');
+      const existingSessionMsg = document.getElementById('existingSessionMsg');
+      const kickExistingSessionBtn = document.getElementById('kickExistingSessionBtn');
+      const cancelExistingSessionBtn = document.getElementById('cancelExistingSessionBtn');
+
+      async function loadDynamicExtensionRelease() {
+        try {
+          const res = await fetch('/api/settings/public', { cache: 'no-store' });
+          if (!res.ok) return;
+          const data = await res.json();
+          const flowExt = data && data.extensions && data.extensions.flow ? data.extensions.flow : null;
+          if (!flowExt) return;
+          const ver = String(flowExt.version || '1.7').replace(/^v/i, '');
+          const fileName = String(flowExt.fileName || ('PakFlow_v' + ver + '.zip'));
+          const dlUrl = String(flowExt.downloadUrl || ('/downloads/' + fileName));
+          const releaseText = flowExt.releaseNote
+            ? ('PakFlow v' + ver + ' — ' + String(flowExt.releaseNote))
+            : ('PakFlow v' + ver + ' is live now');
+          const topLink = document.getElementById('extReleaseLink');
+          const topLabel = document.getElementById('extReleaseLabel');
+          const ddLink = document.getElementById('ddExtLink');
+          if (topLink) {
+            topLink.setAttribute('href', dlUrl);
+            topLink.setAttribute('download', fileName);
+          }
+          if (topLabel) topLabel.textContent = releaseText;
+          if (ddLink) {
+            ddLink.setAttribute('href', dlUrl);
+            ddLink.setAttribute('download', fileName);
+            ddLink.textContent = '⬇ Get Extension (v' + ver + ')';
+          }
+        } catch (_) {}
+      }
+
+      function updateWhatsappButton(user, visible) {
+        if (!waFloatBtn) return;
+        const wa = user && user.supportWhatsapp && user.supportWhatsapp.url ? user.supportWhatsapp : null;
+        if (!visible || !wa || !wa.url) {
+          waFloatBtn.classList.add('hidden');
+          return;
+        }
+        waFloatBtn.setAttribute('href', wa.url);
+        const label = wa.label || (wa.source === 'reseller' ? 'Chat with Reseller' : 'WhatsApp Support');
+        waFloatBtn.setAttribute('title', label);
+        if (waFloatLabel) waFloatLabel.textContent = label;
+        waFloatBtn.classList.remove('hidden');
+      }
 
       function getDeviceId() {
         let id = localStorage.getItem('pakflow_device_id');
@@ -2698,6 +2847,9 @@
               email: user.email,
               username: user.username || user.name,
               plan: user.plan || 'plus',
+              planExpiresAt: user.planExpiresAt || null,
+              accessPolicy: user.accessPolicy || null,
+              assignedServer: user.assignedServer || null,
               daysRemaining: user.daysLeft !== undefined ? user.daysLeft : (user.daysRemaining !== undefined ? user.daysRemaining : 30)
             }
           }));
@@ -2971,6 +3123,7 @@
 
       function showLanding() {
         hideBootLoader();
+        updateWhatsappButton(null, false);
         aboutView.classList.add('hidden');
         authView.classList.add('hidden');
         dashView.classList.add('hidden');
@@ -2981,6 +3134,7 @@
 
       function showAbout() {
         hideBootLoader();
+        updateWhatsappButton(null, false);
         landingView.classList.add('hidden');
         authView.classList.add('hidden');
         dashView.classList.add('hidden');
@@ -2994,6 +3148,7 @@
 
       function showAuth(targetMode) {
         hideBootLoader();
+        updateWhatsappButton(null, false);
         if (targetMode) mode = targetMode;
         landingView.classList.add('hidden');
         aboutView.classList.add('hidden');
@@ -3011,6 +3166,7 @@
       function showDash(user) {
         hideBootLoader();
         renderUser(user);
+        updateWhatsappButton(user, true);
         landingView.classList.add('hidden');
         aboutView.classList.add('hidden');
         authView.classList.add('hidden');
@@ -3152,21 +3308,24 @@
         showLanding();
       });
 
-      authForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
+      async function performAuthSubmit(forceLogoutExisting) {
         clearAlert();
-        const email = document.getElementById('authEmail').value.trim();
-        const password = document.getElementById('authPassword').value;
+        const email = (pendingForceLoginCreds && forceLogoutExisting) ? pendingForceLoginCreds.email : document.getElementById('authEmail').value.trim();
+        const password = (pendingForceLoginCreds && forceLogoutExisting) ? pendingForceLoginCreds.password : document.getElementById('authPassword').value;
         const name = document.getElementById('authName').value.trim();
 
         authSubmitBtn.disabled = true;
         authSubmitBtn.textContent = mode === 'signup' ? 'Creating account...' : 'Signing in...';
+        if (kickExistingSessionBtn && forceLogoutExisting) {
+          kickExistingSessionBtn.disabled = true;
+          kickExistingSessionBtn.textContent = 'Logging out existing session...';
+        }
 
         try {
           const endpoint = mode === 'signup' ? '/api/auth/register' : '/api/auth/login';
           const payload = mode === 'signup'
             ? { name, email, password, deviceId: getDeviceId() }
-            : { email, password, deviceId: getDeviceId() };
+            : { email, password, deviceId: getDeviceId(), forceLogoutExisting: Boolean(forceLogoutExisting) };
 
           const res = await fetch(endpoint, {
             method: 'POST',
@@ -3174,6 +3333,17 @@
             body: JSON.stringify(payload),
           });
           const data = await res.json();
+          if (res.status === 409 && data && data.existingSession) {
+            pendingForceLoginCreds = { email, password };
+            if (existingSessionMsg) {
+              existingSessionMsg.textContent = data.message || 'This account is already logged in on another device. Click below to logout the existing session and login here.';
+            }
+            if (existingSessionModal) existingSessionModal.classList.remove('hidden');
+            return;
+          }
+          if (existingSessionModal) existingSessionModal.classList.add('hidden');
+          pendingForceLoginCreds = null;
+
           if (res.ok && data.requiresVerification) {
             pendingSignupEmail = data.email || email;
             authForm.classList.add('hidden');
@@ -3189,7 +3359,10 @@
           } else if (!res.ok || !data.token) {
             showAlert(data.message || data.error || 'Authentication failed', false);
           } else {
-            const signedInUser = data.user || { email };
+            const signedInUser = Object.assign({}, data.user || { email }, {
+              accessPolicy: data.accessPolicy || (data.user && data.user.accessPolicy) || null,
+              assignedServer: data.assignedServer || (data.user && data.user.assignedServer) || null
+            });
             localStorage.setItem('pakflow_token', data.token);
             localStorage.setItem('token', data.token);
             try { localStorage.setItem('pakflow_user_cache', JSON.stringify(signedInUser)); } catch (_) {}
@@ -3197,12 +3370,42 @@
             showDash(signedInUser);
           }
         } catch (_err) {
+          if (existingSessionModal) existingSessionModal.classList.add('hidden');
           showAlert('Network error. Please try again.', false);
         } finally {
           authSubmitBtn.disabled = false;
           authSubmitBtn.textContent = mode === 'signup' ? 'Create Account' : 'Sign In';
+          if (kickExistingSessionBtn) {
+            kickExistingSessionBtn.disabled = false;
+            kickExistingSessionBtn.textContent = 'Logout Existing Session & Login';
+          }
         }
+      }
+
+      authForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        performAuthSubmit(false);
       });
+
+      if (kickExistingSessionBtn) {
+        kickExistingSessionBtn.addEventListener('click', () => {
+          performAuthSubmit(true);
+        });
+      }
+      if (cancelExistingSessionBtn) {
+        cancelExistingSessionBtn.addEventListener('click', () => {
+          pendingForceLoginCreds = null;
+          if (existingSessionModal) existingSessionModal.classList.add('hidden');
+        });
+      }
+      if (existingSessionModal) {
+        existingSessionModal.addEventListener('click', (e) => {
+          if (e.target === existingSessionModal) {
+            pendingForceLoginCreds = null;
+            existingSessionModal.classList.add('hidden');
+          }
+        });
+      }
 
       avatarBtn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -3356,7 +3559,10 @@
           });
           const data = await res.json();
           if (res.ok && data && data.authenticated !== false && (data.user || data.email)) {
-            const freshUser = data.user || data;
+            const freshUser = Object.assign({}, data.user || data, {
+              accessPolicy: data.accessPolicy || (data.user && data.user.accessPolicy) || null,
+              assignedServer: data.assignedServer || (data.user && data.user.assignedServer) || null
+            });
             const activeTok = data.token || token;
             if (data.token) {
               localStorage.setItem('pakflow_token', data.token);
@@ -3366,13 +3572,18 @@
             syncExtensionBridgeLogin(activeTok, freshUser);
             if (location.pathname === '/settings') {
               renderUser(freshUser);
+              updateWhatsappButton(freshUser, true);
               if (!renderedFromCache) showSettings();
             } else if (location.pathname === '/pricing') {
               renderUser(freshUser);
+              updateWhatsappButton(freshUser, true);
               if (!renderedFromCache) showPricing();
             } else {
               if (!renderedFromCache) showDash(freshUser);
-              else renderUser(freshUser);
+              else {
+                renderUser(freshUser);
+                updateWhatsappButton(freshUser, true);
+              }
             }
             return;
           }
@@ -3449,6 +3660,7 @@
         genBtnEl.addEventListener('click', signalPrepareFlow, { passive: true });
       }
 
+      loadDynamicExtensionRelease();
       boot();
     })();
   </script>

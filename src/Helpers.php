@@ -1062,4 +1062,137 @@ public const ADMIN_PASSWORD = 'admin@123';
             'isLocked' => !empty($user['isLocked']),
         ];
     }
+
+    public static function normalizeWhatsappLink(?string $raw): array
+    {
+        $val = trim((string)($raw ?? ''));
+        if ($val === '') {
+            return ['phone' => '', 'url' => ''];
+        }
+        if (str_starts_with($val, 'http://') || str_starts_with($val, 'https://')) {
+            return ['phone' => $val, 'url' => $val];
+        }
+        $digits = preg_replace('/\D+/', '', $val) ?? '';
+        if ($digits === '') {
+            return ['phone' => $val, 'url' => ''];
+        }
+        // Convert Pakistani local format 03xxxxxxxxx -> 923xxxxxxxxx
+        if (strlen($digits) === 11 && str_starts_with($digits, '03')) {
+            $digits = '92' . substr($digits, 1);
+        } elseif (strlen($digits) === 10 && str_starts_with($digits, '3')) {
+            $digits = '92' . $digits;
+        }
+        return [
+            'phone' => $val,
+            'url' => 'https://wa.me/' . $digits,
+        ];
+    }
+
+    public static function resolveUserSupportWhatsapp(array $user, ?array $settings = null): array
+    {
+        $settings = $settings ?? Db::readSettings();
+        $resellerName = '';
+        $resellerPhone = '';
+
+        if (!empty($user['resellerId'])) {
+            $rid = (int)$user['resellerId'];
+            $reseller = null;
+            if (Database::isEnabled()) {
+                $reseller = Db::findResellerByIdMysql($rid);
+            } else {
+                foreach (Db::readResellers() as $rx) {
+                    if ((int)($rx['id'] ?? 0) === $rid) {
+                        $reseller = $rx;
+                        break;
+                    }
+                }
+            }
+            if ($reseller) {
+                $resellerName = trim((string)($reseller['name'] ?? ''));
+                $resellerPhone = trim((string)($reseller['whatsapp'] ?? ''));
+            }
+        }
+
+        if ($resellerPhone !== '') {
+            $norm = self::normalizeWhatsappLink($resellerPhone);
+            if ($norm['url'] !== '') {
+                return [
+                    'url' => $norm['url'],
+                    'phone' => $norm['phone'],
+                    'label' => $resellerName !== '' ? $resellerName : 'Your Reseller',
+                    'source' => 'reseller',
+                ];
+            }
+        }
+
+        $fallbackRaw = trim((string)($settings['whatsappPhone'] ?? ''))
+            ?: trim((string)($settings['whatsappChannel'] ?? ''));
+        $norm = self::normalizeWhatsappLink($fallbackRaw);
+        return [
+            'url' => $norm['url'],
+            'phone' => $norm['phone'],
+            'label' => 'PakFlow Support',
+            'source' => 'platform',
+        ];
+    }
+
+    public static function computeUserAssignedSlot(?array $user, array $slots, ?array $settings = null): array
+    {
+        $settings = $settings ?? Db::readSettings();
+        $defaults = Db::defaultSettings()['serverShuffle'];
+        $cfg = array_merge($defaults, is_array($settings['serverShuffle'] ?? null) ? $settings['serverShuffle'] : []);
+
+        $enabled = !empty($cfg['enabled']);
+        $intervalMin = max(5, min(43200, (int)($cfg['intervalMinutes'] ?? 180)));
+        $epoch = max(1, (int)($cfg['shuffleEpoch'] ?? 1));
+        $fallbackDefault = max(1, min(10, (int)($cfg['defaultSlot'] ?? 1)));
+        $configuredPool = is_array($cfg['poolSlots'] ?? null)
+            ? array_values(array_unique(array_filter(array_map('intval', $cfg['poolSlots']), static fn(int $n): bool => $n >= 1 && $n <= 10)))
+            : [];
+
+        $activeNums = [];
+        foreach ($slots as $s) {
+            $num = (int)($s['slotNumber'] ?? 0);
+            if ($num >= 1 && $num <= 10 && ($s['status'] ?? '') === 'ACTIVE' && (int)($s['cookieCount'] ?? count($s['cookies'] ?? [])) > 0) {
+                $activeNums[] = $num;
+            }
+        }
+        sort($activeNums);
+
+        $pool = !empty($configuredPool)
+            ? array_values(array_intersect($configuredPool, $activeNums))
+            : $activeNums;
+        if (empty($pool)) {
+            $pool = !empty($activeNums) ? $activeNums : [$fallbackDefault];
+        }
+
+        $now = time();
+        $intervalSec = $intervalMin * 60;
+        $bucket = (int)floor($now / $intervalSec);
+        $period = $enabled ? ($bucket + ($epoch * 100000)) : $epoch;
+        $nextShuffleTs = ($bucket + 1) * $intervalSec;
+
+        $assigned = $fallbackDefault;
+        if ($enabled && !empty($pool)) {
+            $seed = $user
+                ? ((string)($user['id'] ?? '') . ':' . strtolower(trim((string)($user['email'] ?? ''))) . ':' . $period)
+                : ('anon:' . self::getClientIp() . ':' . $period);
+            $hash = (int)sprintf('%u', crc32($seed));
+            $assigned = $pool[$hash % count($pool)];
+        } elseif (!in_array($assigned, $activeNums, true) && !empty($activeNums)) {
+            $assigned = $activeNums[0];
+        }
+
+        return [
+            'defaultSlot' => $assigned,
+            'defaultSlotId' => 'slot_' . $assigned,
+            'shuffleEnabled' => $enabled,
+            'shuffleIntervalMinutes' => $intervalMin,
+            'shuffleEpoch' => $epoch,
+            'shufflePeriod' => (string)$period,
+            'nextShuffleAt' => gmdate('Y-m-d\TH:i:s', $nextShuffleTs) . '.000Z',
+            'lastShuffledAt' => $cfg['lastShuffledAt'] ?? null,
+            'poolSlots' => $pool,
+        ];
+    }
 }

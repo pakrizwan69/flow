@@ -249,6 +249,51 @@ final class AdminRoutes
             $settings = Db::readSettings();
             Http::json(['success' => true, 'extensions' => $settings['extensions'] ?? Db::defaultSettings()['extensions']]);
         }
+        if ($method === 'GET' && $path === '/admin/controls/config') {
+            Helpers::requireAdmin();
+            self::adminGetControlsConfig();
+            return true;
+        }
+        if ($method === 'POST' && $path === '/admin/extension/regenerate') {
+            Helpers::requireAdmin();
+            self::regenerateExtensionZip();
+            return true;
+        }
+        if ($method === 'PUT' && $path === '/admin/controls/access-policy') {
+            Helpers::requireAdmin();
+            self::adminUpdateAccessPolicy();
+            return true;
+        }
+        if ($method === 'PUT' && $path === '/admin/controls/server-shuffle') {
+            Helpers::requireAdmin();
+            self::adminUpdateServerShuffle();
+            return true;
+        }
+        if ($method === 'POST' && $path === '/admin/controls/reshuffle-now') {
+            Helpers::requireAdmin();
+            self::adminReshuffleNow();
+            return true;
+        }
+        if ($method === 'GET' && $path === '/admin/controls/message-template') {
+            Helpers::requireAdmin();
+            $settings = Db::readSettings();
+            Http::json([
+                'success' => true,
+                'template' => (string)($settings['welcomeMessageTemplate'] ?? Db::defaultSettings()['welcomeMessageTemplate']),
+            ]);
+        }
+        if ($method === 'PUT' && $path === '/admin/controls/message-template') {
+            Helpers::requireAdmin();
+            $body = Http::body();
+            $tpl = trim((string)($body['template'] ?? ''));
+            if ($tpl === '') {
+                Http::json(['success' => false, 'message' => 'Template text cannot be empty'], 400);
+            }
+            $settings = Db::readSettings();
+            $settings['welcomeMessageTemplate'] = $tpl;
+            Db::writeSettings($settings);
+            Http::json(['success' => true, 'message' => 'Message template saved successfully!', 'template' => $tpl]);
+        }
         if ($method === 'POST' && $path === '/admin/upload-extension') {
             Helpers::requireAdmin();
             self::uploadExtension();
@@ -1076,7 +1121,217 @@ final class AdminRoutes
                 'pakTts' => false,
             ],
             'extensions' => ['flow' => $flowExt],
+            'minExtVersion' => (float)($settings['minExtVersion'] ?? $defaults['minExtVersion']),
+            'accessPolicy' => array_merge($defaults['accessPolicy'], is_array($settings['accessPolicy'] ?? null) ? $settings['accessPolicy'] : []),
+            'serverShuffle' => array_merge($defaults['serverShuffle'], is_array($settings['serverShuffle'] ?? null) ? $settings['serverShuffle'] : []),
             'maintenance' => $settings['maintenance'] ?? $defaults['maintenance'],
+        ]);
+    }
+
+    private static function adminGetControlsConfig(): void
+    {
+        $settings = Db::readSettings();
+        $defaults = Db::defaultSettings();
+        $slots = Db::readSlotsByRange(1, 10);
+        $slotSummary = array_map(static fn(array $s): array => [
+            'slotNumber' => (int)$s['slotNumber'],
+            'name' => (string)($s['name'] ?? ("Server " . $s['slotNumber'])),
+            'status' => (string)($s['status'] ?? 'EMPTY'),
+            'cookieCount' => (int)($s['cookieCount'] ?? count($s['cookies'] ?? [])),
+        ], $slots);
+
+        $extSrcDir = dirname(__DIR__, 2) . '/extension-src';
+        Http::json([
+            'success' => true,
+            'extensionSourceReady' => is_dir($extSrcDir) && is_file($extSrcDir . '/manifest.json'),
+            'extension' => $settings['extensions']['flow'] ?? ($defaults['extensions']['flow'] ?? []),
+            'minExtVersion' => (float)($settings['minExtVersion'] ?? $defaults['minExtVersion']),
+            'accessPolicy' => array_merge($defaults['accessPolicy'], is_array($settings['accessPolicy'] ?? null) ? $settings['accessPolicy'] : []),
+            'serverShuffle' => array_merge($defaults['serverShuffle'], is_array($settings['serverShuffle'] ?? null) ? $settings['serverShuffle'] : []),
+            'messageTemplate' => (string)($settings['welcomeMessageTemplate'] ?? $defaults['welcomeMessageTemplate']),
+            'slots' => $slotSummary,
+        ]);
+    }
+
+    private static function adminUpdateAccessPolicy(): void
+    {
+        $body = Http::body();
+        $settings = Db::readSettings();
+        $defaults = Db::defaultSettings()['accessPolicy'];
+        $cur = array_merge($defaults, is_array($settings['accessPolicy'] ?? null) ? $settings['accessPolicy'] : []);
+        $next = [
+            'requirePortalOpen' => array_key_exists('requirePortalOpen', $body) ? (bool)$body['requirePortalOpen'] : (bool)$cur['requirePortalOpen'],
+            'blockOnLogout' => array_key_exists('blockOnLogout', $body) ? (bool)$body['blockOnLogout'] : (bool)$cur['blockOnLogout'],
+            'blockOnExpired' => array_key_exists('blockOnExpired', $body) ? (bool)$body['blockOnExpired'] : (bool)$cur['blockOnExpired'],
+            'portalGraceSeconds' => array_key_exists('portalGraceSeconds', $body) ? max(5, min(120, (int)$body['portalGraceSeconds'])) : (int)$cur['portalGraceSeconds'],
+            'updatedAt' => Db::isoNow(),
+        ];
+        $settings['accessPolicy'] = $next;
+        Db::writeSettings($settings);
+        Http::json(['success' => true, 'message' => 'Flow access lock policy updated!', 'accessPolicy' => $next]);
+    }
+
+    private static function adminUpdateServerShuffle(): void
+    {
+        $body = Http::body();
+        $settings = Db::readSettings();
+        $defaults = Db::defaultSettings()['serverShuffle'];
+        $cur = array_merge($defaults, is_array($settings['serverShuffle'] ?? null) ? $settings['serverShuffle'] : []);
+        $pool = $cur['poolSlots'] ?? [];
+        if (array_key_exists('poolSlots', $body) && is_array($body['poolSlots'])) {
+            $pool = array_values(array_unique(array_filter(
+                array_map('intval', $body['poolSlots']),
+                static fn(int $n): bool => $n >= 1 && $n <= 10
+            )));
+            sort($pool);
+        }
+        $next = [
+            'enabled' => array_key_exists('enabled', $body) ? (bool)$body['enabled'] : (bool)$cur['enabled'],
+            'intervalMinutes' => array_key_exists('intervalMinutes', $body) ? max(5, min(43200, (int)$body['intervalMinutes'])) : (int)$cur['intervalMinutes'],
+            'shuffleEpoch' => max(1, (int)($cur['shuffleEpoch'] ?? 1)),
+            'defaultSlot' => array_key_exists('defaultSlot', $body) ? max(1, min(10, (int)$body['defaultSlot'])) : (int)($cur['defaultSlot'] ?? 1),
+            'poolSlots' => $pool,
+            'lastShuffledAt' => $cur['lastShuffledAt'] ?? null,
+            'updatedAt' => Db::isoNow(),
+        ];
+        $settings['serverShuffle'] = $next;
+        Db::writeSettings($settings);
+        Http::json(['success' => true, 'message' => 'Server shuffle & default settings saved!', 'serverShuffle' => $next]);
+    }
+
+    private static function adminReshuffleNow(): void
+    {
+        $settings = Db::readSettings();
+        $defaults = Db::defaultSettings()['serverShuffle'];
+        $cur = array_merge($defaults, is_array($settings['serverShuffle'] ?? null) ? $settings['serverShuffle'] : []);
+        $cur['enabled'] = true;
+        $cur['shuffleEpoch'] = max(1, (int)($cur['shuffleEpoch'] ?? 1)) + 1;
+        $cur['lastShuffledAt'] = Db::isoNow();
+        $cur['updatedAt'] = Db::isoNow();
+        $settings['serverShuffle'] = $cur;
+        Db::writeSettings($settings);
+        Http::json([
+            'success' => true,
+            'message' => 'Servers reshuffled immediately (Epoch #' . $cur['shuffleEpoch'] . ')! All users will rotate to balanced servers.',
+            'serverShuffle' => $cur,
+        ]);
+    }
+
+    private static function regenerateExtensionZip(): void
+    {
+        if (!class_exists(\ZipArchive::class)) {
+            Http::json(['success' => false, 'message' => 'PHP ZipArchive extension is not enabled on this server.'], 500);
+        }
+        $body = Http::body();
+        $rawVer = trim((string)($body['version'] ?? ''));
+        $rawVer = ltrim($rawVer, 'vV');
+        if ($rawVer === '' || !preg_match('/^\d+(?:\.\d+){0,3}$/', $rawVer)) {
+            Http::json(['success' => false, 'message' => 'Please enter a valid version number (e.g. 1.8 or 2.0)'], 400);
+        }
+        $releaseNote = trim((string)($body['releaseNote'] ?? ''));
+        $portalUrl = trim((string)($body['portalUrl'] ?? ''));
+        $portalUrl = $portalUrl !== '' ? rtrim($portalUrl, '/') : '';
+        if ($portalUrl !== '' && !preg_match('#^https?://#i', $portalUrl)) {
+            $portalUrl = 'https://' . $portalUrl;
+        }
+        $minVerRaw = $body['minExtVersion'] ?? null;
+
+        $root = dirname(__DIR__, 2);
+        $extSrcDir = $root . '/extension-src';
+        if (!is_dir($extSrcDir) || !is_file($extSrcDir . '/manifest.json')) {
+            Http::json(['success' => false, 'message' => 'extension-src/ folder not found on server. Deploy latest Git repo first.'], 404);
+        }
+
+        $targetName = "PakFlow_v{$rawVer}.zip";
+        $distDestDir = $root . '/dist/downloads';
+        $publicDestDir = $root . '/public/downloads';
+        if (!is_dir($distDestDir)) @mkdir($distDestDir, 0775, true);
+        if (!is_dir($publicDestDir)) @mkdir($publicDestDir, 0775, true);
+
+        $tmpZip = $distDestDir . '/' . $targetName . '.tmp.' . bin2hex(random_bytes(4));
+        $za = new \ZipArchive();
+        if ($za->open($tmpZip, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== true) {
+            Http::json(['success' => false, 'message' => 'Unable to create ZIP archive in dist/downloads'], 500);
+        }
+
+        $shortVer = preg_match('/^(\d+\.\d+)/', $rawVer, $vm) ? $vm[1] : $rawVer;
+        $it = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($extSrcDir, \FilesystemIterator::SKIP_DOTS),
+            \RecursiveIteratorIterator::SELF_FIRST
+        );
+        $baseLen = strlen(rtrim($extSrcDir, "/\\")) + 1;
+
+        foreach ($it as $item) {
+            if ($item->isDir()) {
+                continue;
+            }
+            $fullPath = $item->getPathname();
+            $rel = str_replace('\\', '/', substr($fullPath, $baseLen));
+            if ($rel === 'manifest.json') {
+                $man = json_decode((string)file_get_contents($fullPath), true);
+                if (is_array($man)) {
+                    $man['version'] = $rawVer;
+                    $man['version_name'] = 'v' . $rawVer;
+                    $content = json_encode($man, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n";
+                    $za->addFromString($rel, $content);
+                } else {
+                    $za->addFile($fullPath, $rel);
+                }
+            } elseif ($rel === 'ctp-background.js' || $rel === 'background.js') {
+                $txt = (string)file_get_contents($fullPath);
+                $txt = preg_replace('/("X-PakFlow-Extension-Version"\s*:\s*")[^"]+(")/', '${1}' . $shortVer . '${2}', $txt) ?? $txt;
+                $txt = preg_replace('/([?&]ext_v=)\d+(?:\.\d+)?/', '${1}' . $shortVer, $txt) ?? $txt;
+                if ($portalUrl !== '' && preg_match('#^https?://#i', $portalUrl)) {
+                    $txt = str_replace('"https://flowbypak.com"', '"' . $portalUrl . '"', $txt);
+                }
+                $za->addFromString($rel, $txt);
+            } else {
+                $za->addFile($fullPath, $rel);
+            }
+            $za->setExternalAttributesName($rel, \ZipArchive::OPSYS_UNIX, 0100644 << 16);
+        }
+        $za->close();
+
+        $finalDist = $distDestDir . '/' . $targetName;
+        if (!@rename($tmpZip, $finalDist)) {
+            @copy($tmpZip, $finalDist);
+            @unlink($tmpZip);
+        }
+        @copy($finalDist, $publicDestDir . '/' . $targetName);
+
+        $len = @filesize($finalDist) ?: 0;
+        $sizeLabel = $len > 1024 * 1024 ? number_format($len / (1024 * 1024), 1) . ' MB' : round($len / 1024) . ' KB';
+        $nowIso = Db::isoNow();
+
+        $settings = Db::readSettings();
+        $existing = $settings['extensions']['flow'] ?? Db::defaultSettings()['extensions']['flow'];
+        $extEntry = array_merge($existing, [
+            'title' => $existing['title'] ?? 'Google Flow (Veo 3.1) Extension',
+            'fileName' => $targetName,
+            'version' => $rawVer,
+            'fileSize' => $sizeLabel,
+            'downloadUrl' => "/downloads/$targetName",
+            'releaseNote' => $releaseNote,
+            'updatedAt' => $nowIso,
+        ]);
+        $settings['extensions']['flow'] = $extEntry;
+        $settings['windowsApp'] = array_merge($settings['windowsApp'] ?? [], [
+            'fileName' => $targetName,
+            'version' => $rawVer,
+            'fileSize' => $sizeLabel,
+            'downloadUrl' => "/downloads/$targetName",
+            'updatedAt' => $nowIso,
+        ]);
+        if ($minVerRaw !== null && $minVerRaw !== '' && is_numeric($minVerRaw)) {
+            $settings['minExtVersion'] = max(1.0, (float)$minVerRaw);
+        }
+        Db::writeSettings($settings);
+
+        Http::json([
+            'success' => true,
+            'message' => "Extension v{$rawVer} ({$sizeLabel}) generated & live for all users!",
+            'extension' => $extEntry,
+            'minExtVersion' => (float)($settings['minExtVersion'] ?? Helpers::MIN_PAKFLOW_EXT_VERSION),
         ]);
     }
 
@@ -1203,6 +1458,7 @@ final class AdminRoutes
                 'fileSize' => $sizeKB,
                 'version' => $version ?: ($existing['version'] ?? ($extType === 'flow' ? '1.7' : '1.1')),
                 'downloadUrl' => "/downloads/$targetName",
+                'releaseNote' => trim((string)($body['releaseNote'] ?? ($existing['releaseNote'] ?? ''))),
                 'updatedAt' => Db::isoNow(),
                 'instructions' => $instructions ?: ($existing['instructions'] ?? ''),
             ]);
