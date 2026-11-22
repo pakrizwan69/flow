@@ -8,25 +8,28 @@
   <link rel="preload" as="image" href="/flowbypak-logo.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
-  <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" /></noscript>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
-      --bg: #050507;
-      --card: #111116;
-      --card-border: rgba(255,255,255,0.10);
-      --text: #f5f5f7;
-      --muted: #9ca3af;
-      --accent: #a855f7;
-      --accent-2: #ec4899;
+      --bg: #0b1120;
+      --bg-elevated: #0f172a;
+      --card: #111827;
+      --card-border: rgba(148, 163, 184, 0.14);
+      --border-strong: rgba(148, 163, 184, 0.26);
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --accent: #2563eb;
+      --accent-2: #3b82f6;
+      --emerald: #10b981;
       --danger: #ef4444;
+      --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
     }
     html, body {
       height: 100%;
       background: var(--bg);
       color: var(--text);
-      font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       -webkit-font-smoothing: antialiased;
       scroll-behavior: smooth;
     }
@@ -1309,19 +1312,19 @@
     .auth-card .pass-toggle { color: #9ca3af; }
     .auth-card .pass-toggle:hover { color: #ffffff; background: rgba(255,255,255,0.08); }
     .auth-card .btn-primary {
-      background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+      background: #2563eb;
       color: #ffffff;
-      border-radius: 11px;
+      border-radius: 10px;
       padding: 13px 18px;
       font-size: 14.5px;
       font-weight: 700;
-      box-shadow: 0 10px 28px rgba(139,92,246,0.35);
+      box-shadow: 0 8px 22px rgba(37, 99, 235, 0.34);
       margin-top: 6px;
     }
     .auth-card .btn-primary:hover {
-      opacity: 0.96;
+      background: #3b82f6;
       transform: translateY(-1px);
-      box-shadow: 0 14px 34px rgba(139,92,246,0.48);
+      box-shadow: 0 12px 28px rgba(37, 99, 235, 0.44);
     }
     .auth-card .auth-footer-switch {
       color: #9ca3af;
@@ -1361,62 +1364,88 @@
       color: #86efac;
     }
 
-    /* ── Dashboard (Exact Clean Theme) ── */
+    /* ── User Dashboard (UI/UX Pro Max — Executive Midnight Slate Workspace) ── */
     .dash-wrap {
       min-height: 100vh;
       display: flex;
       flex-direction: column;
-      background: #000000;
+      background:
+        radial-gradient(ellipse 75% 45% at 50% -10%, rgba(37, 99, 235, 0.14), transparent 65%),
+        var(--bg);
     }
     .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 35;
       display: flex;
-      justify-content: flex-end;
       align-items: center;
+      justify-content: space-between;
       gap: 12px;
-      padding: 14px 24px 8px;
-      position: relative;
-      z-index: 30;
+      padding: 12px 28px;
+      background: rgba(11, 17, 32, 0.88);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border-bottom: 1px solid var(--card-border);
+      flex-wrap: wrap;
+    }
+    .topbar-brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      color: var(--text);
+      font-weight: 800;
+      font-size: 16px;
+      letter-spacing: -0.02em;
+    }
+    .topbar-brand img {
+      width: 30px;
+      height: 30px;
+      border-radius: 8px;
+      border: 1px solid var(--border-strong);
+      object-fit: cover;
+    }
+    .topbar-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
       flex-wrap: wrap;
     }
     .topbar-notice {
-      margin-right: auto;
       display: inline-flex;
       align-items: center;
       gap: 8px;
-      padding: 6px 14px;
-      border-radius: 999px;
-      background: linear-gradient(135deg, rgba(16,185,129,0.14), rgba(79,70,229,0.16));
-      border: 1px solid rgba(52,211,153,0.32);
+      padding: 6px 13px;
+      border-radius: 8px;
+      background: rgba(16, 185, 129, 0.10);
+      border: 1px solid rgba(16, 185, 129, 0.28);
       color: #ecfdf5;
       font-size: 12px;
       font-weight: 600;
-      letter-spacing: 0.01em;
       text-decoration: none;
-      transition: transform 0.12s ease, border-color 0.15s ease, background 0.15s ease;
+      transition: border-color 0.15s ease, background 0.15s ease;
     }
     .topbar-notice:hover {
-      border-color: rgba(52,211,153,0.6);
-      background: linear-gradient(135deg, rgba(16,185,129,0.22), rgba(79,70,229,0.24));
-      transform: translateY(-1px);
+      border-color: rgba(16, 185, 129, 0.55);
+      background: rgba(16, 185, 129, 0.18);
     }
     .topbar-notice-dot {
-      width: 8px;
-      height: 8px;
+      width: 7px;
+      height: 7px;
       border-radius: 50%;
       background: #10b981;
-      box-shadow: 0 0 8px rgba(16,185,129,0.85);
       flex-shrink: 0;
     }
     .topbar-notice-cta {
-      color: #6ee7b7;
+      color: #34d399;
       font-weight: 700;
-      margin-left: 4px;
+      margin-left: 2px;
     }
     .boot-loader {
       position: fixed;
       inset: 0;
       z-index: 9999;
-      background: #000000;
+      background: var(--bg);
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -1430,62 +1459,61 @@
       pointer-events: none;
     }
     .boot-spinner {
-      width: 42px;
-      height: 42px;
+      width: 38px;
+      height: 38px;
       border-radius: 50%;
-      border: 3px solid rgba(167,139,250,0.18);
-      border-top-color: #8b5cf6;
-      border-right-color: #10b981;
+      border: 3px solid rgba(148, 163, 184, 0.18);
+      border-top-color: #2563eb;
       animation: bootSpin 0.7s linear infinite;
     }
     .boot-label {
-      color: #a1a1aa;
+      color: var(--muted);
       font-size: 13px;
       font-weight: 600;
-      letter-spacing: 0.03em;
     }
-    @keyframes bootSpin {
-      to { transform: rotate(360deg); }
-    }
+    @keyframes bootSpin { to { transform: rotate(360deg); } }
     .plan-pill {
-      background: linear-gradient(135deg, #312e81, #4c1d95);
-      color: #e0e7ff;
-      border: 1px solid rgba(167,139,250,0.35);
-      padding: 7px 14px;
-      border-radius: 999px;
+      background: rgba(37, 99, 235, 0.15);
+      color: #93c5fd;
+      border: 1px solid rgba(59, 130, 246, 0.32);
+      padding: 6px 12px;
+      border-radius: 8px;
       font-size: 12px;
-      font-weight: 600;
+      font-weight: 700;
       letter-spacing: 0.01em;
     }
     .avatar-btn {
       width: 36px;
       height: 36px;
-      border-radius: 50%;
-      border: 0;
-      background: linear-gradient(135deg, #2563eb, #4f46e5);
+      border-radius: 10px;
+      border: 1px solid rgba(59, 130, 246, 0.35);
+      background: #2563eb;
       color: #fff;
-      font-weight: 700;
-      font-size: 14px;
+      font-weight: 800;
+      font-size: 13.5px;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
+      transition: background 0.15s ease;
     }
+    .avatar-btn:hover { background: #3b82f6; }
     .dropdown {
       position: absolute;
-      top: 64px;
+      top: 62px;
       right: 28px;
-      width: 270px;
-      background: #141418;
-      border: 1px solid rgba(255,255,255,0.12);
-      border-radius: 14px;
-      box-shadow: 0 24px 60px rgba(0,0,0,0.85);
+      width: 280px;
+      background: var(--card);
+      border: 1px solid var(--border-strong);
+      border-radius: 12px;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.75);
       overflow: hidden;
       z-index: 50;
     }
     .dd-head {
       padding: 14px 16px;
-      border-bottom: 1px solid rgba(255,255,255,0.08);
+      background: var(--bg-elevated);
+      border-bottom: 1px solid var(--card-border);
     }
     .dd-name {
       font-size: 13px;
@@ -1501,7 +1529,7 @@
     }
     .dd-credits {
       padding: 14px 16px;
-      border-bottom: 1px solid rgba(255,255,255,0.08);
+      border-bottom: 1px solid var(--card-border);
     }
     .dd-credits-row {
       display: flex;
@@ -1510,100 +1538,233 @@
       font-size: 12px;
       margin-bottom: 8px;
     }
-    .dd-credits-label { color: #d1d5db; display: flex; align-items: center; gap: 5px; }
-    .dd-credits-val { font-weight: 700; color: #fff; }
+    .dd-credits-label { color: #cbd5e1; display: flex; align-items: center; gap: 5px; font-weight: 600; }
+    .dd-credits-val { font-weight: 700; color: #fff; font-family: var(--font-mono); }
     .dd-credits-val span { color: var(--muted); font-weight: 500; }
     .progress-track {
       width: 100%;
-      height: 5px;
+      height: 6px;
       border-radius: 999px;
-      background: rgba(255,255,255,0.1);
+      background: rgba(148, 163, 184, 0.16);
       overflow: hidden;
     }
     .progress-fill {
       height: 100%;
-      background: linear-gradient(90deg, #a855f7, #ec4899);
+      background: #2563eb;
       border-radius: 999px;
       width: 100%;
       transition: width .3s ease;
     }
     .dd-days {
       margin-top: 7px;
-      font-size: 11px;
+      font-size: 11.5px;
       color: var(--muted);
     }
-    .dd-menu { padding: 6px 0; }
+    .dd-menu { padding: 6px; }
     .dd-item {
       width: 100%;
       display: flex;
       align-items: center;
       gap: 10px;
-      padding: 10px 16px;
+      padding: 9px 11px;
       border: 0;
+      border-radius: 8px;
       background: transparent;
-      color: #d1d5db;
+      color: #cbd5e1;
       font-size: 13px;
+      font-weight: 600;
       text-decoration: none;
       cursor: pointer;
       text-align: left;
       transition: background .14s ease, color .14s ease;
     }
-    .dd-item:hover {
-      background: rgba(255,255,255,0.06);
-      color: #fff;
-    }
+    .dd-item svg { width: 15px; height: 15px; color: #94a3b8; flex-shrink: 0; }
+    .dd-item:hover { background: rgba(255, 255, 255, 0.06); color: #fff; }
+    .dd-item:hover svg { color: #fff; }
     .dd-item.signout {
-      border-top: 1px solid rgba(255,255,255,0.08);
+      border-top: 1px solid var(--card-border);
       margin-top: 4px;
-      padding-top: 12px;
-      color: #f87171;
+      padding-top: 11px;
+      border-radius: 0 0 8px 8px;
+      color: #fca5a5;
     }
-    .dd-item.signout:hover { background: rgba(239,68,68,0.1); }
+    .dd-item.signout svg { color: #fca5a5; }
+    .dd-item.signout:hover { background: rgba(239, 68, 68, 0.12); color: #fff; }
 
     .dash-main {
       flex: 1;
+      width: 100%;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 28px 24px 84px;
       display: flex;
       flex-direction: column;
-      align-items: center;
-      justify-content: flex-start;
-      padding: 4px 24px 40px;
+      gap: 20px;
     }
+    .dash-stats-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+    @media (max-width: 820px) {
+      .dash-stats-grid { grid-template-columns: 1fr; }
+    }
+    .dash-stat-card {
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 18px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .dash-stat-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+    }
+    .dash-stat-val {
+      font-family: var(--font-mono);
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: -0.02em;
+    }
+    .dash-stat-sub { font-size: 12px; color: var(--muted); }
     .hero-banner {
       position: relative;
       width: 100%;
-      max-width: 1720px;
-      height: clamp(380px, 60vh, 640px);
-      border-radius: 22px;
+      min-height: 360px;
+      border-radius: 18px;
       overflow: hidden;
-      border: 1px solid rgba(255,255,255,0.08);
-      background: #060916 url('/google-flow-banner.jpg') center center / cover no-repeat;
-      box-shadow: 0 30px 90px rgba(0,0,0,0.7);
+      border: 1px solid var(--border-strong);
+      background: #0b1120 url('/google-flow-banner.jpg') center center / cover no-repeat;
+      box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: flex-end;
+      padding: 36px;
+    }
+    .hero-banner::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(11, 17, 32, 0.25) 0%, rgba(11, 17, 32, 0.72) 55%, rgba(11, 17, 32, 0.96) 100%);
+    }
+    .hero-banner-content {
+      position: relative;
+      z-index: 2;
+      max-width: 620px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .hero-eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      width: fit-content;
+      padding: 5px 11px;
+      border-radius: 999px;
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid rgba(16, 185, 129, 0.35);
+      color: #6ee7b7;
+      font-size: 11.5px;
+      font-weight: 700;
+    }
+    .hero-banner-content h2 {
+      font-size: clamp(24px, 3.2vw, 34px);
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1.15;
+      color: #ffffff;
+    }
+    .hero-banner-content p {
+      font-size: 14px;
+      line-height: 1.6;
+      color: #cbd5e1;
     }
     .cta-wrap {
-      margin-top: 30px;
+      margin-top: 6px;
       display: flex;
-      justify-content: center;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
     }
     .btn-generate {
       display: inline-flex;
       align-items: center;
-      gap: 10px;
-      padding: 15px 32px;
-      border-radius: 999px;
+      gap: 9px;
+      padding: 13px 26px;
+      border-radius: 10px;
       border: 0;
-      background: #ffffff;
-      color: #09090b;
-      font-size: 15px;
+      background: #2563eb;
+      color: #ffffff;
+      font-size: 14.5px;
       font-weight: 700;
       cursor: pointer;
       text-decoration: none;
-      box-shadow: 0 10px 30px rgba(255,255,255,0.14);
-      transition: transform .15s ease, box-shadow .15s ease;
+      box-shadow: 0 10px 26px rgba(37, 99, 235, 0.36);
+      transition: background .15s ease, transform .12s ease;
     }
     .btn-generate:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 14px 36px rgba(255,255,255,0.22);
+      background: #3b82f6;
+      transform: translateY(-1px);
     }
+    .btn-ext-sec {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 20px;
+      border-radius: 10px;
+      border: 1px solid rgba(148, 163, 184, 0.3);
+      background: rgba(15, 23, 42, 0.8);
+      color: #f8fafc;
+      font-size: 13.5px;
+      font-weight: 600;
+      text-decoration: none;
+      transition: background .15s ease, border-color .15s ease;
+    }
+    .btn-ext-sec:hover { background: rgba(30, 41, 59, 0.95); border-color: rgba(148, 163, 184, 0.5); }
+    .dash-steps-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+    @media (max-width: 820px) {
+      .dash-steps-grid { grid-template-columns: 1fr; }
+      .dash-main { padding: 16px 14px 80px; }
+      .hero-banner { padding: 24px 20px; min-height: 300px; }
+      .topbar { padding: 10px 14px; }
+    }
+    .dash-step {
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 16px 18px;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+    }
+    .dash-step-num {
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      background: rgba(37, 99, 235, 0.14);
+      border: 1px solid rgba(59, 130, 246, 0.28);
+      color: #60a5fa;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .dash-step h4 { font-size: 13.5px; font-weight: 700; color: var(--text); margin-bottom: 3px; }
+    .dash-step p { font-size: 12.5px; color: var(--muted); line-height: 1.5; }
 
     /* Simple Modal */
     .modal-backdrop {
@@ -1651,7 +1812,9 @@
     /* ── Settings Page ── */
     .settings-wrap {
       min-height: 100vh;
-      background: radial-gradient(ellipse 70% 40% at 50% 0%, rgba(168,85,247,0.12), transparent 65%), #050507;
+      background:
+        radial-gradient(ellipse 70% 40% at 50% 0%, rgba(37, 99, 235, 0.14), transparent 65%),
+        var(--bg);
       padding: 36px 24px 72px;
     }
     .settings-container {
@@ -1763,20 +1926,22 @@
       margin-top: 4px;
       padding: 11px 22px;
       border: 0;
-      border-radius: 12px;
-      background: linear-gradient(135deg, #a855f7, #ec4899);
+      border-radius: 10px;
+      background: #2563eb;
       color: #ffffff;
       font-size: 13.5px;
       font-weight: 700;
       cursor: pointer;
-      box-shadow: 0 6px 18px rgba(168,85,247,0.28);
-      transition: opacity 0.15s ease, transform 0.12s ease;
+      box-shadow: 0 6px 18px rgba(37, 99, 235, 0.30);
+      transition: background 0.15s ease, transform 0.12s ease;
     }
+    .settings-submit-btn:hover { background: #3b82f6; }
     .settings-submit-btn.emerald {
-      background: linear-gradient(135deg, #10b981, #06b6d4);
-      box-shadow: 0 6px 18px rgba(16,185,129,0.25);
+      background: #10b981;
+      color: #052e16;
+      box-shadow: 0 6px 18px rgba(16, 185, 129, 0.25);
     }
-    .settings-submit-btn:hover { opacity: 0.92; }
+    .settings-submit-btn.emerald:hover { background: #34d399; }
     .settings-submit-btn:active { transform: scale(0.98); }
     .settings-card.danger {
       border-color: rgba(239,68,68,0.32);
@@ -1807,7 +1972,9 @@
     /* ── Plan & Pricing Page (Pro 20d & Max 30d, Google Flow Only) ── */
     .pricing-wrap {
       min-height: 100vh;
-      background: #000000;
+      background:
+        radial-gradient(ellipse 70% 40% at 50% 0%, rgba(37, 99, 235, 0.14), transparent 65%),
+        var(--bg);
       display: flex;
       flex-direction: column;
     }
@@ -2040,15 +2207,15 @@
       width: 100%;
       padding: 12px 18px;
       border: 0;
-      border-radius: 11px;
-      background: linear-gradient(135deg, #9333ea 0%, #ec4899 100%);
+      border-radius: 10px;
+      background: #2563eb;
       color: #ffffff;
       font-size: 13.5px;
       font-weight: 700;
       cursor: pointer;
-      transition: opacity 0.15s ease, transform 0.12s ease;
+      transition: background 0.15s ease, transform 0.12s ease;
     }
-    .btn-kick-signin:hover { opacity: 0.92; }
+    .btn-kick-signin:hover { background: #3b82f6; }
     .btn-kick-signin:disabled { opacity: 0.55; cursor: not-allowed; }
     .btn-kick-cancel {
       width: 100%;
@@ -2495,16 +2662,22 @@
     </div>
   </section>
 
-  <!-- Clean Dashboard Theme -->
+  <!-- Redesigned User Dashboard (UI/UX Pro Max) -->
   <section id="dashView" class="dash-wrap hidden">
     <header class="topbar">
-      <a class="topbar-notice" id="extReleaseLink" href="/downloads/latest" download="PakFlow_v1.7.zip">
-        <span class="topbar-notice-dot" aria-hidden="true"></span>
-        <span id="extReleaseLabel">PakFlow v1.7 is live now</span>
-        <span class="topbar-notice-cta">Download &rarr;</span>
+      <a href="/dashboard" class="topbar-brand">
+        <img src="/flowbypak-logo.png" alt="PakFlow" />
+        <span>PakFlow Studio</span>
       </a>
-      <div class="plan-pill" id="planPill">Flow Ultra</div>
-      <button type="button" class="avatar-btn" id="avatarBtn" aria-label="Account menu">P</button>
+      <div class="topbar-right">
+        <a class="topbar-notice" id="extReleaseLink" href="/downloads/latest" download="PakFlow_v1.7.zip">
+          <span class="topbar-notice-dot" aria-hidden="true"></span>
+          <span id="extReleaseLabel">PakFlow v1.7 is live now</span>
+          <span class="topbar-notice-cta">Download &rarr;</span>
+        </a>
+        <div class="plan-pill" id="planPill">Flow Ultra</div>
+        <button type="button" class="avatar-btn" id="avatarBtn" aria-label="Account menu">P</button>
+      </div>
 
       <div class="dropdown hidden" id="accountDropdown">
         <div class="dd-head">
@@ -2513,29 +2686,108 @@
         </div>
         <div class="dd-credits">
           <div class="dd-credits-row">
-            <span class="dd-credits-label">⚡ Credits</span>
+            <span class="dd-credits-label">AI Credits</span>
             <span class="dd-credits-val" id="ddCreditsVal">45,000 <span>/ 45,000</span></span>
           </div>
           <div class="progress-track"><div class="progress-fill" id="ddProgress"></div></div>
           <div class="dd-days" id="ddDays">30 days left in plan</div>
         </div>
         <div class="dd-menu">
-          <button type="button" class="dd-item" data-modal="settings">⚙ Settings</button>
-          <button type="button" class="dd-item" data-modal="plans">💳 Plan &amp; Pricing</button>
-          <button type="button" class="dd-item" data-modal="devices">🛡 My Devices</button>
-          <a class="dd-item" id="ddExtLink" href="/downloads/latest" download="PakFlow_v1.7.zip">⬇ Get Extension (v1.7)</a>
-          <button type="button" class="dd-item signout" id="signOutBtn">↪ Sign Out</button>
+          <button type="button" class="dd-item" data-modal="settings">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            <span>Account Settings</span>
+          </button>
+          <button type="button" class="dd-item" data-modal="plans">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+            <span>Plan &amp; Pricing</span>
+          </button>
+          <button type="button" class="dd-item" data-modal="devices">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            <span>My Devices</span>
+          </button>
+          <a class="dd-item" id="ddExtLink" href="/downloads/latest" download="PakFlow_v1.7.zip">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            <span id="ddExtText">Get Extension (v1.7)</span>
+          </a>
+          <button type="button" class="dd-item signout" id="signOutBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+            <span>Sign Out</span>
+          </button>
         </div>
       </div>
     </header>
 
     <main class="dash-main">
-      <div class="hero-banner" aria-label="Nano Banana 2 is Here! Welcome to PakFlow"></div>
+      <!-- KPI Summary Strip -->
+      <div class="dash-stats-grid">
+        <div class="dash-stat-card">
+          <div class="dash-stat-top">
+            <span>Active Subscription</span>
+            <span style="display:inline-flex;align-items:center;gap:5px;color:#34d399;font-size:11.5px;font-weight:700;"><span class="topbar-notice-dot"></span>Connected</span>
+          </div>
+          <div class="dash-stat-val" id="dashPlanCardVal">Flow Ultra</div>
+          <div class="dash-stat-sub" id="dashPlanCardSub">Google Flow (Veo 3.1) Studio Access</div>
+        </div>
+        <div class="dash-stat-card">
+          <div class="dash-stat-top">
+            <span>AI Credits Available</span>
+            <span style="font-size:11.5px;color:#93c5fd;font-weight:700;">Auto-Sync</span>
+          </div>
+          <div class="dash-stat-val" id="dashCreditsCardVal">45,000</div>
+          <div class="progress-track" style="margin-top:2px;"><div class="progress-fill" id="dashCreditsBar"></div></div>
+        </div>
+        <div class="dash-stat-card">
+          <div class="dash-stat-top">
+            <span>Validity Remaining</span>
+            <button type="button" data-modal="plans" style="background:transparent;border:0;color:#60a5fa;font-size:11.5px;font-weight:700;cursor:pointer;">Upgrade &rarr;</button>
+          </div>
+          <div class="dash-stat-val" id="dashDaysCardVal">30 Days</div>
+          <div class="dash-stat-sub" id="dashEmailCardSub">1 active device session</div>
+        </div>
+      </div>
 
-      <div class="cta-wrap">
-        <a href="https://flow.google.com" target="_blank" rel="noopener noreferrer" class="btn-generate" id="generateVideoBtn">
-          <span>▶</span> Generate Video
-        </a>
+      <!-- Studio Launch Hero Card -->
+      <div class="hero-banner" aria-label="Google Flow AI Video Studio">
+        <div class="hero-banner-content">
+          <div class="hero-eyebrow"><span class="topbar-notice-dot"></span>Google Flow · Veo 3.1 Ready</div>
+          <h2>Create Cinematic AI Videos in One Click.</h2>
+          <p>Your PakFlow Chrome Extension automatically syncs your active session. Keep this portal open and launch Google Flow directly below.</p>
+          <div class="cta-wrap">
+            <a href="https://flow.google.com" target="_blank" rel="noopener noreferrer" class="btn-generate" id="generateVideoBtn">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="6 4 20 12 6 20 6 4"/></svg>
+              <span>Launch Google Flow</span>
+            </a>
+            <a href="/downloads/latest" download="PakFlow_v1.7.zip" class="btn-ext-sec" id="heroExtDownloadBtn">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              <span id="heroExtBtnText">Download Extension (v1.7)</span>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3-Step Quick Guide -->
+      <div class="dash-steps-grid">
+        <div class="dash-step">
+          <div class="dash-step-num">01</div>
+          <div>
+            <h4>Install Latest Extension</h4>
+            <p>Download the Chrome extension above and load it once in Chrome Extensions.</p>
+          </div>
+        </div>
+        <div class="dash-step">
+          <div class="dash-step-num">02</div>
+          <div>
+            <h4>Keep Portal Connected</h4>
+            <p>Your account syncs automatically with the extension for instant session switching.</p>
+          </div>
+        </div>
+        <div class="dash-step">
+          <div class="dash-step-num">03</div>
+          <div>
+            <h4>Generate in Google Flow</h4>
+            <p>Click Launch Google Flow and start creating Veo 3.1 videos right away.</p>
+          </div>
+        </div>
       </div>
     </main>
   </section>
@@ -2795,6 +3047,9 @@
           const topLink = document.getElementById('extReleaseLink');
           const topLabel = document.getElementById('extReleaseLabel');
           const ddLink = document.getElementById('ddExtLink');
+          const ddText = document.getElementById('ddExtText');
+          const heroExtBtn = document.getElementById('heroExtDownloadBtn');
+          const heroExtTxt = document.getElementById('heroExtBtnText');
           if (topLink) {
             topLink.setAttribute('href', dlUrl);
             topLink.setAttribute('download', fileName);
@@ -2803,8 +3058,14 @@
           if (ddLink) {
             ddLink.setAttribute('href', dlUrl);
             ddLink.setAttribute('download', fileName);
-            ddLink.textContent = '⬇ Get Extension (v' + ver + ')';
+            if (ddText) ddText.textContent = 'Get Extension (v' + ver + ')';
+            else ddLink.textContent = 'Get Extension (v' + ver + ')';
           }
+          if (heroExtBtn) {
+            heroExtBtn.setAttribute('href', dlUrl);
+            heroExtBtn.setAttribute('download', fileName);
+          }
+          if (heroExtTxt) heroExtTxt.textContent = 'Download Extension (v' + ver + ')';
         } catch (_) {}
       }
 
@@ -3112,6 +3373,17 @@
           credits.toLocaleString() + ' <span>/ ' + creditsTotal.toLocaleString() + '</span>';
         document.getElementById('ddProgress').style.width = pct + '%';
         document.getElementById('ddDays').textContent = days + ' days left in plan';
+
+        const dashPlanEl = document.getElementById('dashPlanCardVal');
+        const dashCreditsEl = document.getElementById('dashCreditsCardVal');
+        const dashBarEl = document.getElementById('dashCreditsBar');
+        const dashDaysEl = document.getElementById('dashDaysCardVal');
+        const dashEmailSub = document.getElementById('dashEmailCardSub');
+        if (dashPlanEl) dashPlanEl.textContent = planBadge;
+        if (dashCreditsEl) dashCreditsEl.textContent = credits.toLocaleString();
+        if (dashBarEl) dashBarEl.style.width = pct + '%';
+        if (dashDaysEl) dashDaysEl.textContent = days + (days === 1 ? ' Day' : ' Days');
+        if (dashEmailSub) dashEmailSub.textContent = email || '1 active device session';
       }
 
       function hideBootLoader() {

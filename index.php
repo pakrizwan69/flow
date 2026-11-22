@@ -216,6 +216,13 @@ if (($method === 'GET' || $method === 'HEAD') && in_array($normalizedRoute, ['/a
     }
 }
 
+if (($method === 'GET' || $method === 'HEAD') && ($normalizedRoute === '/admin' || $normalizedRoute === '/admin/dashboard' || $normalizedRoute === '/admin/login')) {
+    $adminView = __DIR__ . DIRECTORY_SEPARATOR . 'views' . DIRECTORY_SEPARATOR . 'admin.php';
+    if (is_file($adminView)) {
+        $servePhpView($adminView);
+    }
+}
+
 // Fast slot version endpoint (skips loading users DB; supports optional ?slot=N for per-slot polling)
 if ($method === 'GET' && in_array($reqPath, ['/api/slots/version', '/api/cookies/version'], true)) {
     require_once __DIR__ . '/src/Env.php';
