@@ -58,6 +58,17 @@ final class Db
         self::$dbRevision++;
     }
 
+    public static function invalidateRuntimeCaches(bool $includeSettings = true, bool $includeVersion = true): void
+    {
+        $dir = self::dataDir();
+        if ($includeVersion) {
+            @unlink($dir . DIRECTORY_SEPARATOR . 'version_cache.json');
+        }
+        if ($includeSettings) {
+            @unlink($dir . DIRECTORY_SEPARATOR . 'settings_cache.json');
+        }
+    }
+
     public static function isoNow(?int $offsetSeconds = null): string
     {
         $ts = time() + ($offsetSeconds ?? 0);
@@ -657,6 +668,16 @@ final class Db
         ]);
     }
 
+    public static function countUsersByResellerMysql(int $resellerId): int
+    {
+        if (!Database::isEnabled() || $resellerId <= 0) {
+            return 0;
+        }
+        $stmt = Database::pdo()->prepare('SELECT COUNT(*) FROM users WHERE reseller_id = ?');
+        $stmt->execute([$resellerId]);
+        return (int)$stmt->fetchColumn();
+    }
+
     public static function nextUserIdMysql(): int
     {
         if (!Database::isEnabled()) {
@@ -1201,13 +1222,28 @@ final class Db
         }
         $defaults = self::defaultSettings();
         if (Database::isEnabled()) {
+            $cacheFile = self::dataDir() . DIRECTORY_SEPARATOR . 'settings_cache.json';
+            clearstatcache(true, $cacheFile);
+            if (is_file($cacheFile) && is_readable($cacheFile)) {
+                $age = time() - (@filemtime($cacheFile) ?: 0);
+                if ($age >= 0 && $age <= 8) {
+                    $cached = self::readJsonFile($cacheFile, null);
+                    if (is_array($cached)) {
+                        self::$settingsCache = array_replace($defaults, $cached);
+                        self::$dbRevision++;
+                        return self::$settingsCache;
+                    }
+                }
+            }
             $parsed = self::getMetaValue('platform_settings', null);
             if (!is_array($parsed)) {
                 self::setMetaValue('platform_settings', $defaults);
                 self::$settingsCache = $defaults;
+                self::writeFileAtomic($cacheFile, $defaults, false);
                 return self::$settingsCache;
             }
             self::$settingsCache = array_replace($defaults, $parsed);
+            self::writeFileAtomic($cacheFile, $parsed, false);
             self::$dbRevision++;
             return self::$settingsCache;
         }
@@ -1228,9 +1264,13 @@ final class Db
         self::$settingsCache = $settings;
         self::$dbRevision++;
         if (Database::isEnabled()) {
-            return self::setMetaValue('platform_settings', $settings);
+            $ok = self::setMetaValue('platform_settings', $settings);
+            self::invalidateRuntimeCaches(true, true);
+            return $ok;
         }
-        return self::writeFileAtomic(self::dataDir() . DIRECTORY_SEPARATOR . 'settings.json', $settings, true);
+        $ok = self::writeFileAtomic(self::dataDir() . DIRECTORY_SEPARATOR . 'settings.json', $settings, true);
+        self::invalidateRuntimeCaches(true, true);
+        return $ok;
     }
 
     public static function readResellers(): array
@@ -1876,6 +1916,7 @@ final class Db
                     self::$slotsCache[] = $slot;
                 }
             }
+            self::invalidateRuntimeCaches(false, true);
             return ['slot' => $slot, 'changed' => true, 'versionTs' => $ver];
         }
 
@@ -1995,9 +2036,12 @@ final class Db
                 }
                 throw $e;
             }
+            self::invalidateRuntimeCaches(false, true);
             return true;
         }
-        return self::writeFileAtomic(self::dataDir() . DIRECTORY_SEPARATOR . 'slots.json', self::$slotsCache, true);
+        $ok = self::writeFileAtomic(self::dataDir() . DIRECTORY_SEPARATOR . 'slots.json', self::$slotsCache, true);
+        self::invalidateRuntimeCaches(false, true);
+        return $ok;
     }
 
     public static function getPendingSignup(string $cleanEmail): ?array

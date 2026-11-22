@@ -223,64 +223,127 @@ if (($method === 'GET' || $method === 'HEAD') && ($normalizedRoute === '/admin' 
     }
 }
 
-// Fast slot version endpoint (skips loading users DB; supports optional ?slot=N for per-slot polling)
+// Fast slot version endpoint (micro-cached 5s on disk for 20k+ users with 0 MySQL connections on cache hits)
 if ($method === 'GET' && in_array($reqPath, ['/api/slots/version', '/api/cookies/version'], true)) {
     require_once __DIR__ . '/src/Env.php';
     \App\Env::load(__DIR__);
     $rawSlotParam = (string)(Http::query('slot') ?? Http::query('slotNumber') ?? '');
     $slotDigits = preg_replace('/\D/', '', $rawSlotParam) ?? '';
     $slotNum = ($slotDigits !== '' && (int)$slotDigits >= 1 && (int)$slotDigits <= 15) ? (int)$slotDigits : 0;
-    $ver = '0';
 
-    if (\App\Env::get('DB_NAME') !== '' && extension_loaded('pdo_mysql')) {
-        require_once __DIR__ . '/src/Database.php';
-        $queryVer = static function () use ($slotNum): string {
-            $pdo = \App\Database::pdo();
-            if ($slotNum > 0) {
-                $st = $pdo->prepare('SELECT COALESCE(version_ts, 0) FROM cookie_slots WHERE slot_number = ? LIMIT 1');
-                $st->execute([$slotNum]);
-                $col = $st->fetchColumn();
-                return $col !== false ? (string)$col : '0';
-            }
-            return (string)$pdo->query('SELECT COALESCE(MAX(version_ts), 0) FROM cookie_slots')->fetchColumn();
-        };
-        try {
-            $ver = $queryVer();
-        } catch (\Throwable $e) {
-            if (\App\Database::isTransientConnectionError($e)) {
-                try {
-                    \App\Database::resetConnection();
-                    $ver = $queryVer();
-                } catch (\Throwable $_retryErr) {
-                    $ver = '0';
+    $dataDir = __DIR__ . DIRECTORY_SEPARATOR . 'data';
+    $versionCacheFile = $dataDir . DIRECTORY_SEPARATOR . 'version_cache.json';
+    $cachedSnap = null;
+    clearstatcache(true, $versionCacheFile);
+    if (is_file($versionCacheFile) && is_readable($versionCacheFile)) {
+        $age = time() - (@filemtime($versionCacheFile) ?: 0);
+        if ($age >= 0 && $age <= 5) {
+            $rawC = @file_get_contents($versionCacheFile);
+            if ($rawC !== false && $rawC !== '') {
+                $decC = json_decode($rawC, true);
+                if (is_array($decC) && isset($decC['versions']) && is_array($decC['versions'])) {
+                    $cachedSnap = $decC;
                 }
-            } else {
-                $slotsFile = __DIR__ . DIRECTORY_SEPARATOR . 'data' . DIRECTORY_SEPARATOR . 'slots.json';
-                clearstatcache(true, $slotsFile);
-                $ver = (@filemtime($slotsFile) ?: 0) . '-' . (@filesize($slotsFile) ?: 0);
             }
         }
-    } else {
-        $slotsFile = __DIR__ . DIRECTORY_SEPARATOR . 'data' . DIRECTORY_SEPARATOR . 'slots.json';
-        clearstatcache(true, $slotsFile);
-        $mtime = @filemtime($slotsFile) ?: 0;
-        $size = @filesize($slotsFile) ?: 0;
-        $ver = "$mtime-$size";
     }
-    $policyMeta = null;
-    $shuffleMeta = null;
-    try {
-        require_once __DIR__ . '/src/Database.php';
-        require_once __DIR__ . '/src/Db.php';
-        $st = \App\Db::readSettings();
-        $ap = is_array($st['accessPolicy'] ?? null) ? $st['accessPolicy'] : [];
-        $policyMeta = [
-            'requirePortalOpen' => !empty($ap['requirePortalOpen']),
-            'blockOnLogout' => !array_key_exists('blockOnLogout', $ap) || (bool)$ap['blockOnLogout'],
-            'blockOnExpired' => !array_key_exists('blockOnExpired', $ap) || (bool)$ap['blockOnExpired'],
-            'portalGraceSeconds' => max(3, min(120, (int)($ap['portalGraceSeconds'] ?? 15))),
+
+    if ($cachedSnap === null) {
+        $versionsMap = ['max' => '0'];
+        $useMysql = (\App\Env::get('DB_NAME') !== '' && extension_loaded('pdo_mysql'));
+        if ($useMysql) {
+            require_once __DIR__ . '/src/Database.php';
+            $queryAllVers = static function (): array {
+                $pdo = \App\Database::pdo();
+                $rows = $pdo->query('SELECT slot_number, COALESCE(version_ts, 0) AS v FROM cookie_slots')->fetchAll();
+                $map = ['max' => '0'];
+                $maxV = 0;
+                foreach ($rows as $r) {
+                    $sn = (int)($r['slot_number'] ?? 0);
+                    $v = (int)($r['v'] ?? 0);
+                    if ($sn >= 1 && $sn <= 15) {
+                        $map[(string)$sn] = (string)$v;
+                    }
+                    if ($v > $maxV) {
+                        $maxV = $v;
+                    }
+                }
+                $map['max'] = (string)$maxV;
+                return $map;
+            };
+            try {
+                $versionsMap = $queryAllVers();
+            } catch (\Throwable $e) {
+                if (\App\Database::isTransientConnectionError($e)) {
+                    try {
+                        \App\Database::resetConnection();
+                        $versionsMap = $queryAllVers();
+                    } catch (\Throwable $_retryErr) {
+                        $versionsMap = ['max' => '0'];
+                    }
+                } else {
+                    $slotsFile = $dataDir . DIRECTORY_SEPARATOR . 'slots.json';
+                    clearstatcache(true, $slotsFile);
+                    $versionsMap = ['max' => ((@filemtime($slotsFile) ?: 0) . '-' . (@filesize($slotsFile) ?: 0))];
+                }
+            }
+        } else {
+            $slotsFile = $dataDir . DIRECTORY_SEPARATOR . 'slots.json';
+            clearstatcache(true, $slotsFile);
+            $mtime = @filemtime($slotsFile) ?: 0;
+            $size = @filesize($slotsFile) ?: 0;
+            $versionsMap = ['max' => "$mtime-$size"];
+        }
+
+        $policyMeta = null;
+        $rawShuffle = null;
+        try {
+            require_once __DIR__ . '/src/Database.php';
+            require_once __DIR__ . '/src/Db.php';
+            $st = \App\Db::readSettings();
+            $ap = is_array($st['accessPolicy'] ?? null) ? $st['accessPolicy'] : [];
+            $policyMeta = [
+                'requirePortalOpen' => !empty($ap['requirePortalOpen']),
+                'blockOnLogout' => !array_key_exists('blockOnLogout', $ap) || (bool)$ap['blockOnLogout'],
+                'blockOnExpired' => !array_key_exists('blockOnExpired', $ap) || (bool)$ap['blockOnExpired'],
+                'portalGraceSeconds' => max(3, min(120, (int)($ap['portalGraceSeconds'] ?? 15))),
+            ];
+            $sh = is_array($st['serverShuffle'] ?? null) ? $st['serverShuffle'] : [];
+            $rawShuffle = [
+                'enabled' => !empty($sh['enabled']),
+                'intervalMinutes' => max(5, min(43200, (int)($sh['intervalMinutes'] ?? 180))),
+                'defaultSlot' => max(1, min(10, (int)($sh['defaultSlot'] ?? 1))),
+                'shuffleEpoch' => max(1, (int)($sh['shuffleEpoch'] ?? 1)),
+                'shuffleAnchorTs' => (int)($sh['shuffleAnchorTs'] ?? 0),
+                'lastShuffledAt' => $sh['lastShuffledAt'] ?? null,
+            ];
+        } catch (\Throwable $_metaErr) {}
+
+        $cachedSnap = [
+            'versions' => $versionsMap,
+            'accessPolicy' => $policyMeta,
+            'rawShuffle' => $rawShuffle,
         ];
-        $sh = is_array($st['serverShuffle'] ?? null) ? $st['serverShuffle'] : [];
+        if (!is_dir($dataDir)) {
+            @mkdir($dataDir, 0775, true);
+        }
+        $tmpCache = $versionCacheFile . '.tmp.' . getmypid();
+        $encoded = json_encode($cachedSnap, JSON_UNESCAPED_SLASHES);
+        if ($encoded !== false && @file_put_contents($tmpCache, $encoded, LOCK_EX) !== false) {
+            if (!@rename($tmpCache, $versionCacheFile)) {
+                @unlink($tmpCache);
+            }
+        }
+    }
+
+    $ver = ($slotNum > 0 && isset($cachedSnap['versions'][(string)$slotNum]))
+        ? (string)$cachedSnap['versions'][(string)$slotNum]
+        : (string)($cachedSnap['versions']['max'] ?? '0');
+
+    $policyMeta = $cachedSnap['accessPolicy'] ?? null;
+    $shuffleMeta = null;
+    if (is_array($cachedSnap['rawShuffle'] ?? null)) {
+        $sh = $cachedSnap['rawShuffle'];
         $intervalMin = max(5, min(43200, (int)($sh['intervalMinutes'] ?? 180)));
         $shEnabled = !empty($sh['enabled']);
         $shEpoch = max(1, (int)($sh['shuffleEpoch'] ?? 1));
@@ -306,8 +369,9 @@ if ($method === 'GET' && in_array($reqPath, ['/api/slots/version', '/api/cookies
             'nextShuffleAt' => gmdate('Y-m-d\TH:i:s', $nextShuffleTs) . '.000Z',
             'lastShuffledAt' => $sh['lastShuffledAt'] ?? null,
         ];
-    } catch (\Throwable $_metaErr) {}
-    header('Cache-Control: public, max-age=3, stale-while-revalidate=5');
+    }
+
+    header('Cache-Control: public, max-age=10, stale-while-revalidate=20');
     Http::json([
         'success' => true,
         'version' => $ver,

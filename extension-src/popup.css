@@ -1,4 +1,4 @@
-/* PakFlow Chrome Extension — UI/UX Pro Max Midnight Slate Design System */
+/* PakFlow Chrome Extension — UI/UX Pro Max Compact Midnight Slate + Scrollable Sessions */
 *, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
@@ -9,7 +9,7 @@
   --bg: #0b1120;
   --bg-elevated: #0f172a;
   --card: #111827;
-  --card-hover: #162033;
+  --card-hover: #172338;
   --muted-bg: #1e293b;
   --border: rgba(148, 163, 184, 0.15);
   --border-strong: rgba(148, 163, 184, 0.28);
@@ -25,22 +25,24 @@
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
-body {
-  width: 356px;
-  min-height: 430px;
+html, body {
+  width: 360px;
+  max-height: 560px;
+  overflow-x: hidden;
+  overflow-y: auto;
   background:
-    radial-gradient(ellipse 90% 45% at 50% -10%, rgba(37, 99, 235, 0.18), transparent 65%),
+    radial-gradient(ellipse 95% 42% at 50% -12%, rgba(37, 99, 235, 0.20), transparent 65%),
     var(--bg);
   color: var(--text);
   font-family: var(--font-sans);
   font-size: 13px;
-  line-height: 1.45;
+  line-height: 1.42;
   -webkit-font-smoothing: antialiased;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.25) transparent;
 }
 
-button, input, a {
-  font-family: inherit;
-}
+button, input, a { font-family: inherit; }
 
 button:focus-visible, a:focus-visible, input:focus-visible {
   outline: 2px solid var(--primary-hover);
@@ -52,7 +54,7 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 }
 
 .app-container {
-  padding: 16px;
+  padding: 14px 15px 12px;
 }
 
 .hidden,
@@ -65,23 +67,23 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  padding-bottom: 13px;
+  gap: 8px;
+  padding-bottom: 11px;
   border-bottom: 1px solid var(--border);
-  margin-bottom: 14px;
+  margin-bottom: 12px;
 }
 
 .top-brand-wrap {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 9px;
   min-width: 0;
 }
 
 .top-logo-img {
-  width: 34px;
-  height: 34px;
-  border-radius: 9px;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
   object-fit: cover;
   background: #ffffff;
   border: 1px solid var(--border-strong);
@@ -97,7 +99,7 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 }
 
 .top-brand {
-  font-size: 15px;
+  font-size: 14.5px;
   font-weight: 800;
   color: var(--text);
   letter-spacing: -0.02em;
@@ -106,18 +108,18 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 
 .top-version {
   font-family: var(--font-mono);
-  font-size: 10.5px;
+  font-size: 10px;
   font-weight: 700;
   color: #93c5fd;
   background: rgba(37, 99, 235, 0.16);
   border: 1px solid rgba(59, 130, 246, 0.34);
-  padding: 1px 7px;
-  border-radius: 6px;
+  padding: 1px 6px;
+  border-radius: 5px;
   line-height: 1.35;
 }
 
 .top-sub {
-  font-size: 11px;
+  font-size: 10.5px;
   color: var(--text-muted);
   margin-top: 2px;
   white-space: nowrap;
@@ -128,20 +130,20 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 .connected-pill {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
+  gap: 5px;
+  padding: 4px 9px;
   border-radius: 999px;
   background: rgba(16, 185, 129, 0.12);
-  border: 1px solid rgba(16, 185, 129, 0.32);
+  border: 1px solid rgba(16, 185, 129, 0.34);
   color: #34d399;
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 700;
   flex-shrink: 0;
 }
 
 .dot-green {
-  width: 7px;
-  height: 7px;
+  width: 6.5px;
+  height: 6.5px;
   border-radius: 999px;
   background: var(--emerald);
   display: inline-block;
@@ -152,22 +154,22 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 .profile-card {
   display: flex;
   align-items: center;
-  gap: 11px;
-  padding: 12px 13px;
-  border-radius: 12px;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 11px;
   background: var(--card);
   border: 1px solid var(--border);
-  margin-bottom: 10px;
+  margin-bottom: 9px;
 }
 
 .avatar-circle {
-  width: 38px;
-  height: 38px;
-  border-radius: 10px;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
   background: var(--primary);
   border: 1px solid rgba(96, 165, 250, 0.35);
   color: #ffffff;
-  font-size: 13.5px;
+  font-size: 12.5px;
   font-weight: 800;
   display: flex;
   align-items: center;
@@ -176,13 +178,10 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   text-transform: uppercase;
 }
 
-.profile-meta {
-  min-width: 0;
-  flex: 1;
-}
+.profile-meta { min-width: 0; flex: 1; }
 
 .profile-name {
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 700;
   color: var(--text);
   white-space: nowrap;
@@ -192,21 +191,21 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 
 .profile-plan {
   display: inline-block;
-  margin-top: 3px;
-  font-size: 10.5px;
+  margin-top: 2px;
+  font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.03em;
   text-transform: uppercase;
   color: #93c5fd;
   background: rgba(37, 99, 235, 0.14);
   border: 1px solid rgba(59, 130, 246, 0.28);
-  padding: 1px 7px;
+  padding: 1px 6px;
   border-radius: 999px;
 }
 
 .signout-icon-btn {
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
   border-radius: 8px;
   border: 1px solid var(--border);
   background: var(--bg-elevated);
@@ -225,24 +224,28 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   color: #fca5a5;
 }
 
-/* ── KPI Stats Grid ── */
+/* ── Compact 2-Col Stats Strip ── */
 .stats-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 9px;
-  margin-bottom: 10px;
+  gap: 8px;
+  margin-bottom: 9px;
 }
 
 .stat-box {
-  padding: 11px 13px;
-  border-radius: 11px;
+  padding: 9px 12px;
+  border-radius: 10px;
   background: var(--card);
   border: 1px solid var(--border);
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
 }
 
 .stat-value {
   font-family: var(--font-mono);
-  font-size: 18px;
+  font-size: 15.5px;
   font-weight: 700;
   color: var(--text);
   line-height: 1.15;
@@ -250,36 +253,36 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 }
 
 .stat-label {
-  font-size: 11px;
+  font-size: 10.5px;
   color: var(--text-muted);
-  margin-top: 3px;
   font-weight: 600;
+  white-space: nowrap;
 }
 
 /* ── Active Session Status Bar ── */
 .session-active-bar {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 9px 12px;
-  border-radius: 10px;
+  gap: 7px;
+  padding: 8px 11px;
+  border-radius: 9px;
   background: rgba(16, 185, 129, 0.10);
   border: 1px solid rgba(16, 185, 129, 0.28);
   color: #6ee7b7;
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 600;
   margin-bottom: 10px;
 }
 
-/* ── Primary & Secondary Action Buttons ── */
+/* ── Primary CTA Button ── */
 .btn-open-flow {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
   width: 100%;
-  padding: 11px 14px;
-  margin-bottom: 12px;
+  padding: 10px 14px;
+  margin-bottom: 10px;
   border-radius: 10px;
   background: var(--primary);
   color: #ffffff;
@@ -287,22 +290,20 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   font-weight: 700;
   text-decoration: none;
   cursor: pointer;
-  box-shadow: 0 8px 20px rgba(37, 99, 235, 0.32);
+  box-shadow: 0 6px 18px rgba(37, 99, 235, 0.34);
   transition: background 0.15s ease, transform 0.12s ease;
 }
 
-.btn-open-flow:hover {
-  background: var(--primary-hover);
-}
+.btn-open-flow:hover { background: var(--primary-hover); }
 
 .btn-blue {
   width: 100%;
-  padding: 11px 16px;
+  padding: 10px 16px;
   border-radius: 10px;
   border: none;
   background: var(--primary);
   color: #ffffff;
-  font-size: 13.5px;
+  font-size: 13px;
   font-weight: 700;
   cursor: pointer;
   display: block;
@@ -312,13 +313,11 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   transition: background 0.15s ease, transform 0.12s ease;
 }
 
-.btn-blue:hover {
-  background: var(--primary-hover);
-}
+.btn-blue:hover { background: var(--primary-hover); }
 
 .btn-dark {
   width: 100%;
-  padding: 10px 16px;
+  padding: 9px 14px;
   border-radius: 10px;
   border: 1px solid var(--border-strong);
   background: var(--bg-elevated);
@@ -329,17 +328,14 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   display: block;
   text-align: center;
   text-decoration: none;
-  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
-.btn-dark:hover {
-  background: var(--muted-bg);
-  color: #ffffff;
-}
+.btn-dark:hover { background: var(--muted-bg); color: #ffffff; }
 
 .btn-change {
   width: 100%;
-  padding: 10px 16px;
+  padding: 9px 14px;
   border-radius: 10px;
   border: 1px solid var(--border-strong);
   background: var(--card);
@@ -352,36 +348,66 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   margin-bottom: 8px;
 }
 
-.btn-change:hover {
-  background: var(--card-hover);
+/* ── Dedicated Scrollable Sessions Card (Fixed Compact Height even for 10+ Sessions) ── */
+.sessions-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  padding: 10px;
 }
 
-/* ── Session Selector Section ── */
 .sessions-section-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 8px;
   margin-bottom: 8px;
+  padding: 0 2px;
 }
 
 .sessions-section-title {
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--text-muted);
 }
 
-.sessions-section-hint {
-  font-size: 10.5px;
-  color: #64748b;
-  font-weight: 600;
+.sessions-count-badge {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  color: #93c5fd;
+  background: rgba(37, 99, 235, 0.14);
+  border: 1px solid rgba(59, 130, 246, 0.28);
+  padding: 1px 7px;
+  border-radius: 999px;
 }
 
 .session-buttons-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 7px;
+  max-height: 148px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 3px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.35) transparent;
+}
+
+.session-buttons-grid::-webkit-scrollbar {
+  width: 5px;
+}
+.session-buttons-grid::-webkit-scrollbar-track {
+  background: transparent;
+}
+.session-buttons-grid::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.32);
+  border-radius: 999px;
+}
+.session-buttons-grid::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.55);
 }
 
 .session-buttons-grid:empty {
@@ -395,15 +421,18 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   justify-content: center;
   gap: 6px;
   border: 1px solid var(--border);
-  background: var(--card);
+  background: var(--bg-elevated);
   color: var(--text-secondary);
-  border-radius: 9px;
-  padding: 9px 10px;
+  border-radius: 8px;
+  padding: 8px 8px;
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
   text-align: center;
   user-select: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
   transition: transform 0.12s ease, background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
@@ -421,28 +450,21 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 
 .session-slot-btn:hover {
   background: var(--card-hover);
-  border-color: rgba(59, 130, 246, 0.45);
+  border-color: rgba(59, 130, 246, 0.48);
   color: #ffffff;
 }
 
-.session-slot-btn:hover::before {
-  background: #60a5fa;
-}
-
-.session-slot-btn:active {
-  transform: scale(0.97);
-}
+.session-slot-btn:hover::before { background: #60a5fa; }
+.session-slot-btn:active { transform: scale(0.97); }
 
 .session-slot-btn.is-active {
-  background: rgba(16, 185, 129, 0.12);
-  border-color: rgba(16, 185, 129, 0.5);
+  background: rgba(16, 185, 129, 0.14);
+  border-color: rgba(16, 185, 129, 0.52);
   color: #ecfdf5;
   font-weight: 700;
 }
 
-.session-slot-btn.is-active::before {
-  background: var(--emerald);
-}
+.session-slot-btn.is-active::before { background: var(--emerald); }
 
 .session-slot-btn.is-busy {
   opacity: 0.7;
@@ -455,27 +477,27 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  margin-top: 10px;
-  padding: 7px 10px;
-  border-radius: 8px;
-  background: var(--bg-elevated);
+  margin-top: 8px;
+  padding: 6px 10px;
+  border-radius: 7px;
+  background: var(--bg);
   border: 1px solid var(--border);
   color: var(--text-muted);
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 600;
 }
 
 /* ── Auth & Maintenance Cards ── */
 .auth-card {
-  padding: 18px 16px;
+  padding: 16px;
   border-radius: 12px;
   background: var(--card);
   border: 1px solid var(--border);
 }
 
 .auth-title {
-  font-size: 16px;
+  font-size: 15.5px;
   font-weight: 800;
   letter-spacing: -0.02em;
   color: var(--text);
@@ -488,21 +510,19 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   margin-bottom: 14px;
 }
 
-.form-group {
-  margin-bottom: 12px;
-}
+.form-group { margin-bottom: 11px; }
 
 .form-group label {
   display: block;
   font-size: 11.5px;
   font-weight: 600;
   color: var(--text-secondary);
-  margin-bottom: 5px;
+  margin-bottom: 4px;
 }
 
 .form-group input {
   width: 100%;
-  padding: 9px 12px;
+  padding: 9px 11px;
   border-radius: 8px;
   border: 1px solid var(--border-strong);
   background: var(--bg);
@@ -512,14 +532,12 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   transition: border-color 0.15s ease;
 }
 
-.form-group input:focus {
-  border-color: var(--primary-hover);
-}
+.form-group input:focus { border-color: var(--primary-hover); }
 
 .status-msg,
 .status-pill {
-  margin-top: 10px;
-  padding: 8px 10px;
+  margin-top: 8px;
+  padding: 7px 10px;
   border-radius: 8px;
   background: var(--card);
   border: 1px solid var(--border);
@@ -529,38 +547,28 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 }
 
 .lock-notice-box {
-  margin-top: 10px;
-  padding: 11px 12px;
+  margin-top: 9px;
+  padding: 10px 12px;
   border-radius: 10px;
   background: rgba(245, 158, 11, 0.10);
   border: 1px solid rgba(245, 158, 11, 0.32);
   color: #fcd34d;
-  font-size: 12px;
+  font-size: 11.5px;
 }
 
-.lock-notice-box strong {
-  display: block;
-  margin-bottom: 2px;
-}
+.lock-notice-box strong { display: block; margin-bottom: 2px; }
 
 .footer-note {
-  margin-top: 14px;
-  padding-top: 10px;
+  margin-top: 11px;
+  padding-top: 9px;
   border-top: 1px solid var(--border);
   text-align: center;
-  font-size: 11px;
+  font-size: 10.5px;
   color: #64748b;
 }
 
-.footer-note a {
-  color: #60a5fa;
-  font-weight: 600;
-  text-decoration: none;
-}
-
-.footer-note a:hover {
-  text-decoration: underline;
-}
+.footer-note a { color: #60a5fa; font-weight: 600; text-decoration: none; }
+.footer-note a:hover { text-decoration: underline; }
 
 .btn-open-flow:active, .btn-change:active, .btn-blue:active, .btn-dark:active, .signout-icon-btn:active {
   transform: scale(0.98);

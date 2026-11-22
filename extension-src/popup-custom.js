@@ -314,6 +314,11 @@
     var grid = document.getElementById("sessionButtonsGrid");
     if (!grid) return;
 
+    var countBadge = document.getElementById("activeSessionsCount");
+    if (countBadge) {
+      countBadge.textContent = slots.length + (slots.length === 1 ? " Active" : " Active");
+    }
+
     var nextNums = slots.map(function (s) {
       return Number(s.slotNumber || parseSlotNum(s.id));
     });
@@ -421,12 +426,12 @@
   function ensureShuffleTimerEl() {
     var el = document.getElementById("pfPopupShuffleCountdown");
     if (el) return el;
-    var box = document.getElementById("sessionInjectorBox");
-    if (!box) return null;
+    var card = document.querySelector("#sessionInjectorBox .sessions-card") || document.getElementById("sessionInjectorBox");
+    if (!card) return null;
     el = document.createElement("div");
     el.id = "pfPopupShuffleCountdown";
     el.className = "shuffle-countdown-bar";
-    box.appendChild(el);
+    card.appendChild(el);
     return el;
   }
 

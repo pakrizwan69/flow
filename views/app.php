@@ -3894,13 +3894,14 @@
         }
       }
 
+      const sessionPollMs = 180000 + Math.floor(Math.random() * 30000);
       setInterval(() => {
         if (document.visibilityState === 'visible') {
           verifyActiveSession();
         }
-      }, 90000);
+      }, sessionPollMs);
       document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible' && (Date.now() - lastSessionCheckMs) >= 30000) {
+        if (document.visibilityState === 'visible' && (Date.now() - lastSessionCheckMs) >= 60000) {
           verifyActiveSession();
         }
       });

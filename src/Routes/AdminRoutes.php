@@ -429,34 +429,34 @@ final class AdminRoutes
     private static function adminStats(): void
     {
         $now = time();
+        $nowIso = Db::isoNow();
         $activeCount = 0;
         $expiredCount = 0;
         $suspendedCount = 0;
         $planBreakdown = ['vibe' => 0, 'plus' => 0, 'pro' => 0, 'max' => 0, 'ultra' => 0, 'starter' => 0, 'free' => 0];
 
         if (\App\Database::isEnabled()) {
-            $rows = \App\Database::pdo()->query('SELECT plan, status, plan_expires_at FROM users')->fetchAll();
-            $totalUsers = count($rows);
-            foreach ($rows as $r) {
-                $p = strtolower((string)($r['plan'] ?? 'free'));
-                $planBreakdown[$p] = ($planBreakdown[$p] ?? 0) + 1;
-                if (($r['status'] ?? '') === 'suspended') {
-                    $suspendedCount++;
-                } else {
-                    $expRaw = $r['plan_expires_at'] ?? null;
-                    $exp = $expRaw ? (strtotime((string)$expRaw) ?: 0) : 0;
-                    if ($exp > $now) {
-                        $activeCount++;
-                    } else {
-                        $expiredCount++;
-                    }
-                }
+            $pdo = \App\Database::pdo();
+            $stAgg = $pdo->prepare(
+                "SELECT
+                    COUNT(*) AS total_users,
+                    SUM(CASE WHEN LOWER(status) = 'suspended' OR COALESCE(is_locked, 0) = 1 THEN 1 ELSE 0 END) AS suspended_users,
+                    SUM(CASE WHEN LOWER(status) <> 'suspended' AND COALESCE(is_locked, 0) = 0 AND plan_expires_at IS NOT NULL AND plan_expires_at > ? THEN 1 ELSE 0 END) AS active_users,
+                    SUM(CASE WHEN LOWER(status) <> 'suspended' AND COALESCE(is_locked, 0) = 0 AND (plan_expires_at IS NULL OR plan_expires_at <= ?) THEN 1 ELSE 0 END) AS expired_users
+                 FROM users"
+            );
+            $stAgg->execute([$nowIso, $nowIso]);
+            $agg = $stAgg->fetch() ?: [];
+            $planRows = $pdo->query('SELECT LOWER(COALESCE(plan, "free")) AS p, COUNT(*) AS c FROM users GROUP BY LOWER(COALESCE(plan, "free"))')->fetchAll();
+            foreach ($planRows as $pr) {
+                $p = (string)($pr['p'] ?? 'free');
+                $planBreakdown[$p] = (int)($pr['c'] ?? 0);
             }
             Http::json([
-                'totalUsers' => $totalUsers,
-                'activeSubscribers' => $activeCount,
-                'expiredUsers' => $expiredCount,
-                'suspendedUsers' => $suspendedCount,
+                'totalUsers' => (int)($agg['total_users'] ?? 0),
+                'activeSubscribers' => (int)($agg['active_users'] ?? 0),
+                'expiredUsers' => (int)($agg['expired_users'] ?? 0),
+                'suspendedUsers' => (int)($agg['suspended_users'] ?? 0),
                 'planBreakdown' => $planBreakdown,
             ]);
         }
@@ -491,13 +491,37 @@ final class AdminRoutes
         $q = Http::query('q');
         $plan = Http::query('plan');
         $status = Http::query('status');
+        $rawPage = Http::query('page');
+        $rawLimit = Http::query('limit');
+        $isPaginated = ($rawPage !== null || $rawLimit !== null);
+        $page = max(1, (int)($rawPage ?? 1));
+        $limit = $isPaginated ? max(10, min(500, (int)($rawLimit ?? 50))) : 0;
+        $offset = $isPaginated ? (($page - 1) * $limit) : 0;
         $now = time();
+        $nowIso = Db::isoNow();
 
         if (\App\Database::isEnabled()) {
             $pdo = \App\Database::pdo();
+            $stStats = $pdo->prepare(
+                "SELECT
+                    COUNT(*) AS total_users,
+                    SUM(CASE WHEN LOWER(status) = 'suspended' OR COALESCE(is_locked, 0) = 1 THEN 1 ELSE 0 END) AS suspended_users,
+                    SUM(CASE WHEN LOWER(status) <> 'suspended' AND COALESCE(is_locked, 0) = 0 AND LOWER(plan) NOT IN ('basic', 'free') AND plan_expires_at IS NOT NULL AND plan_expires_at > ? THEN 1 ELSE 0 END) AS active_users,
+                    SUM(CASE WHEN LOWER(status) <> 'suspended' AND COALESCE(is_locked, 0) = 0 AND LOWER(plan) NOT IN ('basic', 'free') AND (plan_expires_at IS NULL OR plan_expires_at <= ?) THEN 1 ELSE 0 END) AS expired_users
+                 FROM users"
+            );
+            $stStats->execute([$nowIso, $nowIso]);
+            $sRow = $stStats->fetch() ?: [];
+            $stats = [
+                'total' => (int)($sRow['total_users'] ?? 0),
+                'active' => (int)($sRow['active_users'] ?? 0),
+                'expired' => (int)($sRow['expired_users'] ?? 0),
+                'suspended' => (int)($sRow['suspended_users'] ?? 0),
+            ];
+
             $where = [];
             $params = [];
-            if ($q !== null && $q !== '') {
+            if ($q !== null && trim((string)$q) !== '') {
                 $like = '%' . strtolower(trim((string)$q)) . '%';
                 $where[] = '(LOWER(name) LIKE ? OR LOWER(email) LIKE ? OR LOWER(username) LIKE ?)';
                 $params[] = $like;
@@ -509,14 +533,32 @@ final class AdminRoutes
                 $params[] = strtolower((string)$plan);
             }
             if ($status !== null && $status !== '' && $status !== 'all') {
-                $where[] = 'LOWER(status) = ?';
-                $params[] = strtolower((string)$status);
+                $stLower = strtolower((string)$status);
+                if ($stLower === 'suspended') {
+                    $where[] = "(LOWER(status) = 'suspended' OR COALESCE(is_locked, 0) = 1)";
+                } elseif ($stLower === 'expired') {
+                    $where[] = "(LOWER(status) <> 'suspended' AND COALESCE(is_locked, 0) = 0 AND (plan_expires_at IS NULL OR plan_expires_at <= ?))";
+                    $params[] = $nowIso;
+                } elseif ($stLower === 'active') {
+                    $where[] = "(LOWER(status) <> 'suspended' AND COALESCE(is_locked, 0) = 0 AND plan_expires_at IS NOT NULL AND plan_expires_at > ?)";
+                    $params[] = $nowIso;
+                } else {
+                    $where[] = 'LOWER(status) = ?';
+                    $params[] = $stLower;
+                }
             }
-            $sql = 'SELECT id, name, username, email, plain_password_hint, plan, credits, credits_total, plan_expires_at, status, is_locked, reseller_id, created_at, extra_json FROM users';
-            if (!empty($where)) {
-                $sql .= ' WHERE ' . implode(' AND ', $where);
+
+            $whereSql = !empty($where) ? (' WHERE ' . implode(' AND ', $where)) : '';
+            $countStmt = $pdo->prepare('SELECT COUNT(*) FROM users' . $whereSql);
+            $countStmt->execute($params);
+            $totalFiltered = (int)$countStmt->fetchColumn();
+
+            $sql = 'SELECT id, name, username, email, plain_password_hint, plan, credits, credits_total, plan_expires_at, status, is_locked, reseller_id, created_at, extra_json FROM users'
+                . $whereSql
+                . ' ORDER BY created_at DESC, id DESC';
+            if ($isPaginated) {
+                $sql .= ' LIMIT ' . (int)$limit . ' OFFSET ' . (int)$offset;
             }
-            $sql .= ' ORDER BY created_at DESC, id DESC';
 
             $stmt = $pdo->prepare($sql);
             $stmt->execute($params);
@@ -569,11 +611,21 @@ final class AdminRoutes
                 }
                 $users[] = $rowOut;
             }
-            Http::json(['users' => $users, 'total' => count($users)]);
+            $totalPages = $isPaginated ? max(1, (int)ceil($totalFiltered / $limit)) : 1;
+            Http::json([
+                'users' => $users,
+                'total' => $totalFiltered,
+                'totalFiltered' => $totalFiltered,
+                'page' => $page,
+                'limit' => $isPaginated ? $limit : count($users),
+                'totalPages' => $totalPages,
+                'stats' => $stats,
+            ]);
         }
 
         $rawUsers = Db::readUsers();
         $withTs = [];
+        $stats = ['total' => count($rawUsers), 'active' => 0, 'expired' => 0, 'suspended' => 0];
         foreach ($rawUsers as $u) {
             $expRaw = $u['planExpiresAt'] ?? null;
             $daysRem = 0;
@@ -583,6 +635,16 @@ final class AdminRoutes
                     $daysRem = max(0, (int)ceil(($expTs - $now) / 86400));
                 }
             }
+            $stLower = strtolower((string)($u['status'] ?? 'active'));
+            $plLower = strtolower((string)($u['plan'] ?? 'basic'));
+            if ($stLower === 'suspended' || !empty($u['isLocked'])) {
+                $stats['suspended']++;
+            } elseif ($plLower !== 'basic' && $plLower !== 'free' && $daysRem > 0) {
+                $stats['active']++;
+            } elseif ($plLower !== 'basic' && $plLower !== 'free' && $daysRem <= 0) {
+                $stats['expired']++;
+            }
+
             $ts = !empty($u['createdAt']) ? (strtotime((string)$u['createdAt']) ?: 0) : 0;
             $rowOut = [
                 'id' => $u['id'],
@@ -608,8 +670,8 @@ final class AdminRoutes
         usort($withTs, fn($a, $b) => $b['ts'] <=> $a['ts']);
         $users = array_map(fn($x) => $x['copy'], $withTs);
 
-        if ($q !== null && $q !== '') {
-            $query = strtolower((string)$q);
+        if ($q !== null && trim((string)$q) !== '') {
+            $query = strtolower(trim((string)$q));
             $users = array_values(array_filter($users, function ($u) use ($query) {
                 return str_contains(strtolower((string)($u['name'] ?? '')), $query)
                     || str_contains(strtolower((string)($u['email'] ?? '')), $query)
@@ -622,10 +684,37 @@ final class AdminRoutes
         }
         if ($status !== null && $status !== '' && $status !== 'all') {
             $statusLower = strtolower((string)$status);
-            $users = array_values(array_filter($users, fn($u) => strtolower((string)($u['status'] ?? '')) === $statusLower));
+            $users = array_values(array_filter($users, function ($u) use ($statusLower) {
+                $st = strtolower((string)($u['status'] ?? 'active'));
+                $days = (int)($u['daysRemaining'] ?? 0);
+                if ($statusLower === 'suspended') {
+                    return $st === 'suspended' || !empty($u['isLocked']);
+                }
+                if ($statusLower === 'expired') {
+                    return $st !== 'suspended' && empty($u['isLocked']) && $days <= 0;
+                }
+                if ($statusLower === 'active') {
+                    return $st !== 'suspended' && empty($u['isLocked']) && $days > 0;
+                }
+                return $st === $statusLower;
+            }));
         }
 
-        Http::json(['users' => $users, 'total' => count($users)]);
+        $totalFiltered = count($users);
+        $totalPages = $isPaginated ? max(1, (int)ceil($totalFiltered / $limit)) : 1;
+        if ($isPaginated) {
+            $users = array_slice($users, $offset, $limit);
+        }
+
+        Http::json([
+            'users' => $users,
+            'total' => $totalFiltered,
+            'totalFiltered' => $totalFiltered,
+            'page' => $page,
+            'limit' => $isPaginated ? $limit : count($users),
+            'totalPages' => $totalPages,
+            'stats' => $stats,
+        ]);
     }
 
     private static function adminCreateUser(): void
@@ -650,7 +739,6 @@ final class AdminRoutes
         }
 
         Db::unmarkUserDeleted($cleanEmail);
-        $users = Db::readUsers();
 
         $userDays = (int)$days ?: 30;
         $nowIso = Db::isoNow();
@@ -662,6 +750,62 @@ final class AdminRoutes
         ];
         $userCredits = ($credits !== null && $credits !== '') ? (int)$credits : ($planCreditsDefault[$selectedPlan] ?? 25000);
         $localPart = explode('@', $cleanEmail)[0] ?? 'user';
+
+        if (\App\Database::isEnabled()) {
+            $existing = Db::findUserByLoginIdentifierMysql($cleanEmail);
+            if ($existing && Db::sanitizeEmail($existing['email'] ?? '') === $cleanEmail) {
+                $existing['name'] = $name ? Db::sanitizeCredential($name) : ($existing['name'] ?: $localPart);
+                $existing['username'] = $existing['username'] ?: preg_replace('/[^a-zA-Z0-9_]/', '', $localPart);
+                $existing['email'] = $cleanEmail;
+                $existing['passwordHash'] = Db::hashPassword($cleanPass);
+                $existing['plainPasswordHint'] = $cleanPass;
+                $existing['plan'] = $selectedPlan;
+                $existing['credits'] = $userCredits;
+                $existing['creditsTotal'] = $userCredits;
+                $existing['planExpiresAt'] = $planExpiresAt;
+                $existing['daysRemaining'] = $userDays;
+                $existing['status'] = ($status === 'suspended') ? 'suspended' : 'active';
+                $existing['isLocked'] = false;
+                $existing['lockReason'] = null;
+                $existing['lockedAt'] = null;
+                $existing['onboardingAccepted'] = true;
+                $existing['emailVerified'] = true;
+                $existing['updatedAt'] = $nowIso;
+
+                Db::unmarkUserDeleted($cleanEmail, $existing['id']);
+                Db::upsertSingleUser($existing);
+                $safe = $existing;
+                unset($safe['passwordHash']);
+                Http::json(['success' => true, 'message' => 'User updated and activated successfully', 'user' => $safe], 200);
+            }
+
+            $newUser = [
+                'id' => Db::nextUserIdMysql(),
+                'name' => $name ? Db::sanitizeCredential($name) : $localPart,
+                'username' => preg_replace('/[^a-zA-Z0-9_]/', '', $localPart),
+                'email' => $cleanEmail,
+                'passwordHash' => Db::hashPassword($cleanPass),
+                'plainPasswordHint' => $cleanPass,
+                'plan' => $selectedPlan,
+                'credits' => $userCredits,
+                'creditsTotal' => $userCredits,
+                'planExpiresAt' => $planExpiresAt,
+                'daysRemaining' => $userDays,
+                'status' => ($status === 'suspended') ? 'suspended' : 'active',
+                'isLocked' => false,
+                'onboardingAccepted' => true,
+                'emailVerified' => true,
+                'createdAt' => $nowIso,
+                'updatedAt' => $nowIso,
+            ];
+            Db::unmarkUserDeleted($cleanEmail, $newUser['id']);
+            Db::upsertSingleUser($newUser);
+            $safe = $newUser;
+            unset($safe['passwordHash']);
+            Http::json(['success' => true, 'message' => 'User created successfully', 'user' => $safe], 201);
+        }
+
+        $users = Db::readUsers();
 
         foreach ($users as $idx => $existing) {
             if (Db::sanitizeEmail($existing['email'] ?? '') === $cleanEmail) {
@@ -896,9 +1040,8 @@ final class AdminRoutes
         Http::json(['success' => true, 'message' => 'User deleted successfully']);
     }
 
-    private static function applyResetLimit(array &$users, int $index, $credits, $days): array
+    private static function buildResetLimitUser(array $user, $credits, $days): array
     {
-        $user = $users[$index];
         $planCreditsDefault = [
             'vibe' => 45000, 'plus' => 45000, 'pro' => 45000, 'max' => 45000,
             'ultra' => 45000, 'starter' => 45000, 'free' => 45000, 'trial' => 45000,
@@ -936,6 +1079,12 @@ final class AdminRoutes
         $user['status'] = 'active';
         $user['updatedAt'] = Db::isoNow();
 
+        return [$user, $targetCredits];
+    }
+
+    private static function applyResetLimit(array &$users, int $index, $credits, $days): array
+    {
+        [$user, $targetCredits] = self::buildResetLimitUser($users[$index], $credits, $days);
         $users[$index] = $user;
         Db::writeUsers($users, ['immediate' => true]);
 
@@ -948,6 +1097,23 @@ final class AdminRoutes
     private static function adminResetLimit(int $userId): void
     {
         $body = Http::body();
+        if (\App\Database::isEnabled()) {
+            $existing = Db::findUserByIdMysql($userId);
+            if (!$existing) {
+                Http::json(['error' => 'NotFound', 'message' => 'User not found'], 404);
+            }
+            [$updated, $targetCredits] = self::buildResetLimitUser($existing, $body['credits'] ?? null, $body['days'] ?? null);
+            Db::upsertSingleUser($updated);
+            $safe = $updated;
+            unset($safe['passwordHash']);
+            $safe['daysRemaining'] = Db::calculateDaysRemaining($updated['planExpiresAt'] ?? null);
+            $fmt = number_format($targetCredits);
+            Http::json([
+                'success' => true,
+                'message' => "Limit reset successfully for {$safe['email']}! Restored $fmt credits, reset device switches to 0, and unlocked account.",
+                'user' => $safe,
+            ]);
+        }
         $users = Db::readUsers();
         foreach ($users as $i => $u) {
             if ((int)($u['id'] ?? 0) === $userId) {
@@ -1068,6 +1234,23 @@ final class AdminRoutes
             Http::json(['error' => 'ValidationError', 'message' => 'Email is required'], 400);
         }
         $cleanEmail = Db::sanitizeEmail($email);
+        if (\App\Database::isEnabled()) {
+            $existing = Db::findUserByLoginIdentifierMysql($cleanEmail);
+            if (!$existing) {
+                Http::json(['error' => 'NotFound', 'message' => 'User not found'], 404);
+            }
+            [$updated, $targetCredits] = self::buildResetLimitUser($existing, $body['credits'] ?? null, $body['days'] ?? null);
+            Db::upsertSingleUser($updated);
+            $safe = $updated;
+            unset($safe['passwordHash']);
+            $safe['daysRemaining'] = Db::calculateDaysRemaining($updated['planExpiresAt'] ?? null);
+            $fmt = number_format($targetCredits);
+            Http::json([
+                'success' => true,
+                'message' => "Limit reset successfully for {$safe['email']}! Restored $fmt credits and unlocked account.",
+                'user' => $safe,
+            ]);
+        }
         $users = Db::readUsers();
         $index = Helpers::findUserIndexByLoginIdentifier($users, $cleanEmail);
         if ($index === -1) {

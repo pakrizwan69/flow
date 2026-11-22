@@ -519,10 +519,126 @@ final class ResellerRoutes
             Http::json(['error' => 'ValidationError', 'message' => 'Email and password are required'], 400);
         }
 
-        $users = Db::readUsers();
         $cleanEmail = Db::sanitizeEmail($email);
         $cleanPass = Helpers::normalizePasswordForEmail($password, $cleanEmail);
+        $useMysqlFast = \App\Database::isEnabled();
+        $resellerId = (int)$reqReseller['id'];
 
+        $chosenPlan = strtolower((string)$plan) === 'max' ? 'max' : 'pro';
+        $durationDays = $chosenPlan === 'pro' ? 20 : 30;
+        $assignedCredits = $chosenPlan === 'max' ? 50000 : 35000;
+        $localPart = explode('@', $cleanEmail)[0] ?? 'user';
+        $cleanUsername = $username
+            ? Db::sanitizeCredential($username)
+            : ($name ? Db::sanitizeCredential($name) : preg_replace('/[^a-zA-Z0-9_]/', '', $localPart));
+
+        $allowed = (int)($reqReseller['allowedUsers'] ?? 50);
+        $nowIso = Db::isoNow();
+        $expiresAt = Db::isoNow($durationDays * 86400);
+
+        if ($useMysqlFast) {
+            $freshReseller = Db::findResellerByIdMysql($resellerId);
+            if ($freshReseller && ($freshReseller['status'] ?? '') === 'suspended') {
+                Http::json(['error' => 'ResellerSuspended', 'message' => 'Your reseller account has been suspended by administrator.'], 403);
+            }
+
+            $existing = Db::findUserByLoginIdentifierMysql($cleanEmail);
+            if ($existing && Db::sanitizeEmail($existing['email'] ?? '') !== $cleanEmail) {
+                $existing = null;
+            }
+            if ($existing) {
+                $existingPlan = strtolower((string)($existing['plan'] ?? 'basic'));
+                $isFreeOrBasic = in_array($existingPlan, ['basic', 'free', 'trial', 'starter', 'vibe'], true);
+                if (!empty($existing['resellerId']) && (int)$existing['resellerId'] !== $resellerId && !$isFreeOrBasic) {
+                    Http::json(['error' => 'Conflict', 'message' => 'User with this email already exists'], 409);
+                }
+            }
+
+            $myUsersCount = Db::countUsersByResellerMysql($resellerId);
+            if ($myUsersCount >= $allowed && (!$existing || (int)($existing['resellerId'] ?? 0) !== $resellerId)) {
+                Http::json([
+                    'error' => 'QuotaExceeded',
+                    'message' => "Your account creation quota ($allowed users) is full. Please contact Flow by Pak admin to increase your quota.",
+                ], 403);
+            }
+
+            Db::unmarkUserDeleted($cleanEmail);
+            if ($existing) {
+                $wasSameReseller = (int)($existing['resellerId'] ?? 0) === $resellerId;
+                $existing['resellerId'] = $resellerId;
+                $existing['resellerName'] = $reqReseller['name'];
+                $existing['resellerEmail'] = $reqReseller['email'];
+                $existing['name'] = $name ? Db::sanitizeCredential($name) : ($existing['name'] ?: $cleanUsername);
+                $existing['username'] = $existing['username'] ?: $cleanUsername;
+                $existing['email'] = $cleanEmail;
+                $existing['passwordHash'] = Db::hashPassword($cleanPass);
+                $existing['plainPasswordHint'] = $cleanPass;
+                $existing['plan'] = $chosenPlan;
+                $existing['credits'] = $assignedCredits;
+                $existing['creditsTotal'] = $assignedCredits;
+                $existing['planExpiresAt'] = $expiresAt;
+                $existing['requestedDays'] = $durationDays;
+                $existing['daysRemaining'] = $durationDays;
+                $existing['onboardingAccepted'] = true;
+                $existing['emailVerified'] = true;
+                $existing['isLocked'] = false;
+                $existing['lockReason'] = null;
+                $existing['lockedAt'] = null;
+                $existing['status'] = 'active';
+                $existing['updatedAt'] = $nowIso;
+
+                Db::unmarkUserDeleted($cleanEmail, $existing['id']);
+                Db::upsertSingleUser($existing);
+                if (!$wasSameReseller) {
+                    \App\Database::pdo()->prepare('UPDATE resellers SET users_created = users_created + 1 WHERE id = ?')->execute([$resellerId]);
+                }
+                $safe = $existing;
+                unset($safe['passwordHash']);
+                Http::json([
+                    'success' => true,
+                    'message' => 'User account updated and activated immediately! (3-day grace period for payment is active)',
+                    'user' => $safe,
+                ], 200);
+            }
+
+            $newUser = [
+                'id' => Db::nextUserIdMysql(),
+                'resellerId' => $resellerId,
+                'resellerName' => $reqReseller['name'],
+                'resellerEmail' => $reqReseller['email'],
+                'name' => $name ? Db::sanitizeCredential($name) : $cleanUsername,
+                'username' => $cleanUsername,
+                'email' => $cleanEmail,
+                'passwordHash' => Db::hashPassword($cleanPass),
+                'plainPasswordHint' => $cleanPass,
+                'plan' => $chosenPlan,
+                'credits' => $assignedCredits,
+                'creditsTotal' => $assignedCredits,
+                'planExpiresAt' => $expiresAt,
+                'requestedDays' => $durationDays,
+                'daysRemaining' => $durationDays,
+                'onboardingAccepted' => true,
+                'emailVerified' => true,
+                'isLocked' => false,
+                'status' => 'active',
+                'createdAt' => $nowIso,
+                'updatedAt' => $nowIso,
+            ];
+
+            Db::unmarkUserDeleted($cleanEmail, $newUser['id']);
+            Db::upsertSingleUser($newUser);
+            \App\Database::pdo()->prepare('UPDATE resellers SET users_created = users_created + 1 WHERE id = ?')->execute([$resellerId]);
+
+            $safe = $newUser;
+            unset($safe['passwordHash']);
+            Http::json([
+                'success' => true,
+                'message' => 'User account created and activated immediately! (3-day grace period for payment is active)',
+                'user' => $safe,
+            ], 201);
+        }
+
+        $users = Db::readUsers();
         $existingIdx = -1;
         foreach ($users as $i => $u) {
             if (Db::sanitizeEmail($u['email'] ?? '') === $cleanEmail) {
@@ -540,21 +656,12 @@ final class ResellerRoutes
         }
 
         $myUsersCount = count(array_filter($users, fn($u) => ($u['resellerId'] ?? null) === $reqReseller['id']));
-        $allowed = (int)($reqReseller['allowedUsers'] ?? 50);
         if ($myUsersCount >= $allowed && ($existingIdx === -1 || ($users[$existingIdx]['resellerId'] ?? null) !== $reqReseller['id'])) {
             Http::json([
                 'error' => 'QuotaExceeded',
                 'message' => "Your account creation quota ($allowed users) is full. Please contact Flow by Pak admin to increase your quota.",
             ], 403);
         }
-
-        $chosenPlan = strtolower((string)$plan) === 'max' ? 'max' : 'pro';
-        $durationDays = $chosenPlan === 'pro' ? 20 : 30;
-        $assignedCredits = $chosenPlan === 'max' ? 50000 : 35000;
-        $localPart = explode('@', $cleanEmail)[0] ?? 'user';
-        $cleanUsername = $username
-            ? Db::sanitizeCredential($username)
-            : ($name ? Db::sanitizeCredential($name) : preg_replace('/[^a-zA-Z0-9_]/', '', $localPart));
 
         $resellers = Db::readResellers();
         foreach ($resellers as $r) {
@@ -563,8 +670,6 @@ final class ResellerRoutes
             }
         }
 
-        $nowIso = Db::isoNow();
-        $expiresAt = Db::isoNow($durationDays * 86400);
         Db::unmarkUserDeleted($cleanEmail);
 
         if ($existingIdx !== -1) {
@@ -750,7 +855,13 @@ final class ResellerRoutes
         Db::markUserDeleted($targetUser['id'], (string)($targetUser['email'] ?? ''));
         if ($useMysqlFast) {
             Db::deleteSingleUserMysql($userId);
-            $remainingCount = count(Db::readUsersByResellerMysql((int)$reqReseller['id']));
+            $remainingCount = Db::countUsersByResellerMysql((int)$reqReseller['id']);
+            if ($remainingCount === 0) {
+                \App\Database::pdo()->prepare('UPDATE resellers SET users_created = 0, deleted_charges = 0 WHERE id = ?')->execute([(int)$reqReseller['id']]);
+            } else {
+                \App\Database::pdo()->prepare('UPDATE resellers SET users_created = ? WHERE id = ?')->execute([$remainingCount, (int)$reqReseller['id']]);
+            }
+            Http::json(['success' => true, 'message' => 'User deleted and access revoked successfully']);
         } else {
             array_splice($users, $index, 1);
             Db::writeUsers($users, ['immediate' => true]);

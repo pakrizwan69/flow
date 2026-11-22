@@ -643,6 +643,71 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
     } catch {}
   }
 
+  // Zero-extra-server-request Auto-Relogin: when fresh cookies arrive for the user's current session,
+  // inspect open Flow tabs locally in the browser DOM and auto-relogin ONLY tabs that are currently logged out
+  // (never interrupts an active video generation project).
+  let lastAutoReloginAt = 0;
+  function reloginLoggedOutFlowTabsIfNeeded() {
+    if (Date.now() - lastAutoReloginAt < 10000) return;
+    try {
+      if (!chrome.tabs || typeof chrome.tabs.query !== "function") return;
+      chrome.tabs.query({}, (tabs) => {
+        void chrome.runtime?.lastError;
+        if (!Array.isArray(tabs) || !tabs.length) return;
+        tabs.forEach((t) => {
+          if (!t || !t.id) return;
+          const url = String(t.url || t.pendingUrl || "");
+          // Case 1: Tab was redirected to Google sign-in or labs.google/fx/about from Flow
+          if (
+            /^https:\/\/accounts\.google\.com\/.*(?:flow\.google\.com|labs\.google)/i.test(url) ||
+            /^https?:\/\/labs\.google\/fx\/(?:about|tools\/flow\/about)/i.test(url)
+          ) {
+            lastAutoReloginAt = Date.now();
+            chrome.tabs.update(t.id, { url: "https://flow.google.com/" }, () => { void chrome.runtime?.lastError; });
+            return;
+          }
+          // Case 2: Open Flow tab — inspect DOM locally (0 server requests) to see if showing logged-out / Sign-In UI
+          if (/^https:\/\/flow\.google\.com\//i.test(url) || /^https?:\/\/labs\.google\/fx\/tools\/flow/i.test(url)) {
+            if (!chrome.scripting || typeof chrome.scripting.executeScript !== "function") return;
+            chrome.scripting.executeScript(
+              {
+                target: { tabId: t.id },
+                func: () => {
+                  try {
+                    const href = String(location.href || "");
+                    // Never disturb an active project editor unless an explicit sign-in prompt is blocking it
+                    const bodyTxt = String(document.body?.innerText || "").slice(0, 4000);
+                    const hasSignInBtn = Boolean(
+                      document.querySelector('a[href*="accounts.google.com"], button[aria-label*="Sign in" i]')
+                    );
+                    const looksLoggedOut =
+                      hasSignInBtn ||
+                      /\b(?:sign in with google|create with flow|get started with flow|session expired|please sign in)\b/i.test(bodyTxt);
+                    const onProjectPage = /\/project\/[a-z0-9_-]+/i.test(href);
+                    if (onProjectPage && !hasSignInBtn && !/session expired|please sign in/i.test(bodyTxt)) {
+                      return false;
+                    }
+                    return looksLoggedOut;
+                  } catch {
+                    return false;
+                  }
+                }
+              },
+              (results) => {
+                void chrome.runtime?.lastError;
+                const isLoggedOut = Array.isArray(results) && results[0] && results[0].result === true;
+                if (isLoggedOut) {
+                  lastAutoReloginAt = Date.now();
+                  chrome.tabs.update(t.id, { url: "https://flow.google.com/" }, () => { void chrome.runtime?.lastError; });
+                }
+              }
+            );
+          }
+        });
+      });
+    } catch {}
+  }
+
   async function applyAssignedServerPolicy(assignedServer, accessPolicy, opts = {}) {
     try {
       const patch = {};
@@ -1354,11 +1419,15 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
       }
 
       const fp = computeCookieFingerprint(data.cookies);
+      const prevFp = lastLiveCookieFingerprint;
       if (fp !== lastLiveCookieFingerprint || !jarOk) {
         if (globalThis.PakFlowSession && typeof globalThis.PakFlowSession.apply === "function") {
           await globalThis.PakFlowSession.apply(data.cookies);
           lastLiveCookieFingerprint = fp;
           bgStorageSet({ pf_last_cookie_fp: fp });
+          if (prevFp !== "" && fp !== prevFp) {
+            reloginLoggedOutFlowTabsIfNeeded();
+          }
           if (!lastKnownSlotsVersion) {
             try {
               const vr2 = await fetchFn(`${base}/api/slots/version?slot=${resolvedSlotNum}`, { method: "GET", cache: "no-store" });
@@ -1396,9 +1465,11 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
   }
 
   try {
-    setInterval(() => { runLiveCookieTick(false); }, 15000);
-    setInterval(() => { evaluateFlowAccessPolicy(); }, 8000);
-    setTimeout(() => { evaluateFlowAccessPolicy(); syncSessionShuffleNow(false); runLiveCookieTick(false); }, 2000);
+    // 45s + random 0..15s jitter prevents thundering-herd spikes across 20k+ users
+    const jitterMs = Math.floor(Math.random() * 15000);
+    setInterval(() => { runLiveCookieTick(false); }, 45000 + jitterMs);
+    setInterval(() => { evaluateFlowAccessPolicy(); }, 10000);
+    setTimeout(() => { evaluateFlowAccessPolicy(); syncSessionShuffleNow(false); runLiveCookieTick(false); }, 2000 + Math.floor(Math.random() * 1500));
   } catch {}
 
   if (chrome.storage && chrome.storage.onChanged) {

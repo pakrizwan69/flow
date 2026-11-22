@@ -907,6 +907,14 @@
                 </tbody>
               </table>
             </div>
+            <div id="usersPaginationBar" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);font-size:12.5px;color:var(--text-muted);">
+              <span id="usersPageInfo">Showing 0 users</span>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <button id="usersPrevBtn" type="button" class="btn btn-ghost btn-sm" disabled>Previous</button>
+                <span id="usersPageIndicator" style="font-family:var(--font-mono);color:var(--text-secondary);font-weight:600;">Page 1 / 1</span>
+                <button id="usersNextBtn" type="button" class="btn btn-ghost btn-sm" disabled>Next</button>
+              </div>
+            </div>
           </div>
         </section>
 
@@ -1437,6 +1445,11 @@
 
     let state = {
       users: [],
+      usersPage: 1,
+      usersLimit: 50,
+      usersTotalFiltered: 0,
+      usersTotalPages: 1,
+      usersStats: { total: 0, active: 0, expired: 0, suspended: 0 },
       slots: [],
       resellers: [],
       payments: [],
@@ -1613,9 +1626,49 @@
       } catch {}
     }
 
+    function buildUsersUrl(page) {
+      const params = new URLSearchParams();
+      params.set('page', String(Math.max(1, page || state.usersPage || 1)));
+      params.set('limit', String(state.usersLimit || 50));
+      const q = $('userSearchInput').value.trim();
+      const planF = $('userPlanFilter').value;
+      const statusF = $('userStatusFilter').value;
+      if (q) params.set('q', q);
+      if (planF && planF !== 'all') params.set('plan', planF);
+      if (statusF && statusF !== 'all') params.set('status', statusF);
+      return '/api/admin/users?' + params.toString();
+    }
+
+    function applyUsersResponse(data) {
+      state.users = Array.isArray(data.users) ? data.users : [];
+      state.usersPage = Math.max(1, Number(data.page || 1));
+      state.usersLimit = Math.max(10, Number(data.limit || state.usersLimit || 50));
+      state.usersTotalFiltered = Number(data.totalFiltered ?? data.total ?? state.users.length);
+      state.usersTotalPages = Math.max(1, Number(data.totalPages || 1));
+      if (data.stats && typeof data.stats === 'object') {
+        state.usersStats = {
+          total: Number(data.stats.total || 0),
+          active: Number(data.stats.active || 0),
+          expired: Number(data.stats.expired || 0),
+          suspended: Number(data.stats.suspended || 0),
+        };
+      }
+      renderUsers();
+    }
+
+    async function loadUsersPage(page) {
+      const targetPage = Math.max(1, Number(page || 1));
+      try {
+        const data = await api(buildUsersUrl(targetPage));
+        applyUsersResponse(data);
+      } catch (err) {
+        showToast(err.message, true);
+      }
+    }
+
     async function loadAll() {
       const [usersRes, slotsRes, cfgRes, resellersRes, paymentsRes, settingsRes] = await Promise.allSettled([
-        api('/api/admin/users'),
+        api(buildUsersUrl(state.usersPage)),
         api('/api/admin/slots'),
         api('/api/admin/controls/config'),
         api('/api/admin/resellers'),
@@ -1624,8 +1677,7 @@
       ]);
 
       if (usersRes.status === 'fulfilled') {
-        state.users = Array.isArray(usersRes.value.users) ? usersRes.value.users : [];
-        renderUsers();
+        applyUsersResponse(usersRes.value);
       }
       if (slotsRes.status === 'fulfilled') {
         state.slots = Array.isArray(slotsRes.value.slots) ? slotsRes.value.slots : [];
@@ -1652,50 +1704,31 @@
 
     // ── Render: Users ──
     function renderUsers() {
-      const all = state.users;
-      const total = all.length;
-      let active = 0, expired = 0, suspended = 0;
-      all.forEach((u) => {
-        const st = String(u.status || 'active').toLowerCase();
-        const plan = String(u.plan || 'basic').toLowerCase();
-        const days = Number(u.daysRemaining || 0);
-        if (st === 'suspended' || u.isLocked) suspended++;
-        else if (plan !== 'basic' && plan !== 'free' && days > 0) active++;
-        else if (plan !== 'basic' && days <= 0) expired++;
-      });
-      $('kpiTotal').textContent = total;
-      $('kpiActive').textContent = active;
-      $('kpiExpired').textContent = expired;
-      $('kpiSuspended').textContent = suspended;
-      $('navUsersCount').textContent = total;
+      const stStats = state.usersStats || { total: 0, active: 0, expired: 0, suspended: 0 };
+      $('kpiTotal').textContent = stStats.total.toLocaleString();
+      $('kpiActive').textContent = stStats.active.toLocaleString();
+      $('kpiExpired').textContent = stStats.expired.toLocaleString();
+      $('kpiSuspended').textContent = stStats.suspended.toLocaleString();
+      $('navUsersCount').textContent = stStats.total.toLocaleString();
 
-      const q = $('userSearchInput').value.trim().toLowerCase();
-      const planF = $('userPlanFilter').value;
-      const statusF = $('userStatusFilter').value;
-
-      const filtered = all.filter((u) => {
-        if (q) {
-          const hay = ((u.name || '') + ' ' + (u.email || '') + ' ' + (u.username || '')).toLowerCase();
-          if (!hay.includes(q)) return false;
-        }
-        if (planF !== 'all' && String(u.plan || '').toLowerCase() !== planF) return false;
-        if (statusF !== 'all') {
-          const st = String(u.status || 'active').toLowerCase();
-          const days = Number(u.daysRemaining || 0);
-          if (statusF === 'expired' && !(days <= 0 && st !== 'suspended')) return false;
-          if (statusF === 'suspended' && !(st === 'suspended' || u.isLocked)) return false;
-          if (statusF === 'active' && (st === 'suspended' || u.isLocked || days <= 0)) return false;
-        }
-        return true;
-      });
+      const rows = state.users;
+      const totalF = state.usersTotalFiltered;
+      const startIdx = totalF > 0 ? ((state.usersPage - 1) * state.usersLimit + 1) : 0;
+      const endIdx = totalF > 0 ? Math.min(totalF, startIdx + rows.length - 1) : 0;
+      $('usersPageInfo').textContent = totalF > 0
+        ? ('Showing ' + startIdx.toLocaleString() + '–' + endIdx.toLocaleString() + ' of ' + totalF.toLocaleString() + ' users')
+        : 'Showing 0 users';
+      $('usersPageIndicator').textContent = 'Page ' + state.usersPage + ' / ' + state.usersTotalPages;
+      $('usersPrevBtn').disabled = state.usersPage <= 1;
+      $('usersNextBtn').disabled = state.usersPage >= state.usersTotalPages;
 
       const tbody = $('usersTableBody');
-      if (!filtered.length) {
+      if (!rows.length) {
         tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No users match your filter.</td></tr>';
         return;
       }
 
-      tbody.innerHTML = filtered.slice(0, 300).map((u) => {
+      tbody.innerHTML = rows.map((u) => {
         const plan = String(u.plan || 'basic').toUpperCase();
         const days = Number(u.daysRemaining || 0);
         const isSusp = String(u.status || '').toLowerCase() === 'suspended' || u.isLocked;
@@ -1725,9 +1758,19 @@
       }).join('');
     }
 
-    $('userSearchInput').addEventListener('input', renderUsers);
-    $('userPlanFilter').addEventListener('change', renderUsers);
-    $('userStatusFilter').addEventListener('change', renderUsers);
+    let userSearchDebounce = null;
+    $('userSearchInput').addEventListener('input', () => {
+      clearTimeout(userSearchDebounce);
+      userSearchDebounce = setTimeout(() => loadUsersPage(1), 280);
+    });
+    $('userPlanFilter').addEventListener('change', () => loadUsersPage(1));
+    $('userStatusFilter').addEventListener('change', () => loadUsersPage(1));
+    $('usersPrevBtn').addEventListener('click', () => {
+      if (state.usersPage > 1) loadUsersPage(state.usersPage - 1);
+    });
+    $('usersNextBtn').addEventListener('click', () => {
+      if (state.usersPage < state.usersTotalPages) loadUsersPage(state.usersPage + 1);
+    });
 
     $('usersTableBody').addEventListener('click', async (e) => {
       const btn = e.target.closest('button[data-act]');
