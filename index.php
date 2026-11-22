@@ -324,14 +324,16 @@ if ($method === 'GET' && in_array($reqPath, ['/api/slots/version', '/api/cookies
             'accessPolicy' => $policyMeta,
             'rawShuffle' => $rawShuffle,
         ];
-        if (!is_dir($dataDir)) {
-            @mkdir($dataDir, 0775, true);
-        }
-        $tmpCache = $versionCacheFile . '.tmp.' . getmypid();
-        $encoded = json_encode($cachedSnap, JSON_UNESCAPED_SLASHES);
-        if ($encoded !== false && @file_put_contents($tmpCache, $encoded, LOCK_EX) !== false) {
-            if (!@rename($tmpCache, $versionCacheFile)) {
-                @unlink($tmpCache);
+        if ($rawShuffle !== null) {
+            if (!is_dir($dataDir)) {
+                @mkdir($dataDir, 0775, true);
+            }
+            $tmpCache = $versionCacheFile . '.tmp.' . getmypid() . '.' . bin2hex(random_bytes(3));
+            $encoded = json_encode($cachedSnap, JSON_UNESCAPED_SLASHES);
+            if ($encoded !== false && @file_put_contents($tmpCache, $encoded, LOCK_EX) !== false) {
+                if (!@rename($tmpCache, $versionCacheFile)) {
+                    @unlink($tmpCache);
+                }
             }
         }
     }
@@ -371,7 +373,9 @@ if ($method === 'GET' && in_array($reqPath, ['/api/slots/version', '/api/cookies
         ];
     }
 
-    header('Cache-Control: public, max-age=10, stale-while-revalidate=20');
+    // Never allow LiteSpeed/CDN to cache cross-slot or stale reshuffle state (disk micro-cache already shields MySQL)
+    header('Cache-Control: no-store, no-cache, must-revalidate, private');
+    header('X-LiteSpeed-Cache-Control: no-cache');
     Http::json([
         'success' => true,
         'version' => $ver,

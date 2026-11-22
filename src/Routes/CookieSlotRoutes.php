@@ -452,12 +452,6 @@ final class CookieSlotRoutes
 
     private static function publicActiveCookie(): void
     {
-        if (str_starts_with(Http::header('origin'), 'chrome-extension://') && Helpers::getPakFlowExtVersion() < Helpers::MIN_PAKFLOW_EXT_VERSION) {
-            Http::json([
-                'authenticated' => false, 'forceLogout' => true, 'outdatedExtension' => true,
-                'error' => 'Extension Outdated', 'message' => 'Download latest extension (v1.5) from your dashboard.',
-            ], 401);
-        }
         $access = Helpers::resolveSlotRequestAccess(true);
         if (!empty($access['forcedLogout'])) {
             Http::json($access['forcedLogout'], 401);
@@ -615,12 +609,6 @@ final class CookieSlotRoutes
                 'message' => 'This tool has been removed. Only Google Flow is active.',
                 'cookies' => [], 'data' => [],
             ], 410);
-        }
-        if (str_starts_with(Http::header('origin'), 'chrome-extension://') && Helpers::getPakFlowExtVersion() < Helpers::MIN_PAKFLOW_EXT_VERSION) {
-            Http::json([
-                'authenticated' => false, 'forceLogout' => true, 'outdatedExtension' => true,
-                'error' => 'Extension Outdated', 'message' => 'Download latest extension (v1.5) from your dashboard.',
-            ], 401);
         }
         $access = Helpers::resolveSlotRequestAccess(true);
         if (!empty($access['forcedLogout'])) {

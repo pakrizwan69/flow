@@ -212,9 +212,12 @@
             var t = d.flow_token || d.pakflow_token || d.token || d.authToken || d.userToken || "";
             var o = d.pakflowWorkingOrigin || d.apiBase || d.connectedFromSite || d.apiBaseUrl || d.apiUrl || d.portalUrl || d.lastOrigin || "https://flowbypak.com";
             if (t && /^https?:\/\//i.test(o)) {
-              fetch(o.replace(/\/+$/, "") + "/api/auth/logout", {
+              fetch(o.replace(/\/+$/, "") + "/api/auth/logout?ext_v=" + encodeURIComponent(extVer), {
                 method: "POST",
-                headers: { "Authorization": "Bearer " + t },
+                headers: {
+                  "Authorization": "Bearer " + t,
+                  "X-PakFlow-Extension-Version": extVer,
+                },
               }).catch(function () {});
             }
             try { chrome.storage.local.remove(["pakflow_token","flow_token","token","authToken","user","pakflow_cookies_cache"]); } catch (_e) {}

@@ -9,6 +9,7 @@ final class Database
 {
     private static ?PDO $pdo = null;
     private static ?bool $enabled = null;
+    private static bool $forceNonPersistent = false;
     private static array $lastAttempts = [];
 
     public static function isEnabled(): bool
@@ -25,6 +26,7 @@ final class Database
     {
         self::$pdo = null;
         self::$enabled = null;
+        self::$forceNonPersistent = true;
         self::$lastAttempts = [];
     }
 
@@ -117,8 +119,9 @@ final class Database
             throw new \RuntimeException('DB_NAME is not configured in .env');
         }
 
-        // Persistent connections avoid Hostinger's per-account [2002] Operation not permitted rate limit
-        $usePersistent = strtolower(Env::get('DB_PERSISTENT', 'true')) !== 'false';
+        // Persistent connections avoid Hostinger's per-account [2002] rate limit,
+        // but after a 2006/2013 disconnect resetConnection() forces a fresh non-persistent socket
+        $usePersistent = !self::$forceNonPersistent && strtolower(Env::get('DB_PERSISTENT', 'true')) !== 'false';
         $options = [
             PDO::ATTR_PERSISTENT => $usePersistent,
             PDO::ATTR_TIMEOUT => 5,

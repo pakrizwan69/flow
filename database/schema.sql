@@ -42,8 +42,10 @@ CREATE TABLE IF NOT EXISTS `users` (
   UNIQUE KEY `uniq_users_email` (`email`),
   KEY `idx_users_username` (`username`),
   KEY `idx_users_status` (`status`),
+  KEY `idx_users_plan` (`plan`),
   KEY `idx_users_reseller_id` (`reseller_id`),
-  KEY `idx_users_last_login_ip` (`last_login_ip`)
+  KEY `idx_users_last_login_ip` (`last_login_ip`),
+  KEY `idx_users_created_id` (`created_at`, `id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS `resellers` (

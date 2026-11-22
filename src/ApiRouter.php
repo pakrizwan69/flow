@@ -15,8 +15,9 @@ final class ApiRouter
         $origin = Http::header('origin');
         $isExtOrigin = str_starts_with($origin, 'chrome-extension://');
         $isExtPath = $apiPath === '/user/login' || $apiPath === '/user/me';
+        $isLogoutPath = $apiPath === '/auth/logout' || $apiPath === '/user/logout';
 
-        if ($isExtOrigin || $isExtPath) {
+        if (($isExtOrigin || $isExtPath) && !$isLogoutPath) {
             $minVer = Helpers::MIN_PAKFLOW_EXT_VERSION;
             try {
                 $cfgMin = Db::readSettings()['minExtVersion'] ?? null;

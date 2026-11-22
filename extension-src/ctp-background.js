@@ -878,7 +878,8 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
     const st = await bgStorageGet(["apiBase", "connectedFromSite", "userToken", "authToken", "token"]);
     const base = String(explicitBase || st.apiBase || st.connectedFromSite || "https://flowbypak.com").replace(/\/+$/, "");
     const tok = explicitToken || st.userToken || st.authToken || st.token || "";
-    const headers = { Accept: "application/json" };
+    const extVer = getExtVersion();
+    const headers = { Accept: "application/json", "X-PakFlow-Extension-Version": extVer };
     if (tok) headers.Authorization = `Bearer ${tok}`;
 
     const fetchFn = rawBgFetch || globalThis.fetch;
@@ -890,7 +891,7 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
 
     if (!isAutoRotate) {
       try {
-        const resp = await fetchFn(`${base}/api/cookies/${targetSlotId}?ext_v=1.5`, { method: "GET", headers });
+        const resp = await fetchFn(`${base}/api/cookies/${targetSlotId}?ext_v=${encodeURIComponent(extVer)}`, { method: "GET", headers });
         if (resp && resp.ok) {
           const data = await resp.json();
           if (Array.isArray(data?.cookies) && data.cookies.length > 0) {
@@ -909,7 +910,7 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
       try {
         const modeParam = mode === "nano_banana" ? "nano" : "flow";
         const rotateParam = mode === "nano_banana" ? "&rotate=1" : "";
-        const resp2 = await fetchFn(`${base}/api/cookies/active?mode=${modeParam}${rotateParam}&ext_v=1.5`, { method: "GET", headers });
+        const resp2 = await fetchFn(`${base}/api/cookies/active?mode=${modeParam}${rotateParam}&ext_v=${encodeURIComponent(extVer)}`, { method: "GET", headers });
         if (resp2 && resp2.ok) {
           const data2 = await resp2.json();
           if (Array.isArray(data2?.cookies) && data2.cookies.length > 0) {
@@ -1089,11 +1090,13 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
           if (!Number.isFinite(reqAmt) || reqAmt < 6 || reqAmt > 15) {
             reqAmt = 6 + Math.floor(Math.random() * 10);
           }
-          const res = await fetch(`${origin}/api/user/deduct-credits`, {
+          const extVer = getExtVersion();
+          const res = await fetch(`${origin}/api/user/deduct-credits?ext_v=${encodeURIComponent(extVer)}`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              "Authorization": `Bearer ${tok}`
+              "Authorization": `Bearer ${tok}`,
+              "X-PakFlow-Extension-Version": extVer
             },
             body: JSON.stringify({ amount: reqAmt }),
             cache: "no-store"
@@ -1404,7 +1407,7 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
       let abortedOnError = false;
       if (validSlot) {
         try {
-          const r1 = await fetchFn(`${base}/api/cookies/${validSlot}?ext_v=1.7`, { method: "GET", headers, cache: "no-store" });
+          const r1 = await fetchFn(`${base}/api/cookies/${validSlot}?ext_v=${encodeURIComponent(extVer)}`, { method: "GET", headers, cache: "no-store" });
           if (r1) {
             if (r1.status === 304) {
               clearSyncBackoff();
@@ -1443,8 +1446,8 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
 
       if (!data || !Array.isArray(data.cookies) || data.cookies.length === 0) {
         try {
-          const r2Headers = { Accept: "application/json", Authorization: `Bearer ${tok}`, "X-PakFlow-Extension-Version": "1.7" };
-          const r2 = await fetchFn(`${base}/api/cookies/active?mode=${modeParam}&ext_v=1.7`, { method: "GET", headers: r2Headers, cache: "no-store" });
+          const r2Headers = { Accept: "application/json", Authorization: `Bearer ${tok}`, "X-PakFlow-Extension-Version": extVer };
+          const r2 = await fetchFn(`${base}/api/cookies/active?mode=${modeParam}&ext_v=${encodeURIComponent(extVer)}`, { method: "GET", headers: r2Headers, cache: "no-store" });
           if (r2 && (isThrottleOrServerError(r2.status) || r2.status === 401)) {
             if (isThrottleOrServerError(r2.status)) applySyncBackoff();
             return;
