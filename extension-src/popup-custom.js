@@ -115,7 +115,10 @@
           if (creditsEl) {
             var pLow = String(user.plan || "basic").toLowerCase();
             var isBasicPlan = pLow === "basic" || pLow === "free" || pLow === "trial" || pLow === "vibe" || pLow === "starter";
-            creditsEl.textContent = isBasicPlan ? "0" : "45000";
+            var liveStoredCred = user.credits != null ? Number(user.credits) : (data.credits != null ? Number(data.credits) : 45000);
+            if (!isFinite(liveStoredCred) || liveStoredCred < 0) liveStoredCred = 45000;
+            creditsEl.textContent = isBasicPlan ? "0" : liveStoredCred.toLocaleString();
+            creditsEl.dataset.fromApi = "1";
           }
           var daysValEl = document.getElementById("customDaysLeftVal");
           if (daysValEl) {
@@ -166,8 +169,11 @@
               if (u && creditsEl) {
                 var pLow2 = String(u.plan || "basic").toLowerCase();
                 var isBasic2 = pLow2 === "basic" || pLow2 === "free" || pLow2 === "trial" || pLow2 === "vibe" || pLow2 === "starter";
-                var cVal = isBasic2 ? "0" : "45000";
-                creditsEl.textContent = cVal;
+                var liveCredNum = u.credits != null ? Number(u.credits) : 45000;
+                if (!isFinite(liveCredNum) || liveCredNum < 0) liveCredNum = 0;
+                var cVal = isBasic2 ? "0" : String(Math.round(liveCredNum));
+                creditsEl.textContent = isBasic2 ? "0" : Math.round(liveCredNum).toLocaleString();
+                creditsEl.dataset.fromApi = "1";
                 var dLeft2 = me && me.daysLeft != null ? Number(me.daysLeft) : (u.daysLeft != null ? Number(u.daysLeft) : (u.planExpiresAt ? Math.max(0, Math.ceil((Date.parse(u.planExpiresAt) - Date.now()) / 86400000)) : null));
                 var daysValEl2 = document.getElementById("customDaysLeftVal");
                 if (daysValEl2 && dLeft2 != null && !isNaN(dLeft2)) {
@@ -180,6 +186,18 @@
               }
             })
             .catch(function () { if (authTid) clearTimeout(authTid); });
+        }
+
+        if (chrome.storage && chrome.storage.onChanged) {
+          chrome.storage.onChanged.addListener(function (changes, area) {
+            if (area !== "local" || !changes.credits) return;
+            var el = document.getElementById("customCreditsVal");
+            var nv = Number(changes.credits.newValue);
+            if (el && isFinite(nv) && nv >= 0) {
+              el.textContent = Math.round(nv).toLocaleString();
+              el.dataset.fromApi = "1";
+            }
+          });
         }
 
         syncCustomUI();

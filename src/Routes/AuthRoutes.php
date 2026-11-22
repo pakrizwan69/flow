@@ -576,8 +576,9 @@ final class AuthRoutes
     {
         $reqUser = Helpers::requireUser($path);
         $body = Http::body();
-        $rawAmount = (float)($body['amount'] ?? 60);
-        $amount = ($rawAmount > 0 && is_finite($rawAmount)) ? min(5000, (int)round($rawAmount)) : 60;
+        $rawAmount = isset($body['amount']) && is_numeric($body['amount']) ? (int)round((float)$body['amount']) : 0;
+        // Random 6 to 15 credits per generation (clamped to 6..15 for consistency)
+        $amount = ($rawAmount >= 6 && $rawAmount <= 15) ? $rawAmount : random_int(6, 15);
 
         if (\App\Database::isEnabled()) {
             $user = Db::findUserByTokenMysql((string)($reqUser['id'] ?? ''), Db::sanitizeEmail($reqUser['email'] ?? ''));
@@ -592,14 +593,17 @@ final class AuthRoutes
                     'message' => 'You have 0 credits remaining.', 'credits' => 0, 'creditsTotal' => $total,
                 ], 403);
             }
-            $nextCredits = max(0, $current - $amount);
-            $user['credits'] = $nextCredits;
-            $user['creditsTotal'] = $total;
-            $user['updatedAt'] = Db::isoNow();
-            Db::upsertSingleUser($user);
+            $uid = (int)$user['id'];
+            $nowIso = Db::isoNow();
+            $pdo = \App\Database::pdo();
+            $stmt = $pdo->prepare('UPDATE users SET credits = GREATEST(0, credits - ?), credits_total = CASE WHEN credits_total > 0 THEN credits_total ELSE ? END, updated_at = ? WHERE id = ? AND credits > 0');
+            $stmt->execute([$amount, $total, $nowIso, $uid]);
+            $fresh = Db::findUserByIdMysql($uid);
+            $nextCredits = $fresh ? max(0, (int)($fresh['credits'] ?? 0)) : max(0, $current - $amount);
+            $nextTotal = ($fresh && (int)($fresh['creditsTotal'] ?? 0) > 0) ? (int)$fresh['creditsTotal'] : $total;
             Http::json([
                 'success' => true, 'deducted' => min($current, $amount),
-                'credits' => $nextCredits, 'creditsTotal' => $total,
+                'credits' => $nextCredits, 'creditsTotal' => $nextTotal,
             ]);
         }
 

@@ -101,7 +101,10 @@
 
     var creditsEl = document.getElementById("customCreditsVal");
     if (creditsEl && snap.credits != null) {
-      creditsEl.textContent = String(snap.credits);
+      var snapCredNum = Number(snap.credits);
+      creditsEl.textContent = isFinite(snapCredNum) && snapCredNum >= 0
+        ? Math.round(snapCredNum).toLocaleString()
+        : String(snap.credits);
     }
 
     var daysEl = document.getElementById("customDaysLeftVal");

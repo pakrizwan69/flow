@@ -3356,9 +3356,11 @@
         const email = (user.email || '').toString();
         const plan = (user.plan || 'basic').toString().toLowerCase();
         const isBasic = ['basic', 'free', 'trial', 'vibe', 'starter'].includes(plan);
-        const credits = isBasic ? 0 : 45000;
-        const creditsTotal = isBasic ? 0 : 45000;
-        const pct = isBasic ? 0 : 100;
+        const rawTotal = Number(user.creditsTotal ?? 0);
+        const creditsTotal = isBasic ? 0 : (rawTotal > 0 ? rawTotal : 45000);
+        const hasLiveCredits = user.credits !== undefined && user.credits !== null && Number.isFinite(Number(user.credits));
+        const credits = isBasic ? 0 : Math.max(0, hasLiveCredits ? Math.round(Number(user.credits)) : creditsTotal);
+        const pct = creditsTotal > 0 ? Math.max(0, Math.min(100, Math.round((credits / creditsTotal) * 100))) : 0;
         const days = Number(user.daysRemaining ?? user.daysLeft ?? 0);
         const planBadge = plan === 'ultra' || plan === 'max' ? 'Flow Ultra'
           : plan === 'pro' || plan === 'plus' ? 'Flow Plus'
@@ -3888,6 +3890,13 @@
             currentUser = null;
             showAuth('login');
             showAlert((data && (data.message || data.error)) || 'Logged out: Your account was signed in on another device.', false);
+          } else if (res.ok && data && (data.user || data.email)) {
+            const freshUser = Object.assign({}, currentUser || {}, data.user || data, {
+              accessPolicy: data.accessPolicy || (data.user && data.user.accessPolicy) || (currentUser && currentUser.accessPolicy) || null,
+              assignedServer: data.assignedServer || (data.user && data.user.assignedServer) || (currentUser && currentUser.assignedServer) || null
+            });
+            try { localStorage.setItem('pakflow_user_cache', JSON.stringify(freshUser)); } catch (_) {}
+            renderUser(freshUser);
           }
         } catch (_) {} finally {
           sessionCheckInFlight = false;

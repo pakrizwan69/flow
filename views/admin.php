@@ -1309,12 +1309,18 @@
               <input id="uDays" class="input" type="number" min="0" max="3650" value="30" />
             </div>
           </div>
-          <div class="field">
-            <label for="uStatus">Account Status</label>
-            <select id="uStatus" class="select">
-              <option value="active">Active</option>
-              <option value="suspended">Suspended</option>
-            </select>
+          <div class="grid-2">
+            <div class="field">
+              <label for="uStatus">Account Status</label>
+              <select id="uStatus" class="select">
+                <option value="active">Active</option>
+                <option value="suspended">Suspended</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="uCredits">AI Credits</label>
+              <input id="uCredits" class="input" type="number" min="0" max="10000000" value="45000" />
+            </div>
           </div>
         </div>
         <div class="modal-foot">
@@ -1741,10 +1747,11 @@
           ? '<span class="badge badge-muted">' + esc(plan) + '</span>'
           : '<span class="badge badge-blue">' + esc(plan) + '</span>';
         const resellerTag = u.resellerName ? (' <span class="badge badge-muted" style="margin-left:4px;font-size:10px;">' + esc(u.resellerName) + '</span>') : '';
+        const credNum = Number(u.credits ?? 0);
         return (
           '<tr>' +
             '<td><div class="user-cell-name">' + esc(u.name || u.username || 'User') + resellerTag + '</div><div class="user-cell-email">' + esc(u.email) + '</div></td>' +
-            '<td>' + planBadge + '</td>' +
+            '<td>' + planBadge + '<div style="font-size:11px;color:var(--text-muted);font-family:var(--font-mono);margin-top:3px;">' + credNum.toLocaleString() + ' cr</div></td>' +
             '<td style="font-family:var(--font-mono);font-weight:600;">' + days + 'd</td>' +
             '<td>' + statusBadge + '</td>' +
             '<td style="font-family:var(--font-mono);">' + Number(u.deviceSwitchCount || 0) + '</td>' +
@@ -1816,6 +1823,7 @@
         $('uPlan').value = String(user.plan || 'pro').toLowerCase();
         $('uDays').value = user.daysRemaining ?? 30;
         $('uStatus').value = String(user.status || 'active').toLowerCase() === 'suspended' ? 'suspended' : 'active';
+        $('uCredits').value = user.credits ?? 45000;
         $('userFormSubmitBtn').textContent = 'Save Changes';
       } else {
         $('userModalTitle').textContent = 'Add New User';
@@ -1825,6 +1833,7 @@
         $('uPlan').value = 'pro';
         $('uDays').value = 30;
         $('uStatus').value = 'active';
+        $('uCredits').value = 45000;
         $('userFormSubmitBtn').textContent = 'Create User';
       }
       $('userModal').classList.remove('hidden');
@@ -1841,12 +1850,14 @@
     $('userForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const editId = $('uEditId').value.trim();
+      const rawCredits = parseInt($('uCredits').value, 10);
       const payload = {
         name: $('uName').value.trim(),
         email: $('uEmail').value.trim(),
         plan: $('uPlan').value,
         days: parseInt($('uDays').value, 10) || 0,
         status: $('uStatus').value,
+        credits: Number.isFinite(rawCredits) && rawCredits >= 0 ? rawCredits : 45000,
       };
       const pass = $('uPassword').value.trim();
       if (pass) payload.password = pass;

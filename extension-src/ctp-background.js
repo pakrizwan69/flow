@@ -1070,6 +1070,57 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
       return true;
     }
 
+    if (msg.type === "PAKFLOW_DEDUCT_CREDITS") {
+      (async () => {
+        try {
+          const st = await bgStorageGet([
+            "userToken", "pakflow_token", "flow_token", "authToken", "token",
+            "pakflowWorkingOrigin", "apiBase", "connectedFromSite", "apiBaseUrl", "apiUrl", "portalUrl", "lastOrigin",
+            "user", "credits", "creditsTotal"
+          ]);
+          const tok = st.userToken || st.pakflow_token || st.flow_token || st.authToken || st.token || "";
+          if (!tok || String(tok).startsWith("usertoken_local_")) {
+            sendResponse({ ok: false, error: "Not authenticated" });
+            return;
+          }
+          const rawOrigin = st.pakflowWorkingOrigin || st.apiBase || st.connectedFromSite || st.apiBaseUrl || st.apiUrl || st.portalUrl || st.lastOrigin || "https://flowbypak.com";
+          const origin = /^https?:\/\//i.test(String(rawOrigin)) ? String(rawOrigin).replace(/\/+$/, "") : "https://flowbypak.com";
+          let reqAmt = Math.round(Number(msg.amount));
+          if (!Number.isFinite(reqAmt) || reqAmt < 6 || reqAmt > 15) {
+            reqAmt = 6 + Math.floor(Math.random() * 10);
+          }
+          const res = await fetch(`${origin}/api/user/deduct-credits`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${tok}`
+            },
+            body: JSON.stringify({ amount: reqAmt }),
+            cache: "no-store"
+          });
+          const data = await res.json().catch(() => ({}));
+          if (data && typeof data.credits === "number") {
+            const nextCredits = Math.max(0, Math.round(data.credits));
+            const nextTotal = typeof data.creditsTotal === "number" && data.creditsTotal > 0
+              ? Math.round(data.creditsTotal)
+              : (Number(st.creditsTotal || (st.user && st.user.creditsTotal) || 45000));
+            const nextUser = st.user && typeof st.user === "object"
+              ? Object.assign({}, st.user, { credits: nextCredits, creditsTotal: nextTotal })
+              : null;
+            const patch = { credits: String(nextCredits), creditsTotal: String(nextTotal) };
+            if (nextUser) patch.user = nextUser;
+            await bgStorageSet(patch);
+            sendResponse({ ok: res.ok, deducted: data.deducted || reqAmt, credits: nextCredits, creditsTotal: nextTotal });
+            return;
+          }
+          sendResponse({ ok: false, error: data?.message || data?.error || `HTTP ${res.status}` });
+        } catch (err) {
+          sendResponse({ ok: false, error: err?.message || "Credit deduct failed" });
+        }
+      })();
+      return true;
+    }
+
     if (msg.type === "PAKFLOW_KEEPALIVE_PING") {
       runLiveCookieTick();
       sendResponse({ ok: true });

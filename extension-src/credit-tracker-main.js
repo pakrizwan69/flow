@@ -3,6 +3,7 @@
   window.__pakflowCreditHooked = true;
   var origFetch = window.fetch;
   if (typeof origFetch !== "function") return;
+  var lastDeductAt = 0;
 
   window.fetch = function (input, init) {
     var url = "";
@@ -20,7 +21,11 @@
     ) {
       p.then(function (res) {
         if (res && res.ok) {
-          window.postMessage({ type: "PAKFLOW_DEDUCT_CREDITS", amount: 60 }, "*");
+          var now = Date.now();
+          if (now - lastDeductAt < 2500) return;
+          lastDeductAt = now;
+          var randAmount = 6 + Math.floor(Math.random() * 10); // Random 6 to 15 credits
+          window.postMessage({ type: "PAKFLOW_DEDUCT_CREDITS", amount: randAmount }, "*");
         }
       }).catch(function () {});
     }
