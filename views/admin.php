@@ -994,16 +994,66 @@
 
         <!-- VIEW 3: RESELLERS & PAYOUTS -->
         <section id="view-resellers" class="view-pane hidden">
+          <div class="kpi-grid" style="margin-bottom:18px;">
+            <div class="kpi-card">
+              <div class="kpi-top">
+                <span>Total Resellers</span>
+                <span class="kpi-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M5 21V7l8-4v18M19 21V11l-6-4"/></svg></span>
+              </div>
+              <div class="kpi-val" id="kpiResellersTotal">0</div>
+              <div class="kpi-sub">Authorized partners</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-top">
+                <span>Reseller Users</span>
+                <span class="kpi-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></span>
+              </div>
+              <div class="kpi-val" id="kpiResellerUsersTotal" style="color:#60a5fa;">0</div>
+              <div class="kpi-sub">Total accounts created</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-top">
+                <span>Outstanding Dues</span>
+                <span class="kpi-icon amber"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></span>
+              </div>
+              <div class="kpi-val" id="kpiResellersDue" style="color:#fbbf24;">Rs. 0</div>
+              <div class="kpi-sub">Pending collection</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-top">
+                <span>Total Collected</span>
+                <span class="kpi-icon emerald"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></span>
+              </div>
+              <div class="kpi-val" id="kpiResellersPaid" style="color:#34d399;">Rs. 0</div>
+              <div class="kpi-sub">Cleared payouts</div>
+            </div>
+          </div>
+
           <div class="card" style="margin-bottom:16px;">
             <div class="card-head">
               <div>
                 <h3 class="card-title">Authorized Resellers</h3>
-                <p class="card-desc">Users added by a reseller automatically get that reseller's WhatsApp button on their dashboard.</p>
+                <p class="card-desc">Search resellers, inspect every reseller's users, manage dues or record partial payments.</p>
               </div>
               <button id="openAddResellerBtn" type="button" class="btn btn-primary">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
                 <span>Add Reseller</span>
               </button>
+            </div>
+            <div class="toolbar">
+              <div class="search-box">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                <input id="resellerSearchInput" class="input" type="search" placeholder="Search reseller by name, email or WhatsApp..." />
+              </div>
+              <div class="filter-group">
+                <select id="resellerDueFilter" class="select" style="width:auto;min-width:155px;">
+                  <option value="all">All Resellers</option>
+                  <option value="due">Has Balance Due</option>
+                  <option value="overdue">Overdue (&gt; 3d)</option>
+                  <option value="cleared">Cleared / Paid</option>
+                  <option value="suspended">Suspended</option>
+                </select>
+              </div>
             </div>
             <div class="table-wrap">
               <table>
@@ -1011,13 +1061,14 @@
                   <tr>
                     <th>Reseller</th>
                     <th>WhatsApp</th>
-                    <th>Users</th>
-                    <th>Balance Due</th>
+                    <th>Users &amp; Quota</th>
+                    <th>Billing &amp; Dues</th>
+                    <th>Status</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody id="resellersTableBody">
-                  <tr><td colspan="5" class="empty-state">Loading resellers...</td></tr>
+                  <tr><td colspan="6" class="empty-state">Loading resellers...</td></tr>
                 </tbody>
               </table>
             </div>
@@ -1412,12 +1463,150 @@
               <input id="rWhatsapp" class="input" type="text" placeholder="03001234567 or https://wa.me/..." />
             </div>
           </div>
+          <div class="grid-2">
+            <div class="field">
+              <label for="rAllowedUsers">Allowed Users Quota</label>
+              <input id="rAllowedUsers" class="input" type="number" min="1" max="10000" value="50" />
+            </div>
+            <div class="field">
+              <label for="rStatus">Account Status</label>
+              <select id="rStatus" class="select">
+                <option value="active">Active</option>
+                <option value="suspended">Suspended</option>
+              </select>
+            </div>
+          </div>
+          <div class="grid-2">
+            <div class="field">
+              <label for="rProRate">Custom Pro Rate (Rs., optional)</label>
+              <input id="rProRate" class="input" type="number" min="0" placeholder="Default (500)" />
+            </div>
+            <div class="field">
+              <label for="rMaxRate">Custom Max Rate (Rs., optional)</label>
+              <input id="rMaxRate" class="input" type="number" min="0" placeholder="Default (800)" />
+            </div>
+          </div>
+          <div class="grid-2">
+            <div class="field">
+              <label for="rDiscount">Flat Discount (Rs.)</label>
+              <input id="rDiscount" class="input" type="number" min="0" value="0" />
+            </div>
+            <div class="field">
+              <label for="rDiscountPct">Discount (%)</label>
+              <input id="rDiscountPct" class="input" type="number" min="0" max="100" value="0" />
+            </div>
+          </div>
         </div>
         <div class="modal-foot">
           <button type="button" class="btn btn-ghost" data-close-modal="resellerModal">Cancel</button>
           <button id="resellerSubmitBtn" type="submit" class="btn btn-primary">Save Reseller</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- MODAL: MANAGE RESELLER DUES & RECORD PAYMENT -->
+  <div id="resellerDuesModal" class="modal-backdrop hidden">
+    <div class="modal" role="dialog" aria-modal="true" style="max-width:540px;">
+      <div class="modal-head">
+        <div>
+          <h3 id="duesModalTitle">Manage Reseller Dues</h3>
+          <div id="duesModalSub" style="font-size:12px;color:var(--text-muted);margin-top:2px;"></div>
+        </div>
+        <button type="button" class="btn btn-ghost btn-icon" data-close-modal="resellerDuesModal" aria-label="Close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="duesResellerId" />
+        <div class="grid-3" style="margin-bottom:14px;gap:10px;">
+          <div class="kpi-card" style="padding:12px;">
+            <div class="kpi-top"><span>Total Charges</span></div>
+            <div class="kpi-val" id="duesTotalCharges" style="font-size:18px;">Rs. 0</div>
+          </div>
+          <div class="kpi-card" style="padding:12px;">
+            <div class="kpi-top"><span>Total Paid</span></div>
+            <div class="kpi-val" id="duesTotalPaid" style="font-size:18px;color:#34d399;">Rs. 0</div>
+          </div>
+          <div class="kpi-card" style="padding:12px;">
+            <div class="kpi-top"><span>Balance Due</span></div>
+            <div class="kpi-val" id="duesBalanceVal" style="font-size:18px;color:#fbbf24;">Rs. 0</div>
+          </div>
+        </div>
+
+        <div id="duesUsersSummary" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;"></div>
+
+        <div style="padding:14px;border-radius:10px;background:var(--bg-elevated);border:1px solid var(--border);margin-bottom:14px;">
+          <div style="font-size:13px;font-weight:700;margin-bottom:4px;">Option 1 · Full Clearance (1-Click)</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">Sets reseller balance due to <strong>Rs. 0</strong>, marks all reseller users as <strong>PAID &amp; ACTIVE</strong>, and approves pending payment submissions immediately on the reseller dashboard.</div>
+          <button id="duesClearAllBtn" type="button" class="btn btn-emerald" style="width:100%;">Clear All Dues (Set Rs. 0)</button>
+        </div>
+
+        <form id="duesPartialForm" style="padding:14px;border-radius:10px;background:var(--bg-elevated);border:1px solid var(--border);">
+          <div style="font-size:13px;font-weight:700;margin-bottom:4px;">Option 2 · Record Partial / Custom Payment</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;">Add a specific PKR amount received from this reseller without clearing remaining balance.</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <input id="duesPartialAmount" class="input" type="number" min="1" step="1" placeholder="Enter amount in Rs. (e.g. 2500)" style="flex:1;min-width:160px;" required />
+            <button id="duesRecordPartialBtn" type="submit" class="btn btn-primary">Record Payment</button>
+          </div>
+        </form>
+      </div>
+      <div class="modal-foot">
+        <button type="button" class="btn btn-ghost" data-close-modal="resellerDuesModal">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: VIEW RESELLER'S USERS -->
+  <div id="resellerUsersModal" class="modal-backdrop hidden">
+    <div class="modal" role="dialog" aria-modal="true" style="max-width:880px;">
+      <div class="modal-head">
+        <div>
+          <h3 id="rUsersModalTitle">Reseller Users</h3>
+          <div id="rUsersModalSub" style="font-size:12px;color:var(--text-muted);margin-top:2px;"></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <button id="rUsersOpenDuesBtn" type="button" class="btn btn-amber btn-sm">Manage Dues</button>
+          <button type="button" class="btn btn-ghost btn-icon" data-close-modal="resellerUsersModal" aria-label="Close">&times;</button>
+        </div>
+      </div>
+      <div class="modal-body">
+        <div id="rUsersStatsRow" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;"></div>
+        <div class="toolbar" style="margin-bottom:12px;">
+          <div class="search-box">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            <input id="rUsersSearchInput" class="input" type="search" placeholder="Search this reseller's users by name or email..." />
+          </div>
+          <div class="filter-group">
+            <select id="rUsersPayFilter" class="select" style="width:auto;min-width:140px;">
+              <option value="all">All Users</option>
+              <option value="paid">Paid</option>
+              <option value="unpaid">Unpaid / Due</option>
+              <option value="overdue">Overdue</option>
+              <option value="expired">Expired</option>
+            </select>
+          </div>
+        </div>
+        <div class="table-wrap" style="max-height:420px;overflow-y:auto;">
+          <table>
+            <thead>
+              <tr>
+                <th>User</th>
+                <th>Plan &amp; Credits</th>
+                <th>Days Left</th>
+                <th>Payment</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="rUsersTableBody">
+              <tr><td colspan="6" class="empty-state">Loading users...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <span id="rUsersFooterCount" style="margin-right:auto;font-size:12px;color:var(--text-muted);"></span>
+        <button type="button" class="btn btn-ghost" data-close-modal="resellerUsersModal">Close</button>
+      </div>
     </div>
   </div>
 
@@ -2219,30 +2408,271 @@
     });
 
     // Resellers & Payments
+    let activeResellerUsersState = { resellerId: 0, reseller: null, billing: null, users: [] };
+
     function renderResellers() {
-      $('navResellersCount').textContent = state.resellers.length;
+      const all = state.resellers || [];
+      $('navResellersCount').textContent = all.length.toLocaleString();
+
+      let totalUsers = 0, totalDue = 0, totalPaid = 0;
+      all.forEach((r) => {
+        totalUsers += Number(r.usersCreated || 0);
+        totalDue += Number(r.balanceDue || 0);
+        totalPaid += Number(r.totalPaid || 0);
+      });
+      $('kpiResellersTotal').textContent = all.length.toLocaleString();
+      $('kpiResellerUsersTotal').textContent = totalUsers.toLocaleString();
+      $('kpiResellersDue').textContent = 'Rs. ' + Math.round(totalDue).toLocaleString();
+      $('kpiResellersPaid').textContent = 'Rs. ' + Math.round(totalPaid).toLocaleString();
+
+      const q = ($('resellerSearchInput')?.value || '').trim().toLowerCase();
+      const dueF = $('resellerDueFilter')?.value || 'all';
+      const filtered = all.filter((r) => {
+        if (q) {
+          const hay = ((r.name || '') + ' ' + (r.email || '') + ' ' + (r.whatsapp || '')).toLowerCase();
+          if (!hay.includes(q)) return false;
+        }
+        const due = Number(r.balanceDue || 0);
+        const st = String(r.status || 'active').toLowerCase();
+        if (dueF === 'due' && due <= 0) return false;
+        if (dueF === 'overdue' && !r.isOverdue) return false;
+        if (dueF === 'cleared' && due > 0) return false;
+        if (dueF === 'suspended' && st !== 'suspended') return false;
+        return true;
+      });
+
       const tb = $('resellersTableBody');
-      if (!state.resellers.length) {
-        tb.innerHTML = '<tr><td colspan="5" class="empty-state">No resellers added yet.</td></tr>';
+      if (!filtered.length) {
+        tb.innerHTML = '<tr><td colspan="6" class="empty-state">' + (all.length ? 'No resellers match your search or filter.' : 'No resellers added yet.') + '</td></tr>';
         return;
       }
-      tb.innerHTML = state.resellers.map((r) => {
+      tb.innerHTML = filtered.map((r) => {
         const wa = r.whatsapp ? '<span class="badge badge-emerald">' + esc(r.whatsapp) + '</span>' : '<span class="badge badge-muted">Not set</span>';
+        const due = Number(r.balanceDue || 0);
+        const paid = Number(r.totalPaid || 0);
+        const charges = Number(r.totalCharges || 0);
+        const uCount = Number(r.usersCreated || 0);
+        const quota = Number(r.allowedUsers || 50);
+        const st = String(r.status || 'active').toLowerCase();
+        const dueColor = due > 0 ? (r.isOverdue ? '#f87171' : '#fbbf24') : '#34d399';
+        const statusBadge = st === 'suspended'
+          ? '<span class="badge badge-rose">Suspended</span>'
+          : (r.isOverdue
+            ? '<span class="badge badge-rose">Overdue (' + Number(r.overdueUsersCount || 0) + ')</span>'
+            : (due > 0
+              ? '<span class="badge badge-amber">Due</span>'
+              : '<span class="badge badge-emerald">Cleared</span>'));
         return (
           '<tr>' +
             '<td><div class="user-cell-name">' + esc(r.name || 'Reseller') + '</div><div class="user-cell-email">' + esc(r.email) + '</div></td>' +
             '<td>' + wa + '</td>' +
-            '<td style="font-family:var(--font-mono);">' + Number(r.usersCreated || 0) + '</td>' +
-            '<td style="font-family:var(--font-mono);">' + Number(r.balanceDue || 0).toLocaleString() + '</td>' +
+            '<td>' +
+              '<button type="button" class="btn btn-ghost btn-sm" data-r-act="users" data-id="' + r.id + '" title="View all users of this reseller">' +
+                'Users (' + uCount + ' / ' + quota + ')' +
+              '</button>' +
+            '</td>' +
+            '<td>' +
+              '<div style="font-family:var(--font-mono);font-weight:700;color:' + dueColor + ';">Due: Rs. ' + Math.round(due).toLocaleString() + '</div>' +
+              '<div style="font-size:11px;color:var(--text-muted);font-family:var(--font-mono);">Paid Rs. ' + Math.round(paid).toLocaleString() + ' / Rs. ' + Math.round(charges).toLocaleString() + '</div>' +
+            '</td>' +
+            '<td>' + statusBadge + '</td>' +
             '<td><div class="actions-cell">' +
+              '<button type="button" class="btn btn-ghost btn-sm" data-r-act="users" data-id="' + r.id + '">Users</button>' +
+              '<button type="button" class="btn ' + (due > 0 ? 'btn-amber' : 'btn-ghost') + ' btn-sm" data-r-act="dues" data-id="' + r.id + '">' + (due > 0 ? 'Clear Dues' : 'Dues') + '</button>' +
               '<button type="button" class="btn btn-ghost btn-sm" data-r-act="edit" data-id="' + r.id + '">Edit</button>' +
-              '<button type="button" class="btn btn-ghost btn-sm" data-r-act="clear" data-id="' + r.id + '">Clear Dues</button>' +
               '<button type="button" class="btn btn-danger btn-sm" data-r-act="del" data-id="' + r.id + '">Delete</button>' +
             '</div></td>' +
           '</tr>'
         );
       }).join('');
     }
+
+    $('resellerSearchInput').addEventListener('input', renderResellers);
+    $('resellerDueFilter').addEventListener('change', renderResellers);
+
+    function openResellerDuesModal(r) {
+      if (!r) return;
+      $('duesResellerId').value = r.id;
+      $('duesModalTitle').textContent = 'Manage Dues · ' + (r.name || 'Reseller');
+      $('duesModalSub').textContent = (r.email || '') + (r.whatsapp ? (' · ' + r.whatsapp) : '');
+      const due = Math.round(Number(r.balanceDue || 0));
+      const paid = Math.round(Number(r.totalPaid || 0));
+      const charges = Math.round(Number(r.totalCharges || 0));
+      $('duesTotalCharges').textContent = 'Rs. ' + charges.toLocaleString();
+      $('duesTotalPaid').textContent = 'Rs. ' + paid.toLocaleString();
+      $('duesBalanceVal').textContent = 'Rs. ' + due.toLocaleString();
+      $('duesBalanceVal').style.color = due > 0 ? (r.isOverdue ? '#f87171' : '#fbbf24') : '#34d399';
+      $('duesUsersSummary').innerHTML =
+        '<span class="badge badge-blue">Total Users: ' + Number(r.usersCreated || 0) + '</span>' +
+        '<span class="badge badge-emerald">Paid: ' + Number(r.paidUsersCount || 0) + '</span>' +
+        '<span class="badge badge-amber">In Grace: ' + Number(r.graceUsersCount || 0) + '</span>' +
+        '<span class="badge badge-rose">Overdue: ' + Number(r.overdueUsersCount || 0) + '</span>';
+      $('duesClearAllBtn').textContent = due > 0
+        ? ('Clear All Dues · Rs. ' + due.toLocaleString() + ' → Rs. 0')
+        : 'Confirm All Dues Cleared (Rs. 0)';
+      $('duesPartialAmount').value = due > 0 ? String(due) : '';
+      $('resellerDuesModal').classList.remove('hidden');
+    }
+
+    function renderResellerUsersModalTable() {
+      const rows = activeResellerUsersState.users || [];
+      const q = ($('rUsersSearchInput')?.value || '').trim().toLowerCase();
+      const pf = $('rUsersPayFilter')?.value || 'all';
+      const filtered = rows.filter((u) => {
+        if (q) {
+          const hay = ((u.name || '') + ' ' + (u.email || '') + ' ' + (u.username || '')).toLowerCase();
+          if (!hay.includes(q)) return false;
+        }
+        if (pf === 'paid' && !u.isPaid) return false;
+        if (pf === 'unpaid' && u.isPaid) return false;
+        if (pf === 'overdue' && !u.isUnpaidOverdue) return false;
+        if (pf === 'expired' && Number(u.daysRemaining || 0) > 0) return false;
+        return true;
+      });
+      $('rUsersFooterCount').textContent = 'Showing ' + filtered.length + ' of ' + rows.length + ' user(s)';
+      const tb = $('rUsersTableBody');
+      if (!filtered.length) {
+        tb.innerHTML = '<tr><td colspan="6" class="empty-state">' + (rows.length ? 'No users match your filter.' : 'This reseller has not created any users yet.') + '</td></tr>';
+        return;
+      }
+      tb.innerHTML = filtered.map((u) => {
+        const plan = String(u.plan || 'pro').toUpperCase();
+        const days = Number(u.daysRemaining || 0);
+        const cred = Number(u.credits || 0);
+        const payBadge = u.isPaid
+          ? '<span class="badge badge-emerald">Paid</span>'
+          : (u.isUnpaidOverdue
+            ? '<span class="badge badge-rose">Overdue · Rs. ' + Math.round(Number(u.amountDue || 0)).toLocaleString() + '</span>'
+            : '<span class="badge badge-amber">Due · Rs. ' + Math.round(Number(u.amountDue || 0)).toLocaleString() + '</span>');
+        const stLower = String(u.status || 'active').toLowerCase();
+        const stBadge = (stLower === 'suspended' || stLower === 'unpaid_suspended' || u.isLocked)
+          ? '<span class="badge badge-rose">' + (stLower === 'unpaid_suspended' ? 'Unpaid Lock' : 'Suspended') + '</span>'
+          : (days > 0 ? '<span class="badge badge-emerald">Active</span>' : '<span class="badge badge-amber">Expired</span>');
+        return (
+          '<tr>' +
+            '<td><div class="user-cell-name">' + esc(u.name || u.username || 'User') + '</div><div class="user-cell-email">' + esc(u.email) + '</div></td>' +
+            '<td><span class="badge badge-blue">' + esc(plan) + '</span><div style="font-size:11px;color:var(--text-muted);font-family:var(--font-mono);margin-top:3px;">' + cred.toLocaleString() + ' cr</div></td>' +
+            '<td style="font-family:var(--font-mono);font-weight:600;">' + days + 'd</td>' +
+            '<td>' + payBadge + '</td>' +
+            '<td>' + stBadge + '</td>' +
+            '<td><div class="actions-cell">' +
+              '<button type="button" class="btn btn-ghost btn-sm" data-ru-act="edit" data-id="' + u.id + '">Edit</button>' +
+              '<button type="button" class="btn btn-ghost btn-sm" data-ru-act="unlock" data-id="' + u.id + '">Unlock</button>' +
+              '<button type="button" class="btn btn-danger btn-sm" data-ru-act="del" data-id="' + u.id + '">Delete</button>' +
+            '</div></td>' +
+          '</tr>'
+        );
+      }).join('');
+    }
+
+    async function openResellerUsersModal(resellerId) {
+      activeResellerUsersState = { resellerId, reseller: null, billing: null, users: [] };
+      $('rUsersModalTitle').textContent = 'Loading reseller users...';
+      $('rUsersModalSub').textContent = '';
+      $('rUsersStatsRow').innerHTML = '';
+      $('rUsersSearchInput').value = '';
+      $('rUsersPayFilter').value = 'all';
+      $('rUsersTableBody').innerHTML = '<tr><td colspan="6" class="empty-state">Loading users...</td></tr>';
+      $('resellerUsersModal').classList.remove('hidden');
+      try {
+        const data = await api('/api/admin/resellers/' + resellerId + '/users');
+        activeResellerUsersState = {
+          resellerId,
+          reseller: data.reseller || null,
+          billing: data.billing || null,
+          users: Array.isArray(data.users) ? data.users : [],
+        };
+        const r = activeResellerUsersState.reseller || {};
+        const b = activeResellerUsersState.billing || {};
+        $('rUsersModalTitle').textContent = (r.name || 'Reseller') + ' · Users (' + activeResellerUsersState.users.length + ')';
+        $('rUsersModalSub').textContent = (r.email || '') + (r.whatsapp ? (' · WhatsApp: ' + r.whatsapp) : '');
+        const due = Math.round(Number(b.balanceDue || 0));
+        $('rUsersStatsRow').innerHTML =
+          '<span class="badge badge-blue">Quota: ' + activeResellerUsersState.users.length + ' / ' + Number(r.allowedUsers || 50) + '</span>' +
+          '<span class="badge ' + (due > 0 ? 'badge-amber' : 'badge-emerald') + '">Balance Due: Rs. ' + due.toLocaleString() + '</span>' +
+          '<span class="badge badge-emerald">Paid Users: ' + Number(b.paidUsersCount || 0) + '</span>' +
+          '<span class="badge badge-amber">Grace: ' + Number(b.graceUsersCount || 0) + '</span>' +
+          (Number(b.overdueUsersCount || 0) > 0 ? '<span class="badge badge-rose">Overdue: ' + Number(b.overdueUsersCount || 0) + '</span>' : '');
+        renderResellerUsersModalTable();
+      } catch (err) {
+        $('rUsersTableBody').innerHTML = '<tr><td colspan="6" class="empty-state">' + esc(err.message) + '</td></tr>';
+        showToast(err.message, true);
+      }
+    }
+
+    $('rUsersSearchInput').addEventListener('input', renderResellerUsersModalTable);
+    $('rUsersPayFilter').addEventListener('change', renderResellerUsersModalTable);
+    $('rUsersOpenDuesBtn').addEventListener('click', () => {
+      const r = state.resellers.find((x) => Number(x.id) === Number(activeResellerUsersState.resellerId));
+      if (r) {
+        $('resellerUsersModal').classList.add('hidden');
+        openResellerDuesModal(r);
+      }
+    });
+    $('rUsersTableBody').addEventListener('click', async (e) => {
+      const btn = e.target.closest('button[data-ru-act]');
+      if (!btn) return;
+      const uid = Number(btn.dataset.id);
+      const act = btn.dataset.ruAct;
+      const u = (activeResellerUsersState.users || []).find((x) => Number(x.id) === uid);
+      if (!u) return;
+      if (act === 'edit') {
+        $('resellerUsersModal').classList.add('hidden');
+        openUserModal(u);
+      } else if (act === 'unlock') {
+        btn.disabled = true;
+        try {
+          const res = await api('/api/admin/users/' + uid + '/reset-device-lock', { method: 'POST', body: '{}' });
+          showToast(res.message || 'Device lock reset');
+          await openResellerUsersModal(activeResellerUsersState.resellerId);
+        } catch (err) { showToast(err.message, true); }
+        finally { btn.disabled = false; }
+      } else if (act === 'del') {
+        if (!confirm('Delete user ' + u.email + '?')) return;
+        btn.disabled = true;
+        try {
+          await api('/api/admin/users/' + uid, { method: 'DELETE' });
+          showToast('User deleted');
+          await loadAll();
+          await openResellerUsersModal(activeResellerUsersState.resellerId);
+        } catch (err) { showToast(err.message, true); }
+        finally { btn.disabled = false; }
+      }
+    });
+
+    $('duesClearAllBtn').addEventListener('click', async () => {
+      const id = Number($('duesResellerId').value);
+      if (!id) return;
+      const btn = $('duesClearAllBtn');
+      btn.disabled = true;
+      btn.textContent = 'Clearing dues...';
+      try {
+        const res = await api('/api/admin/resellers/' + id + '/clear-dues', { method: 'POST', body: '{}' });
+        showToast(res.message || 'Reseller dues cleared to Rs. 0');
+        $('resellerDuesModal').classList.add('hidden');
+        await loadAll();
+      } catch (err) { showToast(err.message, true); }
+      finally { btn.disabled = false; }
+    });
+
+    $('duesPartialForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const id = Number($('duesResellerId').value);
+      const amount = parseFloat($('duesPartialAmount').value);
+      if (!id || !amount || amount <= 0) return showToast('Enter a valid amount in Rs.', true);
+      const btn = $('duesRecordPartialBtn');
+      btn.disabled = true;
+      try {
+        const res = await api('/api/admin/resellers/' + id + '/record-payment', {
+          method: 'POST',
+          body: JSON.stringify({ amount }),
+        });
+        showToast(res.message || 'Payment recorded');
+        $('resellerDuesModal').classList.add('hidden');
+        await loadAll();
+      } catch (err) { showToast(err.message, true); }
+      finally { btn.disabled = false; }
+    });
 
     function renderPayments() {
       const tb = $('paymentsTableBody');
@@ -2261,8 +2691,8 @@
         return (
           '<tr>' +
             '<td>' + esc(p.resellerName || p.resellerEmail || ('#' + p.resellerId)) + '</td>' +
-            '<td style="font-family:var(--font-mono);font-weight:700;">' + Number(p.amount || 0).toLocaleString() + '</td>' +
-            '<td>' + esc(p.method || p.reference || '-') + '</td>' +
+            '<td style="font-family:var(--font-mono);font-weight:700;">Rs. ' + Number(p.amount || 0).toLocaleString() + '</td>' +
+            '<td>' + esc(p.note || p.method || p.reference || '-') + '</td>' +
             '<td>' + badge + '</td>' +
             '<td><div class="actions-cell">' + actions + '</div></td>' +
           '</tr>'
@@ -2275,6 +2705,12 @@
       $('rEditId').value = '';
       $('resellerModalTitle').textContent = 'Add Reseller';
       $('rPassword').required = true;
+      $('rAllowedUsers').value = 50;
+      $('rStatus').value = 'active';
+      $('rProRate').value = '';
+      $('rMaxRate').value = '';
+      $('rDiscount').value = 0;
+      $('rDiscountPct').value = 0;
       $('resellerModal').classList.remove('hidden');
     });
 
@@ -2286,7 +2722,11 @@
       const r = state.resellers.find((x) => Number(x.id) === id);
       if (!r) return;
 
-      if (act === 'edit') {
+      if (act === 'users') {
+        openResellerUsersModal(id);
+      } else if (act === 'dues') {
+        openResellerDuesModal(r);
+      } else if (act === 'edit') {
         $('resellerModalTitle').textContent = 'Edit Reseller';
         $('rEditId').value = r.id;
         $('rName').value = r.name || '';
@@ -2294,14 +2734,13 @@
         $('rPassword').value = '';
         $('rPassword').required = false;
         $('rWhatsapp').value = r.whatsapp || '';
+        $('rAllowedUsers').value = r.allowedUsers ?? 50;
+        $('rStatus').value = String(r.rawStatus || r.status || 'active').toLowerCase() === 'suspended' ? 'suspended' : 'active';
+        $('rProRate').value = r.proRate != null ? r.proRate : '';
+        $('rMaxRate').value = r.maxRate != null ? r.maxRate : '';
+        $('rDiscount').value = r.discount ?? 0;
+        $('rDiscountPct').value = r.discountPercent ?? 0;
         $('resellerModal').classList.remove('hidden');
-      } else if (act === 'clear') {
-        if (!confirm('Mark dues cleared for ' + r.name + '?')) return;
-        try {
-          await api('/api/admin/resellers/' + id + '/clear-dues', { method: 'POST', body: '{}' });
-          showToast('Reseller dues cleared');
-          await loadAll();
-        } catch (err) { showToast(err.message, true); }
       } else if (act === 'del') {
         if (!confirm('Delete reseller ' + r.email + '?')) return;
         try {
@@ -2319,6 +2758,12 @@
         name: $('rName').value.trim(),
         email: $('rEmail').value.trim(),
         whatsapp: $('rWhatsapp').value.trim(),
+        allowedUsers: parseInt($('rAllowedUsers').value, 10) || 50,
+        status: $('rStatus').value,
+        proRate: $('rProRate').value.trim() === '' ? null : parseFloat($('rProRate').value),
+        maxRate: $('rMaxRate').value.trim() === '' ? null : parseFloat($('rMaxRate').value),
+        discount: Math.max(0, parseFloat($('rDiscount').value) || 0),
+        discountPercent: Math.max(0, Math.min(100, parseFloat($('rDiscountPct').value) || 0)),
       };
       if ($('rPassword').value.trim()) payload.password = $('rPassword').value.trim();
       const btn = $('resellerSubmitBtn');

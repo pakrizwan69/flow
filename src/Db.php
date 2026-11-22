@@ -636,6 +636,19 @@ final class Db
         return $out;
     }
 
+    public static function readAllResellerUsersMysql(): array
+    {
+        if (!Database::isEnabled()) {
+            return [];
+        }
+        $stmt = Database::pdo()->query('SELECT * FROM users WHERE reseller_id IS NOT NULL ORDER BY id ASC');
+        $out = [];
+        foreach ($stmt->fetchAll() as $r) {
+            $out[] = self::rowToUser($r);
+        }
+        return $out;
+    }
+
     public static function findResellerByIdMysql(int $resellerId): ?array
     {
         if (!Database::isEnabled() || $resellerId <= 0) {

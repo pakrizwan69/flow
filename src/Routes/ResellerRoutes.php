@@ -95,6 +95,11 @@ final class ResellerRoutes
             self::adminResellerAnalytics();
             return true;
         }
+        if ($method === 'GET' && preg_match('#^/admin/resellers/(\d+)/users$#', $path, $m)) {
+            Helpers::requireAdmin();
+            self::adminResellerUsers((int)$m[1]);
+            return true;
+        }
         if ($method === 'POST' && preg_match('#^/admin/resellers/(\d+)/clear-dues$#', $path, $m)) {
             Helpers::requireAdmin();
             self::adminClearDues((int)$m[1]);
@@ -885,7 +890,7 @@ final class ResellerRoutes
     private static function adminResellerAnalytics(): void
     {
         $resellers = Db::readResellers();
-        $users = Db::readUsers();
+        $users = \App\Database::isEnabled() ? Db::readAllResellerUsersMysql() : Db::readUsers();
         $settings = Db::readSettings();
 
         $totalResellerUsers = 0;
@@ -918,6 +923,7 @@ final class ResellerRoutes
                 'usersCreated' => $info['usersCount'],
                 'usersToday' => $info['usersToday'],
                 'usersThisWeek' => $info['usersThisWeek'],
+                'paidUsersCount' => $info['paidUsersCount'],
                 'graceUsersCount' => $info['graceUsersCount'],
                 'overdueUsersCount' => $info['overdueUsersCount'],
                 'rates' => $info['rates'],
@@ -950,22 +956,158 @@ final class ResellerRoutes
         ]);
     }
 
+    private static function adminResellerUsers(int $id): void
+    {
+        $useMysqlFast = \App\Database::isEnabled();
+        $reseller = $useMysqlFast ? Db::findResellerByIdMysql($id) : null;
+        if (!$reseller && !$useMysqlFast) {
+            foreach (Db::readResellers() as $r) {
+                if ((int)($r['id'] ?? 0) === $id) {
+                    $reseller = $r;
+                    break;
+                }
+            }
+        }
+        if (!$reseller) {
+            Http::json(['error' => 'NotFound', 'message' => 'Reseller not found'], 404);
+        }
+
+        $scopedUsers = $useMysqlFast ? Db::readUsersByResellerMysql($id) : Db::readUsers();
+        $settings = Db::readSettings();
+        $billing = Helpers::getResellerBillingInfo($reseller, $scopedUsers, $settings);
+
+        // Attach credits & deviceSwitchCount from raw user objects and sort newest-first
+        $rawMap = [];
+        foreach ($scopedUsers as $su) {
+            if ((int)($su['resellerId'] ?? 0) === $id) {
+                $rawMap[(int)$su['id']] = $su;
+            }
+        }
+        $usersOut = [];
+        foreach ($billing['myUsers'] as $bu) {
+            $raw = $rawMap[(int)($bu['id'] ?? 0)] ?? [];
+            $bu['credits'] = (int)($raw['credits'] ?? 0);
+            $bu['creditsTotal'] = (int)($raw['creditsTotal'] ?? 0);
+            $bu['deviceSwitchCount'] = (int)($raw['deviceSwitchCount'] ?? 0);
+            $bu['isLocked'] = !empty($raw['isLocked']);
+            $usersOut[] = $bu;
+        }
+        usort($usersOut, static function ($a, $b) {
+            $ta = !empty($a['createdAt']) ? (strtotime((string)$a['createdAt']) ?: 0) : 0;
+            $tb = !empty($b['createdAt']) ? (strtotime((string)$b['createdAt']) ?: 0) : 0;
+            if ($ta !== $tb) return $tb <=> $ta;
+            return ((int)($b['id'] ?? 0)) <=> ((int)($a['id'] ?? 0));
+        });
+
+        Http::json([
+            'success' => true,
+            'reseller' => [
+                'id' => (int)$reseller['id'],
+                'name' => (string)($reseller['name'] ?? ''),
+                'email' => (string)($reseller['email'] ?? ''),
+                'whatsapp' => (string)($reseller['whatsapp'] ?? ''),
+                'allowedUsers' => (int)($reseller['allowedUsers'] ?? 50),
+                'status' => $billing['isSuspended'] ? 'suspended' : ($reseller['status'] ?? 'active'),
+                'rawStatus' => (string)($reseller['status'] ?? 'active'),
+            ],
+            'billing' => [
+                'rates' => $billing['rates'],
+                'usersCharges' => $billing['usersCharges'],
+                'deletedCharges' => $billing['deletedCharges'],
+                'rawTotalCharges' => $billing['rawTotalCharges'],
+                'totalDiscount' => $billing['totalDiscount'],
+                'totalCharges' => $billing['totalCharges'],
+                'totalPaid' => $billing['totalPaid'],
+                'balanceDue' => $billing['balanceDue'],
+                'isOverdue' => $billing['isOverdue'],
+                'paidUsersCount' => $billing['paidUsersCount'],
+                'graceUsersCount' => $billing['graceUsersCount'],
+                'overdueUsersCount' => $billing['overdueUsersCount'],
+                'usersCount' => $billing['usersCount'],
+            ],
+            'users' => $usersOut,
+            'total' => count($usersOut),
+        ]);
+    }
+
     private static function adminClearDues(int $id): void
     {
+        $useMysqlFast = \App\Database::isEnabled();
         $resellers = Db::readResellers();
         foreach ($resellers as $i => $r) {
             if ((int)($r['id'] ?? 0) === $id) {
-                $billing = Helpers::getResellerBillingInfo($r, Db::readUsers(), Db::readSettings());
-                $resellers[$i]['totalPaid'] = $billing['totalCharges'];
+                $scopedUsers = $useMysqlFast ? Db::readUsersByResellerMysql($id) : Db::readUsers();
+                $settings = Db::readSettings();
+                $billing = Helpers::getResellerBillingInfo($r, $scopedUsers, $settings);
+
+                // Always ceil & never reduce totalPaid below current paid so balanceDue is strictly 0
+                $clearedTotalPaid = (int)ceil(max((float)($r['totalPaid'] ?? 0), (float)$billing['totalCharges']));
+                $clearedAmount = max(0, $clearedTotalPaid - (float)($r['totalPaid'] ?? 0));
+
+                $resellers[$i]['totalPaid'] = $clearedTotalPaid;
                 if (($resellers[$i]['status'] ?? '') === 'suspended') {
                     $resellers[$i]['status'] = 'active';
                 }
-                Db::writeResellers($resellers);
+                $resellers[$i]['duesClearedAt'] = Db::isoNow();
+
+                if ($useMysqlFast) {
+                    $pdo = \App\Database::pdo();
+                    $pdo->prepare('UPDATE resellers SET total_paid = ?, status = ? WHERE id = ?')
+                        ->execute([$clearedTotalPaid, (string)$resellers[$i]['status'], $id]);
+                    // Reactivate any user of this reseller stuck in unpaid_suspended status
+                    $pdo->prepare("UPDATE users SET status = 'active' WHERE reseller_id = ? AND status = 'unpaid_suspended'")
+                        ->execute([$id]);
+                    // Mark any pending payment submissions for this reseller as approved so reseller sees clean history
+                    $pdo->prepare("UPDATE reseller_payments SET status = 'approved', approved_at = ?, reviewed_by = 'Admin (Clear Dues)' WHERE reseller_id = ? AND status = 'pending'")
+                        ->execute([Db::isoNow(), $id]);
+                    Db::clearCaches();
+                } else {
+                    Db::writeResellers($resellers);
+                    $usersChanged = false;
+                    foreach ($scopedUsers as $ui => $u) {
+                        if ((int)($u['resellerId'] ?? 0) === $id && ($u['status'] ?? '') === 'unpaid_suspended') {
+                            $scopedUsers[$ui]['status'] = 'active';
+                            $usersChanged = true;
+                        }
+                    }
+                    if ($usersChanged) {
+                        Db::writeUsers($scopedUsers, ['immediate' => true]);
+                    }
+                    $payments = Db::readResellerPayments();
+                    $payChanged = false;
+                    foreach ($payments as $pi => $p) {
+                        if ((int)($p['resellerId'] ?? 0) === $id && ($p['status'] ?? '') === 'pending') {
+                            $payments[$pi]['status'] = 'approved';
+                            $payments[$pi]['approvedAt'] = Db::isoNow();
+                            $payments[$pi]['reviewedBy'] = 'Admin (Clear Dues)';
+                            $payChanged = true;
+                        }
+                    }
+                    if ($payChanged) {
+                        Db::writeResellerPayments($payments);
+                    }
+                }
+
+                $updatedBilling = Helpers::getResellerBillingInfo($resellers[$i], $scopedUsers, $settings);
                 $label = $r['name'] ?: $r['email'];
+                $fmtCleared = number_format($clearedAmount);
+                $safeR = $resellers[$i];
+                unset($safeR['passwordHash']);
                 Http::json([
                     'success' => true,
-                    'message' => "All dues cleared for $label! Reseller and all users are now 100% ACTIVE.",
-                    'reseller' => $resellers[$i],
+                    'message' => $clearedAmount > 0
+                        ? "All dues (Rs. $fmtCleared) cleared for $label! Balance is now Rs. 0 and all users are PAID & ACTIVE."
+                        : "Dues verified & cleared for $label! Balance is Rs. 0 and all users are PAID & ACTIVE.",
+                    'clearedAmount' => $clearedAmount,
+                    'reseller' => $safeR,
+                    'billing' => [
+                        'totalCharges' => $updatedBilling['totalCharges'],
+                        'totalPaid' => $updatedBilling['totalPaid'],
+                        'balanceDue' => $updatedBilling['balanceDue'],
+                        'isOverdue' => $updatedBilling['isOverdue'],
+                        'paidUsersCount' => $updatedBilling['paidUsersCount'],
+                        'overdueUsersCount' => $updatedBilling['overdueUsersCount'],
+                    ],
                 ]);
             }
         }
@@ -979,20 +1121,40 @@ final class ResellerRoutes
         if ($payAmount <= 0) {
             Http::json(['error' => 'ValidationError', 'message' => 'Valid payment amount is required'], 400);
         }
+        $useMysqlFast = \App\Database::isEnabled();
         $resellers = Db::readResellers();
         foreach ($resellers as $i => $r) {
             if ((int)($r['id'] ?? 0) === $id) {
-                $resellers[$i]['totalPaid'] = (float)($r['totalPaid'] ?? 0) + $payAmount;
+                $newTotalPaid = (int)round((float)($r['totalPaid'] ?? 0) + $payAmount);
+                $resellers[$i]['totalPaid'] = $newTotalPaid;
                 if (($resellers[$i]['status'] ?? '') === 'suspended') {
                     $resellers[$i]['status'] = 'active';
                 }
-                Db::writeResellers($resellers);
+                if ($useMysqlFast) {
+                    \App\Database::pdo()->prepare('UPDATE resellers SET total_paid = ?, status = ? WHERE id = ?')
+                        ->execute([$newTotalPaid, (string)$resellers[$i]['status'], $id]);
+                    Db::clearCaches();
+                } else {
+                    Db::writeResellers($resellers);
+                }
+
+                $scopedUsers = $useMysqlFast ? Db::readUsersByResellerMysql($id) : Db::readUsers();
+                $updatedBilling = Helpers::getResellerBillingInfo($resellers[$i], $scopedUsers, Db::readSettings());
                 $label = $r['name'] ?: $r['email'];
                 $fmt = number_format($payAmount);
+                $remFmt = number_format($updatedBilling['balanceDue']);
+                $safeR = $resellers[$i];
+                unset($safeR['passwordHash']);
                 Http::json([
                     'success' => true,
-                    'message' => "Payment of Rs. $fmt recorded for $label!",
-                    'reseller' => $resellers[$i],
+                    'message' => "Payment of Rs. $fmt recorded for $label! Remaining balance: Rs. $remFmt.",
+                    'reseller' => $safeR,
+                    'billing' => [
+                        'totalCharges' => $updatedBilling['totalCharges'],
+                        'totalPaid' => $updatedBilling['totalPaid'],
+                        'balanceDue' => $updatedBilling['balanceDue'],
+                        'isOverdue' => $updatedBilling['isOverdue'],
+                    ],
                 ]);
             }
         }
@@ -1002,37 +1164,13 @@ final class ResellerRoutes
     private static function adminResellersList(): void
     {
         $resellers = Db::readResellers();
-        $users = Db::readUsers();
+        $users = \App\Database::isEnabled() ? Db::readAllResellerUsersMysql() : Db::readUsers();
         $settings = Db::readSettings();
-        $baseRates = $settings['resellerRates'] ?? ['pro' => 500, 'max' => 800, 'basic' => 0, 'ultra' => 800, 'plus' => 500];
-        $byReseller = Db::getUserIndexes($users)['byResellerId'];
 
         $formatted = [];
         foreach ($resellers as $r) {
-            $myUsers = $byReseller[(string)$r['id']] ?? [];
-            $rates = array_merge($baseRates, is_array($r['customRates'] ?? null) ? $r['customRates'] : []);
-            if (isset($r['proRate']) && $r['proRate'] !== null) $rates['pro'] = (float)$r['proRate'];
-            if (isset($r['maxRate']) && $r['maxRate'] !== null) $rates['max'] = (float)$r['maxRate'];
-
-            $usersCharges = 0;
-            foreach ($myUsers as $u) {
-                if (($u['status'] ?? '') === 'active') {
-                    $p = strtolower((string)($u['plan'] ?? 'pro'));
-                    $usersCharges += ($rates[$p] ?? 500);
-                }
-            }
-            $deletedCharges = count($myUsers) === 0 ? 0 : (float)($r['deletedCharges'] ?? 0);
-            $rawTotalCharges = $usersCharges + $deletedCharges;
-            $discount = (float)($r['discount'] ?? 0);
-            $discountPercent = (float)($r['discountPercent'] ?? 0);
-            $totalDiscount = $discount;
-            if ($discountPercent > 0) {
-                $totalDiscount += round(($rawTotalCharges * $discountPercent) / 100);
-            }
-            $totalDiscount = min($rawTotalCharges, $totalDiscount);
-            $totalCharges = max(0, $rawTotalCharges - $totalDiscount);
-            $totalPaid = (float)($r['totalPaid'] ?? 0);
-            $balanceDue = max(0, $totalCharges - $totalPaid);
+            // Single source of truth: identical billing formula to /api/reseller/me & adminClearDues
+            $info = Helpers::getResellerBillingInfo($r, $users, $settings);
             $allowed = (int)($r['allowedUsers'] ?? 50);
 
             $formatted[] = [
@@ -1041,21 +1179,27 @@ final class ResellerRoutes
                 'email' => $r['email'],
                 'plainPasswordHint' => $r['plainPasswordHint'] ?? null,
                 'allowedUsers' => $allowed,
-                'usersCreated' => count($myUsers),
-                'remainingUsers' => max(0, $allowed - count($myUsers)),
+                'usersCreated' => $info['usersCount'],
+                'remainingUsers' => max(0, $allowed - $info['usersCount']),
+                'paidUsersCount' => $info['paidUsersCount'],
+                'graceUsersCount' => $info['graceUsersCount'],
+                'overdueUsersCount' => $info['overdueUsersCount'],
+                'isOverdue' => $info['isOverdue'],
                 'creditsQuota' => $r['creditsQuota'] ?? 1000000,
                 'whatsapp' => $r['whatsapp'] ?? '',
-                'status' => $r['status'] ?? 'active',
+                'status' => $info['isSuspended'] ? 'suspended' : ($r['status'] ?? 'active'),
+                'rawStatus' => $r['status'] ?? 'active',
                 'createdAt' => $r['createdAt'] ?? null,
-                'discount' => $discount,
-                'discountPercent' => $discountPercent,
+                'discount' => $info['discountAmount'],
+                'discountPercent' => $info['discountPercent'],
                 'proRate' => $r['proRate'] ?? null,
                 'maxRate' => $r['maxRate'] ?? null,
-                'rawTotalCharges' => $rawTotalCharges,
-                'totalDiscount' => $totalDiscount,
-                'totalCharges' => $totalCharges,
-                'totalPaid' => $totalPaid,
-                'balanceDue' => $balanceDue,
+                'rates' => $info['rates'],
+                'rawTotalCharges' => $info['rawTotalCharges'],
+                'totalDiscount' => $info['totalDiscount'],
+                'totalCharges' => $info['totalCharges'],
+                'totalPaid' => $info['totalPaid'],
+                'balanceDue' => $info['balanceDue'],
             ];
         }
         Http::json(['success' => true, 'resellers' => $formatted]);
