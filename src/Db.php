@@ -1757,11 +1757,12 @@ final class Db
         return ((@filemtime($file) ?: 0) . '-' . (@filesize($file) ?: 0));
     }
 
-    public static function computeCookiesSignature(array $cookies): string
+    public static function computeCookiesSignature(array $cookies, bool $coreAuthOnly = false): string
     {
         if (empty($cookies)) {
             return '';
         }
+        $noisyPerClick = ['SIDCC', '__Secure-1PSIDCC', '__Secure-3PSIDCC'];
         $parts = [];
         foreach ($cookies as $c) {
             if (!is_array($c)) {
@@ -1770,9 +1771,17 @@ final class Db
             $dom = strtolower(trim((string)($c['domain'] ?? '')));
             $name = trim((string)($c['name'] ?? ''));
             $val = (string)($c['value'] ?? '');
-            if ($name !== '') {
-                $parts[] = $dom . '|' . $name . '=' . $val;
+            if ($name === '') {
+                continue;
             }
+            // Always ignore analytics cookies (_ga*, _gid, _gcl*) so page clicks never cause version churn
+            if (str_starts_with($name, '_ga') || $name === '_gid' || str_starts_with($name, '_gcl')) {
+                continue;
+            }
+            if ($coreAuthOnly && in_array($name, $noisyPerClick, true)) {
+                continue;
+            }
+            $parts[] = $dom . '|' . $name . '=' . $val;
         }
         sort($parts, SORT_STRING);
         return sha1(implode(';', $parts));
@@ -1875,14 +1884,20 @@ final class Db
             $pdo = Database::pdo();
             $existing = self::readSlotByNumber($slotNum);
             if (!$forceBumpVersion && is_array($existing) && ($existing['versionTs'] ?? 0) > 0) {
-                $oldSig = self::computeCookiesSignature(is_array($existing['cookies'] ?? null) ? $existing['cookies'] : []);
-                $newSig = self::computeCookiesSignature($cookies);
-                if (
-                    $oldSig === $newSig
-                    && ($existing['status'] ?? '') === $status
+                $existingCookies = is_array($existing['cookies'] ?? null) ? $existing['cookies'] : [];
+                $oldSig = self::computeCookiesSignature($existingCookies, false);
+                $newSig = self::computeCookiesSignature($cookies, false);
+                $metaSame = ($existing['status'] ?? '') === $status
                     && ($existing['name'] ?? '') === $name
-                    && (int)($existing['cookieCount'] ?? 0) === $cookieCount
-                ) {
+                    && (int)($existing['cookieCount'] ?? 0) === $cookieCount;
+                if ($oldSig === $newSig && $metaSame) {
+                    return ['slot' => $existing, 'changed' => false, 'versionTs' => (int)($existing['versionTs'] ?? 0)];
+                }
+                // If ONLY noisy SIDCC cookies changed (core auth identical) within last 180s, throttle version_ts bump
+                $oldCore = self::computeCookiesSignature($existingCookies, true);
+                $newCore = self::computeCookiesSignature($cookies, true);
+                $ageMs = (int)round(microtime(true) * 1000) - (int)($existing['versionTs'] ?? 0);
+                if ($oldCore === $newCore && $metaSame && $ageMs >= 0 && $ageMs < 180000) {
                     return ['slot' => $existing, 'changed' => false, 'versionTs' => (int)($existing['versionTs'] ?? 0)];
                 }
             }

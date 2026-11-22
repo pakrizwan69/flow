@@ -409,19 +409,46 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
           return resp;
         }
 
-        // 2) Guard /api/cookies/slot_N against cross-mode contamination
+        // 2) Guard & Cache-Shield /api/cookies/slot_N (stops legacy background.js from spamming /api/cookies every 20s)
         const slotMatch = cleanPath.match(/^(.*\/cookies\/slot_)(\d+)$/i);
         if (slotMatch) {
           const prefix = slotMatch[1];
-          const num = parseInt(slotMatch[2], 10);
+          let num = parseInt(slotMatch[2], 10);
           if (isNano && (num < 11 || num > 15)) {
             const apiPrefix = cleanPath.includes("/api/") ? "/api" : "";
-            return rawBgFetch(`${u.protocol}//${u.host}${apiPrefix}/cookies/active?mode=nano`, init);
+            return rawBgFetch(`${u.protocol}//${u.host}${apiPrefix}/cookies/active?mode=nano&ext_v=${encodeURIComponent(getExtVersion())}`, init);
           }
           if (!isNano && num >= 11) {
+            num = 1;
             u.pathname = prefix + "1";
-            return rawBgFetch(u.toString(), init);
           }
+          // Serve legacy /api/cookies/slot_N polls from in-memory cache populated by version-checked runLiveCookieTick()
+          const cachedSlot = globalThis.__pakflowCookiesBySlot && globalThis.__pakflowCookiesBySlot[num];
+          if (cachedSlot && Array.isArray(cachedSlot.cookies) && cachedSlot.cookies.length > 0 && (Date.now() - Number(cachedSlot.ts || 0)) < 600000) {
+            return new Response(JSON.stringify({
+              success: true,
+              cached: true,
+              mode: num >= 11 ? "nano_banana" : "google_flow",
+              slotNumber: num,
+              cookieCount: cachedSlot.cookies.length,
+              cookies: cachedSlot.cookies,
+              data: cachedSlot.cookies
+            }), { status: 200, headers: { "Content-Type": "application/json" } });
+          }
+          if (!u.searchParams.has("ext_v") || u.searchParams.get("ext_v") === "1.5") {
+            u.searchParams.set("ext_v", getExtVersion());
+          }
+          const resp = await rawBgFetch(u.toString(), init);
+          if (resp && resp.ok) {
+            resp.clone().json().then((d) => {
+              const arr = (d && Array.isArray(d.cookies) && d.cookies) || (d && Array.isArray(d.data) && d.data) || [];
+              if (arr.length > 0) {
+                globalThis.__pakflowCookiesBySlot = globalThis.__pakflowCookiesBySlot || {};
+                globalThis.__pakflowCookiesBySlot[num] = { cookies: arr, ts: Date.now() };
+              }
+            }).catch(() => {});
+          }
+          return resp;
         }
       } catch {}
       const resp = await rawBgFetch(input, init);
@@ -1466,6 +1493,8 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
       if (!forceCheck && Date.now() < (globalThis.__pakflowSwitchLockUntil || 0)) return;
 
       const resolvedSlotNum = Number(data.slotNumber || validSlotNum || 1);
+      globalThis.__pakflowCookiesBySlot = globalThis.__pakflowCookiesBySlot || {};
+      globalThis.__pakflowCookiesBySlot[resolvedSlotNum] = { cookies: data.cookies, ts: Date.now() };
       if (data.versionTs) {
         lastKnownSlotsVersion = String(data.versionTs);
         lastKnownVersionSlot = resolvedSlotNum;
