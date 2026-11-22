@@ -83,15 +83,15 @@
           'position:fixed',
           'inset:0',
           'z-index:2147483647',
-          'background:radial-gradient(ellipse at top, rgba(88,28,135,0.45), rgba(5,5,10,0.97) 65%)',
-          'backdrop-filter:blur(18px)',
-          '-webkit-backdrop-filter:blur(18px)',
+          'background:radial-gradient(ellipse at top, rgba(37,99,235,0.22), rgba(11,17,32,0.97) 65%)',
+          'backdrop-filter:blur(16px)',
+          '-webkit-backdrop-filter:blur(16px)',
           'display:flex',
           'align-items:center',
           'justify-content:center',
           'padding:24px',
-          'font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif',
-          'color:#f5f5f7',
+          'font-family:"Plus Jakarta Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif',
+          'color:#f8fafc',
           'box-sizing:border-box'
         ].join(';');
         host.appendChild(el);
@@ -101,42 +101,42 @@
       const card = document.createElement('div');
       card.style.cssText = [
         'width:100%',
-        'max-width:440px',
-        'background:rgba(16,16,24,0.94)',
-        'border:1px solid rgba(168,85,247,0.35)',
-        'border-radius:22px',
-        'padding:32px 28px',
+        'max-width:420px',
+        'background:#111827',
+        'border:1px solid rgba(148,163,184,0.24)',
+        'border-radius:16px',
+        'padding:30px 26px',
         'text-align:center',
-        'box-shadow:0 28px 80px rgba(0,0,0,0.75), 0 0 60px rgba(139,92,246,0.18)',
+        'box-shadow:0 28px 80px rgba(0,0,0,0.75)',
         'box-sizing:border-box'
       ].join(';');
 
       const iconWrap = document.createElement('div');
-      iconWrap.textContent = copy.icon;
-      iconWrap.style.cssText = 'width:58px;height:58px;margin:0 auto 16px;border-radius:16px;background:rgba(168,85,247,0.16);border:1px solid rgba(168,85,247,0.35);display:flex;align-items:center;justify-content:center;font-size:26px;';
+      iconWrap.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>';
+      iconWrap.style.cssText = 'width:52px;height:52px;margin:0 auto 14px;border-radius:12px;background:rgba(37,99,235,0.14);border:1px solid rgba(59,130,246,0.32);display:flex;align-items:center;justify-content:center;';
 
       const badge = document.createElement('div');
       badge.textContent = copy.badge;
-      badge.style.cssText = 'display:inline-block;padding:4px 12px;border-radius:999px;background:rgba(239,68,68,0.16);border:1px solid rgba(239,68,68,0.38);color:#fca5a5;font-size:11px;font-weight:800;letter-spacing:0.08em;margin-bottom:12px;';
+      badge.style.cssText = 'display:inline-block;padding:4px 11px;border-radius:999px;background:rgba(239,68,68,0.14);border:1px solid rgba(239,68,68,0.34);color:#fca5a5;font-size:10.5px;font-weight:700;letter-spacing:0.06em;margin-bottom:10px;';
 
       const title = document.createElement('h2');
       title.textContent = copy.title;
-      title.style.cssText = 'margin:0 0 10px;font-size:22px;font-weight:800;color:#ffffff;letter-spacing:-0.02em;';
+      title.style.cssText = 'margin:0 0 8px;font-size:20px;font-weight:800;color:#f8fafc;letter-spacing:-0.02em;';
 
       const msg = document.createElement('p');
       msg.textContent = copy.message;
-      msg.style.cssText = 'margin:0 0 24px;font-size:14px;line-height:1.6;color:#a1a1aa;';
+      msg.style.cssText = 'margin:0 0 22px;font-size:13.5px;line-height:1.6;color:#94a3b8;';
 
       const btn = document.createElement('a');
       btn.href = copy.ctaHref;
       btn.target = '_blank';
       btn.rel = 'noopener noreferrer';
       btn.textContent = copy.ctaText;
-      btn.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;width:100%;padding:13px 20px;border-radius:12px;background:linear-gradient(135deg,#9333ea,#6366f1);color:#ffffff;font-size:14px;font-weight:700;text-decoration:none;box-shadow:0 10px 26px rgba(124,58,237,0.38);box-sizing:border-box;';
+      btn.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;width:100%;padding:12px 18px;border-radius:10px;background:#2563eb;color:#ffffff;font-size:13.5px;font-weight:700;text-decoration:none;box-shadow:0 8px 22px rgba(37,99,235,0.34);box-sizing:border-box;';
 
       const foot = document.createElement('div');
-      foot.textContent = 'PakFlow Protection • Access restores automatically once active';
-      foot.style.cssText = 'margin-top:16px;font-size:11.5px;color:#71717a;';
+      foot.textContent = 'PakFlow Protection · Access restores automatically once active';
+      foot.style.cssText = 'margin-top:14px;font-size:11px;color:#64748b;';
 
       card.append(iconWrap, badge, title, msg, btn, foot);
       el.appendChild(card);

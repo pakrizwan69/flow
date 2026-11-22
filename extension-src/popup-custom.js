@@ -47,8 +47,8 @@
     if (planEl) {
       var pTxt = (planEl.textContent || "").replace(/[⚡✨]/g, "").trim();
       var nextPlanTxt = pTxt ? (/plan/i.test(pTxt) ? pTxt : pTxt + " Plan") : "";
-      if (nextPlanTxt && !planEl.textContent.startsWith("✨ ") && nextPlanTxt !== planEl.textContent) {
-        planEl.textContent = "✨ " + nextPlanTxt;
+      if (nextPlanTxt && nextPlanTxt !== planEl.textContent) {
+        planEl.textContent = nextPlanTxt;
       }
     }
 
@@ -110,7 +110,7 @@
           }
           if (planEl && user.plan) {
             var p = String(user.plan).trim();
-            planEl.textContent = "✨ " + p.toUpperCase() + " Plan";
+            planEl.textContent = p.toUpperCase() + " Plan";
           }
           if (creditsEl) {
             var pLow = String(user.plan || "basic").toLowerCase();
@@ -425,7 +425,7 @@
     if (!box) return null;
     el = document.createElement("div");
     el.id = "pfPopupShuffleCountdown";
-    el.style.cssText = "display:none;margin-top:8px;padding:6px 10px;border-radius:8px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);font-size:11px;color:#a1a1aa;text-align:center;font-variant-numeric:tabular-nums;";
+    el.className = "shuffle-countdown-bar";
     box.appendChild(el);
     return el;
   }
@@ -455,8 +455,8 @@
     }
     var tick = function () {
       var leftSec = Math.max(0, Math.ceil((shuffleTargetMs - Date.now()) / 1000));
-      el.style.display = "block";
-      el.textContent = "Auto Session Shuffle in " + formatCountdown(leftSec);
+      el.style.display = "flex";
+      el.textContent = "Next Session Shuffle in " + formatCountdown(leftSec);
       if (leftSec <= 0) {
         clearInterval(shuffleCountdownTimer);
         shuffleCountdownTimer = null;

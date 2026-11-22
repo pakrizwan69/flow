@@ -96,7 +96,7 @@
     var planRaw = String(snap.plan || "plus").trim();
     var planEl = document.getElementById("userPlanBadge");
     if (planEl && planRaw) {
-      planEl.textContent = "\u2728 " + planRaw.toUpperCase() + " Plan";
+      planEl.textContent = planRaw.toUpperCase() + " Plan";
     }
 
     var creditsEl = document.getElementById("customCreditsVal");
