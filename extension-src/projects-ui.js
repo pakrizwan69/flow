@@ -60,7 +60,7 @@
       const parsedDate = new Date(rawDate);
       const srvNum = normalizeSlot(project.slot).replace('slot_', '');
       const dateStr = rawDate && Number.isFinite(parsedDate.getTime()) ? parsedDate.toLocaleString() : 'Saved project';
-      date.textContent = '▦ Server ' + srvNum + ' · ' + dateStr;
+      date.textContent = '▦ Session ' + srvNum + ' · ' + dateStr;
       info.children[1]?.remove();
       info.append(date);
       const preview = document.createElement('div');
@@ -146,8 +146,8 @@
     if (root) {
       updateMobileOffset();
       const count = $('pakflow-fp-count')?.textContent.trim() || '0';
-      setText(savedCount, 'Server ' + (currentSlot?.replace('slot_', '') || '1') + ' · ' + count + ' Saved');
-      $('pakflow-fp-toggle-btn').title = 'My Saved Projects (Active: Server ' + (currentSlot?.replace('slot_', '') || '1') + ')';
+      setText(savedCount, 'Session ' + (currentSlot?.replace('slot_', '') || '1') + ' · ' + count + ' Saved');
+      $('pakflow-fp-toggle-btn').title = 'My Saved Projects (Active: Session ' + (currentSlot?.replace('slot_', '') || '1') + ')';
       const open = isOpen(), wasOpen = root.classList.contains('pakflow-history-open');
       root.classList.toggle('pakflow-history-open', open); backdrop.hidden = !open;
       $('pakflow-fp-toggle-btn').setAttribute('aria-expanded', String(open));

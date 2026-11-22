@@ -277,13 +277,26 @@ if ($method === 'GET' && in_array($reqPath, ['/api/slots/version', '/api/cookies
         $intervalMin = max(5, min(43200, (int)($sh['intervalMinutes'] ?? 180)));
         $shEnabled = !empty($sh['enabled']);
         $shEpoch = max(1, (int)($sh['shuffleEpoch'] ?? 1));
-        $shBucket = (int)floor(time() / ($intervalMin * 60));
+        $nowTs = time();
+        $intervalSec = $intervalMin * 60;
+        $shAnchor = (int)($sh['shuffleAnchorTs'] ?? 0);
+        if ($shAnchor > 0 && $shAnchor <= $nowTs + 60) {
+            $shBucket = (int)floor(max(0, $nowTs - $shAnchor) / $intervalSec);
+            $nextShuffleTs = $shAnchor + (($shBucket + 1) * $intervalSec);
+        } else {
+            $shBucket = (int)floor($nowTs / $intervalSec);
+            $nextShuffleTs = ($shBucket + 1) * $intervalSec;
+        }
         $shuffleMeta = [
             'enabled' => $shEnabled,
             'intervalMinutes' => $intervalMin,
             'defaultSlot' => max(1, min(10, (int)($sh['defaultSlot'] ?? 1))),
             'shuffleEpoch' => $shEpoch,
             'shufflePeriod' => (string)($shEnabled ? ($shBucket + ($shEpoch * 100000)) : $shEpoch),
+            'serverTime' => $nowTs,
+            'nextShuffleTs' => $nextShuffleTs,
+            'remainingSeconds' => max(0, $nextShuffleTs - $nowTs),
+            'nextShuffleAt' => gmdate('Y-m-d\TH:i:s', $nextShuffleTs) . '.000Z',
             'lastShuffledAt' => $sh['lastShuffledAt'] ?? null,
         ];
     } catch (\Throwable $_metaErr) {}

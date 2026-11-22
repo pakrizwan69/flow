@@ -1168,17 +1168,27 @@ public const ADMIN_PASSWORD = 'admin@123';
 
         $now = time();
         $intervalSec = $intervalMin * 60;
-        $bucket = (int)floor($now / $intervalSec);
+        $anchor = (int)($cfg['shuffleAnchorTs'] ?? 0);
+        if ($anchor > 0 && $anchor <= $now + 60) {
+            $elapsed = max(0, $now - $anchor);
+            $bucket = (int)floor($elapsed / $intervalSec);
+            $nextShuffleTs = $anchor + (($bucket + 1) * $intervalSec);
+        } else {
+            $bucket = (int)floor($now / $intervalSec);
+            $nextShuffleTs = ($bucket + 1) * $intervalSec;
+        }
         $period = $enabled ? ($bucket + ($epoch * 100000)) : $epoch;
-        $nextShuffleTs = ($bucket + 1) * $intervalSec;
 
         $assigned = $fallbackDefault;
         if ($enabled && !empty($pool)) {
-            $seed = $user
-                ? ((string)($user['id'] ?? '') . ':' . strtolower(trim((string)($user['email'] ?? ''))) . ':' . $period)
-                : ('anon:' . self::getClientIp() . ':' . $period);
-            $hash = (int)sprintf('%u', crc32($seed));
-            $assigned = $pool[$hash % count($pool)];
+            $baseKey = $user
+                ? ((string)($user['id'] ?? '') . ':' . strtolower(trim((string)($user['email'] ?? ''))))
+                : ('anon:' . self::getClientIp());
+            $baseOffset = (int)sprintf('%u', crc32($baseKey));
+            // Deterministic guaranteed rotation: every Reshuffle Now (epoch+1) or timer tick (bucket+1)
+            // rotates EVERY user to a different active session while keeping load evenly balanced.
+            $idx = ($baseOffset + $epoch + $bucket) % count($pool);
+            $assigned = $pool[$idx];
         } elseif (!in_array($assigned, $activeNums, true) && !empty($activeNums)) {
             $assigned = $activeNums[0];
         }
@@ -1190,9 +1200,14 @@ public const ADMIN_PASSWORD = 'admin@123';
             'shuffleIntervalMinutes' => $intervalMin,
             'shuffleEpoch' => $epoch,
             'shufflePeriod' => (string)$period,
+            'shuffleAnchorTs' => $anchor > 0 ? $anchor : ($bucket * $intervalSec),
+            'serverTime' => $now,
+            'nextShuffleTs' => $nextShuffleTs,
+            'remainingSeconds' => max(0, $nextShuffleTs - $now),
             'nextShuffleAt' => gmdate('Y-m-d\TH:i:s', $nextShuffleTs) . '.000Z',
             'lastShuffledAt' => $cfg['lastShuffledAt'] ?? null,
             'poolSlots' => $pool,
+            'activePoolCount' => count($pool),
         ];
     }
 }

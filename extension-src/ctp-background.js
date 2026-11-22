@@ -620,7 +620,30 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
     }, typeof delayMs === "number" ? delayMs : 600);
   }
 
-  async function applyAssignedServerPolicy(assignedServer, accessPolicy) {
+  function getExtVersion() {
+    try {
+      const m = chrome?.runtime?.getManifest ? chrome.runtime.getManifest() : null;
+      if (m && m.version) return String(m.version).replace(/^v/i, "");
+    } catch {}
+    return "1.7";
+  }
+
+  function reloadOpenFlowTabs() {
+    try {
+      if (!chrome.tabs || typeof chrome.tabs.query !== "function") return;
+      chrome.tabs.query({ url: ["https://flow.google.com/*", "*://labs.google/fx/tools/flow*"] }, (tabs) => {
+        void chrome.runtime?.lastError;
+        if (!Array.isArray(tabs)) return;
+        tabs.forEach((t) => {
+          if (t && t.id) {
+            chrome.tabs.reload(t.id, {}, () => { void chrome.runtime?.lastError; });
+          }
+        });
+      });
+    } catch {}
+  }
+
+  async function applyAssignedServerPolicy(assignedServer, accessPolicy, opts = {}) {
     try {
       const patch = {};
       if (accessPolicy && typeof accessPolicy === "object") {
@@ -631,9 +654,9 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
       }
       if (Object.keys(patch).length > 0) {
         await bgStorageSet(patch);
-        schedulePolicyEval(200);
+        schedulePolicyEval(150);
       }
-      if (!assignedServer || !assignedServer.defaultSlotId) return;
+      if (!assignedServer || !assignedServer.defaultSlotId) return { rotated: false };
 
       const st = await bgStorageGet([
         "launchMode",
@@ -641,29 +664,100 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
         "pf_manual_slot_period",
         "pf_applied_shuffle_period"
       ]);
-      if (st.launchMode === "nano_banana") return;
+      if (st.launchMode === "nano_banana") return { rotated: false };
 
       const periodKey = assignedServer.shuffleEnabled
-        ? `${Number(assignedServer.shuffleEpoch || 1)}:${Number(assignedServer.shufflePeriod || 0)}`
+        ? `${Number(assignedServer.shuffleEpoch || 1)}:${String(assignedServer.shufflePeriod || 0)}`
         : `static:${Number(assignedServer.shuffleEpoch || 1)}:${String(assignedServer.defaultSlotId)}`;
 
-      // If user manually switched server during this shuffle period, keep their choice
-      if (st.pf_manual_slot_period === periodKey) return;
-      if (st.pf_applied_shuffle_period === periodKey) return;
+      // If user manually switched session during THIS exact shuffle period, keep their choice
+      if (st.pf_manual_slot_period === periodKey && !opts.forceApply) {
+        return { rotated: false, activeSlot: st.activeSlot || assignedServer.defaultSlotId };
+      }
+      if (st.pf_applied_shuffle_period === periodKey && !opts.forceApply) {
+        return { rotated: false, activeSlot: st.activeSlot || assignedServer.defaultSlotId };
+      }
 
       const nextSlot = String(assignedServer.defaultSlotId);
+      const nextNum = parseInt(nextSlot.replace(/\D/g, ""), 10) || 1;
+      const changed = st.activeSlot !== nextSlot;
+
       await bgStorageSet({
         activeSlot: nextSlot,
+        selectedSlot: nextSlot,
+        currentSlot: nextSlot,
+        currentServerNumber: nextNum,
         pf_applied_shuffle_period: periodKey,
+        pf_manual_slot_period: "",
         pf_last_slots_ver: "",
         pf_last_slot_etag: ""
       });
       lastKnownSlotsVersion = "";
       lastSlotEtag = "";
-      if (st.activeSlot !== nextSlot) {
-        setTimeout(() => { runLiveCookieTick(true); }, 150);
+      lastLiveCookieFingerprint = "";
+
+      if (changed || opts.injectAlways) {
+        await runLiveCookieTick(true);
+        if (changed && opts.reloadFlowTabs !== false) {
+          reloadOpenFlowTabs();
+        }
       }
-    } catch {}
+      return { rotated: changed, activeSlot: nextSlot };
+    } catch {
+      return { rotated: false };
+    }
+  }
+
+  async function syncSessionShuffleNow(reloadFlowTabs) {
+    try {
+      const st = await bgStorageGet([
+        "isLoggedIn",
+        "flowSessionDetached",
+        "pakflowWorkingOrigin",
+        "apiBase",
+        "connectedFromSite",
+        "userToken",
+        "pakflow_token",
+        "flow_token",
+        "authToken",
+        "token",
+        "launchMode",
+        "activeSlot"
+      ]);
+      const loggedIn = st.isLoggedIn === true || st.isLoggedIn === "true";
+      const tok = st.userToken || st.pakflow_token || st.flow_token || st.authToken || st.token || "";
+      if (!loggedIn || !tok || st.flowSessionDetached === true || st.flowSessionDetached === "true") {
+        return { ok: false, activeSlot: st.activeSlot || "slot_1" };
+      }
+      if (st.launchMode === "nano_banana") {
+        return { ok: true, activeSlot: st.activeSlot || "slot_11" };
+      }
+      const base = String(st.pakflowWorkingOrigin || st.apiBase || st.connectedFromSite || "https://flowbypak.com").replace(/\/+$/, "");
+      const fetchFn = rawBgFetch || globalThis.fetch;
+      const extVer = getExtVersion();
+      const sr = await fetchFn(`${base}/api/slots?mode=flow&ext_v=${encodeURIComponent(extVer)}`, {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+          Authorization: `Bearer ${tok}`,
+          "X-PakFlow-Extension-Version": extVer
+        },
+        cache: "no-store"
+      });
+      if (!sr || !sr.ok) {
+        return { ok: false, activeSlot: st.activeSlot || "slot_1" };
+      }
+      const sd = await sr.json();
+      const res = await applyAssignedServerPolicy(sd?.assignedServer, sd?.accessPolicy, { reloadFlowTabs: reloadFlowTabs !== false });
+      return {
+        ok: true,
+        rotated: Boolean(res?.rotated),
+        activeSlot: res?.activeSlot || st.activeSlot || "slot_1",
+        assignedServer: sd?.assignedServer || null
+      };
+    } catch {
+      return { ok: false };
+    }
   }
 
   globalThis.__pakflowMarkManualSlot = function (slotId) {
@@ -906,6 +1000,11 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
       return true;
     }
 
+    if (msg.type === "PAKFLOW_SYNC_SESSION_SHUFFLE") {
+      syncSessionShuffleNow(true).then((res) => sendResponse(res));
+      return true;
+    }
+
     if (msg.type === "PAKFLOW_KEEPALIVE_PING") {
       runLiveCookieTick();
       sendResponse({ ok: true });
@@ -1103,11 +1202,12 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
           : 0;
       const validSlot = validSlotNum > 0 ? `slot_${validSlotNum}` : "";
 
-      // Lightweight per-slot version probe avoids downloading full cookies unless THIS slot actually changed
+      // Lightweight per-slot version + shuffle probe (always checks shuffle epoch/period even before first cookie fingerprint)
       const accessAllowed = await evaluateFlowAccessPolicy();
       if (!accessAllowed) return;
 
-      if (!forceCheck && jarOk && lastLiveCookieFingerprint !== "") {
+      const extVer = getExtVersion();
+      if (!forceCheck) {
         try {
           const verUrl = validSlotNum > 0
             ? `${base}/api/slots/version?slot=${validSlotNum}`
@@ -1124,33 +1224,40 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
               bgStorageSet({ pf_access_policy: vd.accessPolicy });
               schedulePolicyEval(150);
             }
-            if (vd?.serverShuffle && typeof vd.serverShuffle === "object") {
-              const prevAssigned = (await bgStorageGet(["pf_assigned_server", "pf_applied_shuffle_period"])).pf_assigned_server || {};
+            if (vd?.serverShuffle && typeof vd.serverShuffle === "object" && mode === "google_flow") {
+              const prevSt = await bgStorageGet(["pf_assigned_server", "pf_applied_shuffle_period"]);
               const remotePeriodKey = vd.serverShuffle.enabled
-                ? `${Number(vd.serverShuffle.shuffleEpoch || 1)}:${Number(vd.serverShuffle.shufflePeriod || 0)}`
+                ? `${Number(vd.serverShuffle.shuffleEpoch || 1)}:${String(vd.serverShuffle.shufflePeriod || 0)}`
                 : `static:${Number(vd.serverShuffle.shuffleEpoch || 1)}:slot_${Number(vd.serverShuffle.defaultSlot || 1)}`;
-              const prevPeriodKey = prevAssigned.shuffleEnabled
-                ? `${Number(prevAssigned.shuffleEpoch || 1)}:${Number(prevAssigned.shufflePeriod || 0)}`
-                : `static:${Number(prevAssigned.shuffleEpoch || 1)}:${String(prevAssigned.defaultSlotId || "slot_1")}`;
-              if (remotePeriodKey !== prevPeriodKey && mode === "google_flow") {
+              if (prevSt.pf_applied_shuffle_period !== remotePeriodKey) {
                 try {
-                  const sr = await fetchFn(`${base}/api/slots?mode=flow&ext_v=1.7`, {
+                  const sr = await fetchFn(`${base}/api/slots?mode=flow&ext_v=${encodeURIComponent(extVer)}`, {
                     method: "GET",
-                    headers: { Accept: "application/json", Authorization: `Bearer ${tok}`, "X-PakFlow-Extension-Version": "1.7" },
+                    headers: { Accept: "application/json", Authorization: `Bearer ${tok}`, "X-PakFlow-Extension-Version": extVer },
                     cache: "no-store"
                   });
                   if (sr && sr.ok) {
                     const sd = await sr.json();
                     if (sd?.assignedServer || sd?.accessPolicy) {
-                      await applyAssignedServerPolicy(sd.assignedServer, sd.accessPolicy);
+                      liveSyncInFlight = false;
+                      liveSyncPromise = null;
+                      await applyAssignedServerPolicy(sd.assignedServer, sd.accessPolicy, { reloadFlowTabs: true });
                       return;
                     }
                   }
                 } catch {}
+              } else if (prevSt.pf_assigned_server && vd.serverShuffle.nextShuffleTs) {
+                bgStorageSet({
+                  pf_assigned_server: Object.assign({}, prevSt.pf_assigned_server, {
+                    nextShuffleTs: vd.serverShuffle.nextShuffleTs,
+                    remainingSeconds: vd.serverShuffle.remainingSeconds,
+                    nextShuffleAt: vd.serverShuffle.nextShuffleAt
+                  })
+                });
               }
             }
             const ver = String(vd?.version || "");
-            if (ver && ver === lastKnownSlotsVersion && lastKnownVersionSlot === validSlotNum) {
+            if (jarOk && lastLiveCookieFingerprint !== "" && ver && ver === lastKnownSlotsVersion && lastKnownVersionSlot === validSlotNum) {
               return;
             }
             if (ver) {
@@ -1171,7 +1278,7 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
       const headers = {
         Accept: "application/json",
         Authorization: `Bearer ${tok}`,
-        "X-PakFlow-Extension-Version": "1.7"
+        "X-PakFlow-Extension-Version": extVer
       };
       if (!forceCheck && jarOk && lastSlotEtag && validSlotNum > 0 && lastKnownVersionSlot === validSlotNum) {
         headers["If-None-Match"] = lastSlotEtag;
@@ -1289,9 +1396,9 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
   }
 
   try {
-    setInterval(() => { runLiveCookieTick(false); }, 30000);
+    setInterval(() => { runLiveCookieTick(false); }, 15000);
     setInterval(() => { evaluateFlowAccessPolicy(); }, 8000);
-    setTimeout(() => { evaluateFlowAccessPolicy(); runLiveCookieTick(false); }, 2500);
+    setTimeout(() => { evaluateFlowAccessPolicy(); syncSessionShuffleNow(false); runLiveCookieTick(false); }, 2000);
   } catch {}
 
   if (chrome.storage && chrome.storage.onChanged) {

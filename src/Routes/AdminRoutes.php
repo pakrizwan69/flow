@@ -1141,13 +1141,29 @@ final class AdminRoutes
         ], $slots);
 
         $extSrcDir = dirname(__DIR__, 2) . '/extension-src';
+        $shuffleCfg = array_merge($defaults['serverShuffle'], is_array($settings['serverShuffle'] ?? null) ? $settings['serverShuffle'] : []);
+        $now = time();
+        $intervalSec = max(5, min(43200, (int)($shuffleCfg['intervalMinutes'] ?? 60))) * 60;
+        $anchor = (int)($shuffleCfg['shuffleAnchorTs'] ?? 0);
+        if ($anchor > 0 && $anchor <= $now + 60) {
+            $bucket = (int)floor(max(0, $now - $anchor) / $intervalSec);
+            $nextShuffleTs = $anchor + (($bucket + 1) * $intervalSec);
+        } else {
+            $bucket = (int)floor($now / $intervalSec);
+            $nextShuffleTs = ($bucket + 1) * $intervalSec;
+        }
+        $shuffleCfg['serverTime'] = $now;
+        $shuffleCfg['nextShuffleTs'] = $nextShuffleTs;
+        $shuffleCfg['remainingSeconds'] = max(0, $nextShuffleTs - $now);
+        $shuffleCfg['nextShuffleAt'] = gmdate('Y-m-d\TH:i:s', $nextShuffleTs) . '.000Z';
+
         Http::json([
             'success' => true,
             'extensionSourceReady' => is_dir($extSrcDir) && is_file($extSrcDir . '/manifest.json'),
             'extension' => $settings['extensions']['flow'] ?? ($defaults['extensions']['flow'] ?? []),
             'minExtVersion' => (float)($settings['minExtVersion'] ?? $defaults['minExtVersion']),
             'accessPolicy' => array_merge($defaults['accessPolicy'], is_array($settings['accessPolicy'] ?? null) ? $settings['accessPolicy'] : []),
-            'serverShuffle' => array_merge($defaults['serverShuffle'], is_array($settings['serverShuffle'] ?? null) ? $settings['serverShuffle'] : []),
+            'serverShuffle' => $shuffleCfg,
             'messageTemplate' => (string)($settings['welcomeMessageTemplate'] ?? $defaults['welcomeMessageTemplate']),
             'slots' => $slotSummary,
         ]);
@@ -1185,10 +1201,24 @@ final class AdminRoutes
             )));
             sort($pool);
         }
+        $now = time();
+        $nextEnabled = array_key_exists('enabled', $body) ? (bool)$body['enabled'] : (bool)$cur['enabled'];
+        $nextInterval = array_key_exists('intervalMinutes', $body) ? max(5, min(43200, (int)$body['intervalMinutes'])) : (int)$cur['intervalMinutes'];
+        $prevAnchor = (int)($cur['shuffleAnchorTs'] ?? 0);
+        $resetAnchor = $prevAnchor <= 0
+            || ($nextEnabled !== (bool)($cur['enabled'] ?? false))
+            || ($nextInterval !== (int)($cur['intervalMinutes'] ?? 60))
+            || !empty($body['resetTimer']);
+        $anchor = $resetAnchor ? $now : $prevAnchor;
+        $intervalSec = $nextInterval * 60;
+        $bucket = (int)floor(max(0, $now - $anchor) / $intervalSec);
+        $nextShuffleTs = $anchor + (($bucket + 1) * $intervalSec);
+
         $next = [
-            'enabled' => array_key_exists('enabled', $body) ? (bool)$body['enabled'] : (bool)$cur['enabled'],
-            'intervalMinutes' => array_key_exists('intervalMinutes', $body) ? max(5, min(43200, (int)$body['intervalMinutes'])) : (int)$cur['intervalMinutes'],
+            'enabled' => $nextEnabled,
+            'intervalMinutes' => $nextInterval,
             'shuffleEpoch' => max(1, (int)($cur['shuffleEpoch'] ?? 1)),
+            'shuffleAnchorTs' => $anchor,
             'defaultSlot' => array_key_exists('defaultSlot', $body) ? max(1, min(10, (int)$body['defaultSlot'])) : (int)($cur['defaultSlot'] ?? 1),
             'poolSlots' => $pool,
             'lastShuffledAt' => $cur['lastShuffledAt'] ?? null,
@@ -1196,7 +1226,11 @@ final class AdminRoutes
         ];
         $settings['serverShuffle'] = $next;
         Db::writeSettings($settings);
-        Http::json(['success' => true, 'message' => 'Server shuffle & default settings saved!', 'serverShuffle' => $next]);
+        $next['serverTime'] = $now;
+        $next['nextShuffleTs'] = $nextShuffleTs;
+        $next['remainingSeconds'] = max(0, $nextShuffleTs - $now);
+        $next['nextShuffleAt'] = gmdate('Y-m-d\TH:i:s', $nextShuffleTs) . '.000Z';
+        Http::json(['success' => true, 'message' => 'Session shuffle & default settings saved!', 'serverShuffle' => $next]);
     }
 
     private static function adminReshuffleNow(): void
@@ -1204,15 +1238,25 @@ final class AdminRoutes
         $settings = Db::readSettings();
         $defaults = Db::defaultSettings()['serverShuffle'];
         $cur = array_merge($defaults, is_array($settings['serverShuffle'] ?? null) ? $settings['serverShuffle'] : []);
+        $now = time();
+        $intervalMin = max(5, min(43200, (int)($cur['intervalMinutes'] ?? 60)));
+        $nextShuffleTs = $now + ($intervalMin * 60);
+
         $cur['enabled'] = true;
         $cur['shuffleEpoch'] = max(1, (int)($cur['shuffleEpoch'] ?? 1)) + 1;
+        $cur['shuffleAnchorTs'] = $now;
         $cur['lastShuffledAt'] = Db::isoNow();
         $cur['updatedAt'] = Db::isoNow();
         $settings['serverShuffle'] = $cur;
         Db::writeSettings($settings);
+
+        $cur['serverTime'] = $now;
+        $cur['nextShuffleTs'] = $nextShuffleTs;
+        $cur['remainingSeconds'] = max(0, $nextShuffleTs - $now);
+        $cur['nextShuffleAt'] = gmdate('Y-m-d\TH:i:s', $nextShuffleTs) . '.000Z';
         Http::json([
             'success' => true,
-            'message' => 'Servers reshuffled immediately (Epoch #' . $cur['shuffleEpoch'] . ')! All users will rotate to balanced servers.',
+            'message' => 'All user sessions reshuffled immediately (Epoch #' . $cur['shuffleEpoch'] . ')!',
             'serverShuffle' => $cur,
         ]);
     }
@@ -1277,7 +1321,14 @@ final class AdminRoutes
                 } else {
                     $za->addFile($fullPath, $rel);
                 }
-            } elseif ($rel === 'ctp-background.js' || $rel === 'background.js') {
+            } elseif ($rel === 'popup.html') {
+                $txt = (string)file_get_contents($fullPath);
+                $txt = preg_replace('/(<span\s+class="top-version">)v?[^<]+(<\/span>)/i', '${1}v' . $rawVer . '${2}', $txt) ?? $txt;
+                if ($portalUrl !== '' && preg_match('#^https?://#i', $portalUrl)) {
+                    $txt = str_replace('https://flowbypak.com', $portalUrl, $txt);
+                }
+                $za->addFromString($rel, $txt);
+            } elseif ($rel === 'ctp-background.js' || $rel === 'background.js' || $rel === 'popup-custom.js') {
                 $txt = (string)file_get_contents($fullPath);
                 $txt = preg_replace('/("X-PakFlow-Extension-Version"\s*:\s*")[^"]+(")/', '${1}' . $shortVer . '${2}', $txt) ?? $txt;
                 $txt = preg_replace('/([?&]ext_v=)\d+(?:\.\d+)?/', '${1}' . $shortVer, $txt) ?? $txt;

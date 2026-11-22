@@ -136,6 +136,16 @@
           if (cookieValEl) cookieValEl.textContent = String(slot).replace(/\D+/g, "") || "1";
         }
 
+        var extVer = "1.7";
+        try {
+          var mf = chrome && chrome.runtime && typeof chrome.runtime.getManifest === "function" ? chrome.runtime.getManifest() : null;
+          if (mf && mf.version) extVer = String(mf.version).replace(/^v/i, "");
+        } catch (_e) {}
+        var verEls = document.querySelectorAll(".top-version");
+        for (var vi = 0; vi < verEls.length; vi++) {
+          verEls[vi].textContent = "v" + extVer;
+        }
+
         var token = data.flow_token || data.pakflow_token || data.token || data.authToken || data.userToken || "";
         var origin = data.pakflowWorkingOrigin || data.apiBase || data.connectedFromSite || data.apiBaseUrl || data.apiUrl || data.portalUrl || data.lastOrigin || "https://flowbypak.com";
         if (token && /^https?:\/\//i.test(origin)) {
@@ -144,7 +154,7 @@
           fetch(origin.replace(/\/+$/, "") + "/api/auth/me", {
             headers: {
               "Authorization": "Bearer " + token,
-              "X-PakFlow-Extension-Version": "1.7",
+              "X-PakFlow-Extension-Version": extVer,
             },
             cache: "no-store",
             signal: authAc ? authAc.signal : undefined,
@@ -396,8 +406,123 @@
     );
   }
 
+  var shuffleCountdownTimer = null;
+  var shuffleTargetMs = 0;
+
+  function formatCountdown(sec) {
+    sec = Math.max(0, Math.floor(sec));
+    var h = Math.floor(sec / 3600);
+    var m = Math.floor((sec % 3600) / 60);
+    var s = sec % 60;
+    var pad = function (n) { return n < 10 ? "0" + n : String(n); };
+    return h > 0 ? (pad(h) + ":" + pad(m) + ":" + pad(s)) : (pad(m) + ":" + pad(s));
+  }
+
+  function ensureShuffleTimerEl() {
+    var el = document.getElementById("pfPopupShuffleCountdown");
+    if (el) return el;
+    var box = document.getElementById("sessionInjectorBox");
+    if (!box) return null;
+    el = document.createElement("div");
+    el.id = "pfPopupShuffleCountdown";
+    el.style.cssText = "display:none;margin-top:8px;padding:6px 10px;border-radius:8px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);font-size:11px;color:#a1a1aa;text-align:center;font-variant-numeric:tabular-nums;";
+    box.appendChild(el);
+    return el;
+  }
+
+  function updateShuffleCountdownUI(assigned) {
+    var el = ensureShuffleTimerEl();
+    if (!el) return;
+    if (shuffleCountdownTimer) {
+      clearInterval(shuffleCountdownTimer);
+      shuffleCountdownTimer = null;
+    }
+    if (!assigned || !assigned.shuffleEnabled) {
+      el.style.display = "none";
+      return;
+    }
+    var rem = typeof assigned.remainingSeconds === "number" ? assigned.remainingSeconds : null;
+    if (rem != null) {
+      shuffleTargetMs = Date.now() + Math.max(0, rem) * 1000;
+    } else if (assigned.nextShuffleTs) {
+      shuffleTargetMs = Number(assigned.nextShuffleTs) * 1000;
+    } else if (assigned.nextShuffleAt) {
+      shuffleTargetMs = Date.parse(assigned.nextShuffleAt) || 0;
+    }
+    if (!shuffleTargetMs) {
+      el.style.display = "none";
+      return;
+    }
+    var tick = function () {
+      var leftSec = Math.max(0, Math.ceil((shuffleTargetMs - Date.now()) / 1000));
+      el.style.display = "block";
+      el.textContent = "Auto Session Shuffle in " + formatCountdown(leftSec);
+      if (leftSec <= 0) {
+        clearInterval(shuffleCountdownTimer);
+        shuffleCountdownTimer = null;
+        try {
+          chrome.runtime.sendMessage({ type: "PAKFLOW_SYNC_SESSION_SHUFFLE" }, function (syncRes) {
+            void chrome.runtime?.lastError;
+            if (syncRes && syncRes.assignedServer) updateShuffleCountdownUI(syncRes.assignedServer);
+          });
+        } catch (_e) {}
+      }
+    };
+    tick();
+    shuffleCountdownTimer = setInterval(tick, 1000);
+  }
+
+  function highlightActiveSessionInPopup(slotNum) {
+    if (!slotNum || activeSwitchBusy) return;
+    var grid = document.getElementById("sessionButtonsGrid");
+    if (grid) {
+      var btns = grid.querySelectorAll(".session-slot-btn");
+      for (var i = 0; i < btns.length; i++) {
+        var n = Number(btns[i].dataset.slotNumber || parseSlotNum(btns[i].textContent));
+        btns[i].classList.toggle("is-active", n === slotNum);
+      }
+    }
+    var cookieValEl = document.getElementById("customSessionCookieVal");
+    if (cookieValEl) cookieValEl.textContent = String(slotNum);
+    var descEl = document.getElementById("readyDescText");
+    if (descEl) descEl.textContent = "Session " + slotNum + " Active — Flow Ready";
+  }
+
   function initSessionButtons() {
     loadSessionButtons();
+    // Immediately sync any admin Reshuffle Now / auto-shuffle period change when popup opens
+    try {
+      chrome.runtime.sendMessage({ type: "PAKFLOW_SYNC_SESSION_SHUFFLE" }, function (res) {
+        void chrome.runtime?.lastError;
+        if (res && res.activeSlot) {
+          var nextNum = parseSlotNum(res.activeSlot);
+          if (nextNum) highlightActiveSessionInPopup(nextNum);
+        }
+        if (res && res.assignedServer) {
+          updateShuffleCountdownUI(res.assignedServer);
+        }
+      });
+    } catch (_e) {}
+
+    if (typeof chrome !== "undefined" && chrome.storage && chrome.storage.local) {
+      chrome.storage.local.get(["pf_assigned_server"], function (st) {
+        void chrome.runtime?.lastError;
+        if (st && st.pf_assigned_server) updateShuffleCountdownUI(st.pf_assigned_server);
+      });
+      if (chrome.storage.onChanged) {
+        chrome.storage.onChanged.addListener(function (changes, area) {
+          if (area !== "local") return;
+          if (changes.activeSlot && changes.activeSlot.newValue) {
+            var nextNum = parseSlotNum(changes.activeSlot.newValue);
+            if (nextNum) highlightActiveSessionInPopup(nextNum);
+          }
+          if (changes.pf_assigned_server && changes.pf_assigned_server.newValue) {
+            updateShuffleCountdownUI(changes.pf_assigned_server.newValue);
+          }
+        });
+      }
+    }
+
     var sel = document.getElementById("serverFileSelect");
     if (sel && typeof MutationObserver !== "undefined") {
       new MutationObserver(function () {

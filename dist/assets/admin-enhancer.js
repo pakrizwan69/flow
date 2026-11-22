@@ -1,8 +1,9 @@
 /* PakFlow Admin & Reseller UI Enhancer
- * - Seamlessly extends the existing /admin and /reseller React UI without modifying the bundle
- * - Admin Controls Drawer: Extension Builder/Upload, Server Shuffle + Reshuffle Now, Flow Access Lock, Welcome Template
- * - Reseller Welcome Template Editor
- * - Automatic "Copy Welcome Message" modal after Admin or Reseller creates a user
+ * - Clean, responsive Zinc UI integration for /admin and /reseller
+ * - Session Shuffle with Live Countdown Timer + Instant Reshuffle Now + Active Session Statuses
+ * - Extension Builder & Upload (updates manifest.json + popup.html + scripts)
+ * - Flow Access Lock Policy
+ * - Editable Welcome Message Templates + Automatic 1-Click Copy Modal on User Creation
  */
 (() => {
   'use strict';
@@ -33,6 +34,10 @@
   let cachedResellerTemplate = null;
   let cachedConfig = null;
   let activeRole = null; // 'admin' | 'reseller' | null
+  let countdownInterval = null;
+  let countdownState = { enabled: false, targetMs: 0, epoch: 1, intervalMinutes: 60, lastShuffledAt: null };
+  let autoRefreshTriggeredForTarget = 0;
+
   const rawFetch = window.fetch.bind(window);
 
   function getAdminToken() {
@@ -47,6 +52,10 @@
       return raw ? JSON.parse(raw) : null;
     } catch { return null; }
   }
+  function isAdminOrResellerPath() {
+    const p = (window.location.pathname || '').toLowerCase();
+    return p.startsWith('/admin') || p.startsWith('/reseller');
+  }
   function detectPanelRole() {
     const p = (window.location.pathname || '').toLowerCase();
     if (p.startsWith('/admin') && getAdminToken()) return 'admin';
@@ -54,12 +63,13 @@
     return null;
   }
 
-  function escapeHtml(str) {
-    return String(str ?? '')
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;');
+  function formatCountdown(totalSec) {
+    const sec = Math.max(0, Math.floor(totalSec));
+    const h = Math.floor(sec / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    const s = sec % 60;
+    const pad = (n) => (n < 10 ? '0' + n : String(n));
+    return pad(h) + ':' + pad(m) + ':' + pad(s);
   }
 
   function formatWhatsappText(raw) {
@@ -128,7 +138,96 @@
     }
   }
 
-  // ── 1. Intercept User Creation (Admin & Reseller) to pop up Copy Welcome Message Modal ──
+  // ── 1. Live Countdown Engine (Header Pill + Controls Modal Clock) ──
+  function applyCountdownFromShuffle(sh) {
+    if (!sh || typeof sh !== 'object') return;
+    const enabled = Boolean(sh.enabled);
+    const epoch = Number(sh.shuffleEpoch || 1);
+    const intervalMinutes = Number(sh.intervalMinutes || 60);
+    let targetMs = 0;
+    if (enabled) {
+      if (typeof sh.remainingSeconds === 'number') {
+        targetMs = Date.now() + Math.max(0, sh.remainingSeconds) * 1000;
+      } else if (sh.nextShuffleTs) {
+        targetMs = Number(sh.nextShuffleTs) * 1000;
+      } else if (sh.nextShuffleAt) {
+        targetMs = Date.parse(sh.nextShuffleAt) || 0;
+      }
+    }
+    countdownState = {
+      enabled,
+      targetMs,
+      epoch,
+      intervalMinutes,
+      lastShuffledAt: sh.lastShuffledAt || null
+    };
+    renderCountdownTick();
+    if (!countdownInterval) {
+      countdownInterval = setInterval(renderCountdownTick, 1000);
+    }
+  }
+
+  function renderCountdownTick() {
+    const hdrPill = document.getElementById('pfHeaderCountdownPill');
+    const hdrText = document.getElementById('pfHeaderCountdownText');
+    const modalClock = document.getElementById('pfLiveCountdownClock');
+    const modalMeta = document.getElementById('pfLiveCountdownMeta');
+
+    if (!countdownState.enabled || !countdownState.targetMs) {
+      if (hdrPill) hdrPill.style.display = 'none';
+      if (modalClock) {
+        modalClock.textContent = 'Timer Off';
+        modalClock.classList.add('is-off');
+      }
+      if (modalMeta) {
+        modalMeta.textContent =
+          'Epoch #' + countdownState.epoch +
+          (countdownState.lastShuffledAt ? (' · Last reshuffled ' + new Date(countdownState.lastShuffledAt).toLocaleTimeString()) : ' · Enable timer below to auto-rotate sessions');
+      }
+      return;
+    }
+
+    const leftSec = Math.max(0, Math.ceil((countdownState.targetMs - Date.now()) / 1000));
+    const formatted = formatCountdown(leftSec);
+
+    if (hdrPill && hdrText) {
+      hdrPill.style.display = 'inline-flex';
+      hdrText.textContent = 'Shuffle ' + formatted;
+    }
+    if (modalClock) {
+      modalClock.textContent = formatted;
+      modalClock.classList.remove('is-off');
+    }
+    if (modalMeta) {
+      modalMeta.textContent =
+        'Epoch #' + countdownState.epoch +
+        ' · Every ' + countdownState.intervalMinutes + ' min' +
+        (countdownState.lastShuffledAt ? (' · Last reshuffle ' + new Date(countdownState.lastShuffledAt).toLocaleTimeString()) : '');
+    }
+
+    if (leftSec <= 0 && autoRefreshTriggeredForTarget !== countdownState.targetMs) {
+      autoRefreshTriggeredForTarget = countdownState.targetMs;
+      setTimeout(() => {
+        if (detectPanelRole() === 'admin') {
+          refreshShuffleStateSilently();
+        }
+      }, 1200);
+    }
+  }
+
+  async function refreshShuffleStateSilently() {
+    try {
+      const cfg = await apiFetch('/api/admin/controls/config', { method: 'GET' }, 'admin');
+      cachedConfig = cfg;
+      if (cfg && cfg.serverShuffle) applyCountdownFromShuffle(cfg.serverShuffle);
+      const modal = document.getElementById('pfControlsModal');
+      if (modal && !modal.classList.contains('pf-hidden')) {
+        populateAdminControlsFromConfig(cfg);
+      }
+    } catch {}
+  }
+
+  // ── 2. Intercept User Creation (Admin & Reseller) to pop up Copy Welcome Message Modal ──
   window.fetch = async function (input, init) {
     let urlStr = '';
     let method = 'GET';
@@ -179,7 +278,7 @@
     return resp;
   };
 
-  // ── 2. Welcome Message Copy Modal (Admin & Reseller) ──
+  // ── 3. Welcome Message Copy Modal (Admin & Reseller) ──
   function ensureWelcomeCopyModal() {
     let el = document.getElementById('pfWelcomeCopyModal');
     if (el) return el;
@@ -190,7 +289,7 @@
       '<div class="pf-enh-modal pf-modal-sm" role="dialog" aria-modal="true">' +
         '<div class="pf-enh-head">' +
           '<div>' +
-            '<h3>✅ User Created — Welcome Message</h3>' +
+            '<h3>User Created — Copy Welcome Message</h3>' +
             '<p id="pfWelcomeSub">Copy &amp; send credentials to the user</p>' +
           '</div>' +
           '<button type="button" class="pf-enh-close" id="pfWelcomeClose">&times;</button>' +
@@ -203,9 +302,9 @@
               '<textarea id="pfWelcomeRendered" class="pf-textarea" rows="9"></textarea>' +
             '</div>' +
             '<div class="pf-row" style="margin-top:14px;">' +
-              '<button type="button" class="pf-btn pf-btn-emerald" id="pfCopyMsgBtn" style="flex:1;">📋 Copy Message</button>' +
-              '<a id="pfWaShareBtn" class="pf-btn pf-btn-primary" href="#" target="_blank" rel="noopener noreferrer">💬 WhatsApp</a>' +
-              '<button type="button" class="pf-btn pf-btn-ghost" id="pfToggleEditTplBtn">✏️ Edit Template</button>' +
+              '<button type="button" class="pf-btn pf-btn-emerald" id="pfCopyMsgBtn" style="flex:1;">Copy Message</button>' +
+              '<a id="pfWaShareBtn" class="pf-btn pf-btn-primary" href="#" target="_blank" rel="noopener noreferrer">WhatsApp</a>' +
+              '<button type="button" class="pf-btn pf-btn-ghost" id="pfToggleEditTplBtn">Edit Template</button>' +
             '</div>' +
           '</div>' +
           '<div id="pfWelcomeEditPane" style="display:none;">' +
@@ -215,7 +314,7 @@
               '<textarea id="pfQuickTplInput" class="pf-textarea" rows="8"></textarea>' +
             '</div>' +
             '<div class="pf-row" style="margin-top:12px;">' +
-              '<button type="button" class="pf-btn pf-btn-primary" id="pfSaveQuickTplBtn" style="flex:1;">💾 Save Template &amp; Apply</button>' +
+              '<button type="button" class="pf-btn pf-btn-primary" id="pfSaveQuickTplBtn" style="flex:1;">Save Template &amp; Apply</button>' +
               '<button type="button" class="pf-btn pf-btn-ghost" id="pfCancelQuickTplBtn">Back</button>' +
             '</div>' +
           '</div>' +
@@ -277,6 +376,7 @@
     const saveTplBtn = modal.querySelector('#pfSaveQuickTplBtn');
     const cancelTplBtn = modal.querySelector('#pfCancelQuickTplBtn');
 
+    modal.querySelector('h3').textContent = 'User Created — Copy Welcome Message';
     setBanner(statusEl, '', false);
     copyPane.style.display = 'block';
     editPane.style.display = 'none';
@@ -298,14 +398,14 @@
     copyBtn.onclick = async () => {
       try {
         await navigator.clipboard.writeText(renderedEl.value);
-        copyBtn.textContent = '✓ Copied!';
-        setBanner(statusEl, 'Welcome message copied to clipboard!', false);
-        setTimeout(() => { copyBtn.textContent = '📋 Copy Message'; }, 2200);
+        copyBtn.textContent = 'Copied';
+        setBanner(statusEl, 'Welcome message copied to clipboard.', false);
+        setTimeout(() => { copyBtn.textContent = 'Copy Message'; }, 2000);
       } catch {
         renderedEl.select();
         document.execCommand('copy');
-        copyBtn.textContent = '✓ Copied!';
-        setTimeout(() => { copyBtn.textContent = '📋 Copy Message'; }, 2200);
+        copyBtn.textContent = 'Copied';
+        setTimeout(() => { copyBtn.textContent = 'Copy Message'; }, 2000);
       }
     };
 
@@ -334,19 +434,18 @@
         updateRendered(nextTpl);
         copyPane.style.display = 'block';
         editPane.style.display = 'none';
-        setBanner(statusEl, 'Template saved & applied!', false);
+        setBanner(statusEl, 'Template saved & applied.', false);
       } catch (err) {
         setBanner(statusEl, err.message || 'Failed to save template', true);
       } finally {
         saveTplBtn.disabled = false;
-        saveTplBtn.textContent = '💾 Save Template & Apply';
+        saveTplBtn.textContent = 'Save Template & Apply';
       }
     };
 
     modal.classList.remove('pf-hidden');
   }
 
-  // ── 3. Standalone Reseller Welcome Template Editor Modal ──
   async function openResellerTemplateModal() {
     const tplInfo = await fetchTemplateForRole('reseller');
     openWelcomeCopyModal({
@@ -364,26 +463,31 @@
     });
     const modal = document.getElementById('pfWelcomeCopyModal');
     if (modal) {
-      modal.querySelector('h3').textContent = '✏️ Reseller Welcome Message Template';
+      modal.querySelector('h3').textContent = 'Reseller Welcome Message Template';
       modal.querySelector('#pfWelcomeSub').textContent = 'Customize the message copied automatically whenever you add a user';
       modal.querySelector('#pfWelcomeCopyPane').style.display = 'none';
       modal.querySelector('#pfWelcomeEditPane').style.display = 'block';
     }
   }
 
-  // ── 4. Admin Controls Drawer Modal (Extension Builder, Server Shuffle, Access Lock, Message Template) ──
+  // ── 4. Admin Controls Modal (Extension Builder, Session Shuffle + Countdown, Access Lock, Welcome Template) ──
   function ensureAdminControlsModal() {
     let el = document.getElementById('pfControlsModal');
     if (el) return el;
 
-    const poolCheckboxes = Array.from({ length: 10 }, (_, idx) => {
+    const poolItemsHtml = Array.from({ length: 10 }, (_, idx) => {
       const n = idx + 1;
-      return `<label class="pf-pool-item"><input type="checkbox" name="pfShufflePool" value="${n}" /> Server ${n}</label>`;
+      return (
+        `<label class="pf-pool-item" data-session-row="${n}">` +
+          `<span class="pf-pool-left"><input type="checkbox" name="pfShufflePool" value="${n}" /><span data-session-label="${n}">Session ${n}</span></span>` +
+          `<span class="pf-pool-badge empty" data-session-badge="${n}">Checking...</span>` +
+        `</label>`
+      );
     }).join('');
 
     const defaultSlotOptions = Array.from({ length: 10 }, (_, idx) => {
       const n = idx + 1;
-      return `<option value="${n}">Server ${n} (slot_${n})</option>`;
+      return `<option value="${n}">Session ${n}</option>`;
     }).join('');
 
     el = document.createElement('div');
@@ -393,36 +497,82 @@
       '<div class="pf-enh-modal" role="dialog" aria-modal="true">' +
         '<div class="pf-enh-head">' +
           '<div>' +
-            '<h3>⚡ PakFlow Advanced Controls</h3>' +
-            '<p>Extension Builder &amp; Release · Server Shuffle · Flow Access Lock · Welcome Template</p>' +
+            '<h3>PakFlow Controls</h3>' +
+            '<p>Extension Release · Session Shuffle &amp; Timer · Flow Access Lock · Welcome Template</p>' +
           '</div>' +
           '<button type="button" class="pf-enh-close" id="pfCtrlClose">&times;</button>' +
         '</div>' +
         '<div class="pf-enh-tabs">' +
-          '<button type="button" class="pf-enh-tab active" data-tab="ext">📦 Extension Builder</button>' +
-          '<button type="button" class="pf-enh-tab" data-tab="shuffle">🔀 Server Shuffle</button>' +
-          '<button type="button" class="pf-enh-tab" data-tab="lock">🔒 Access Lock</button>' +
-          '<button type="button" class="pf-enh-tab" data-tab="tpl">💬 Welcome Template</button>' +
+          '<button type="button" class="pf-enh-tab active" data-tab="shuffle">Session Shuffle</button>' +
+          '<button type="button" class="pf-enh-tab" data-tab="ext">Extension Builder</button>' +
+          '<button type="button" class="pf-enh-tab" data-tab="lock">Access Lock</button>' +
+          '<button type="button" class="pf-enh-tab" data-tab="tpl">Welcome Template</button>' +
         '</div>' +
         '<div class="pf-enh-body">' +
           '<div id="pfCtrlStatus" class="pf-status-banner"></div>' +
 
-          /* TAB 1: EXTENSION BUILDER & UPLOAD */
-          '<div class="pf-tab-pane" data-pane="ext">' +
-            '<div class="pf-enh-section">' +
-              '<div class="pf-row" style="justify-content:space-between;margin-bottom:10px;">' +
-                '<h4 style="margin:0;">Current Live User Extension</h4>' +
-                '<span class="pf-meta-pill" id="pfExtCurrentPill">Loading...</span>' +
+          /* TAB 1: SESSION SHUFFLE & DEFAULT SESSION */
+          '<div class="pf-tab-pane" data-pane="shuffle">' +
+            '<div class="pf-countdown-card">' +
+              '<div>' +
+                '<div class="pf-countdown-label">Next Automatic Session Shuffle</div>' +
+                '<div class="pf-countdown-clock is-off" id="pfLiveCountdownClock">Timer Off</div>' +
+                '<div class="pf-countdown-meta" id="pfLiveCountdownMeta">Epoch #1</div>' +
               '</div>' +
-              '<p class="pf-enh-hint" id="pfExtCurrentInfo">Checking latest release...</p>' +
-              '<div class="pf-row">' +
-                '<a id="pfExtCurrentDownload" href="/downloads/latest" class="pf-btn pf-btn-ghost" download>⬇ Download Current ZIP</a>' +
-              '</div>' +
+              '<button type="button" class="pf-btn pf-btn-amber" id="pfReshuffleNowBtn">Reshuffle Sessions Now</button>' +
             '</div>' +
 
             '<div class="pf-enh-section">' +
-              '<h4>⚡ Regenerate Extension ZIP (From Repo Source)</h4>' +
-              '<p class="pf-enh-hint">Builds a Chrome-ready .zip directly from <code>extension-src/</code>, updates the version everywhere, and immediately updates the top-right Download badge on the User Dashboard.</p>' +
+              '<h4>Auto Session Rotation &amp; Default Session</h4>' +
+              '<p class="pf-enh-hint">Rotates users across active Google Flow cookie sessions (Session 1–10) every interval. Users can still manually switch sessions inside the extension popup.</p>' +
+              '<div class="pf-toggle-row">' +
+                '<div><strong>Enable Auto Session Shuffle Timer</strong><span>Automatically rotates every user to a balanced active session when countdown hits 00:00:00</span></div>' +
+                '<input type="checkbox" id="pfShuffleEnabled" />' +
+              '</div>' +
+              '<div class="pf-enh-grid">' +
+                '<div class="pf-field">' +
+                  '<label for="pfShuffleInterval">Shuffle Interval (Minutes)</label>' +
+                  '<input id="pfShuffleInterval" class="pf-input" type="number" min="5" max="43200" value="60" />' +
+                '</div>' +
+                '<div class="pf-field">' +
+                  '<label for="pfDefaultSlot">Default Fallback Session</label>' +
+                  '<select id="pfDefaultSlot" class="pf-select">' + defaultSlotOptions + '</select>' +
+                '</div>' +
+              '</div>' +
+              '<div class="pf-chip-list">' +
+                '<button type="button" class="pf-chip" data-mins="5">5 min</button>' +
+                '<button type="button" class="pf-chip" data-mins="15">15 min</button>' +
+                '<button type="button" class="pf-chip" data-mins="30">30 min</button>' +
+                '<button type="button" class="pf-chip" data-mins="60">1 hour</button>' +
+                '<button type="button" class="pf-chip" data-mins="120">2 hours</button>' +
+                '<button type="button" class="pf-chip" data-mins="360">6 hours</button>' +
+                '<button type="button" class="pf-chip" data-mins="720">12 hours</button>' +
+                '<button type="button" class="pf-chip" data-mins="1440">24 hours</button>' +
+              '</div>' +
+              '<div class="pf-field">' +
+                '<label>Eligible Sessions Pool (Only ACTIVE sessions with cookies rotate)</label>' +
+                '<div class="pf-pool-grid">' + poolItemsHtml + '</div>' +
+              '</div>' +
+              '<div class="pf-row" style="margin-top:14px;">' +
+                '<button type="button" class="pf-btn pf-btn-primary" id="pfSaveShuffleBtn">Save Shuffle Settings</button>' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+
+          /* TAB 2: EXTENSION BUILDER & UPLOAD */
+          '<div class="pf-tab-pane" data-pane="ext" style="display:none;">' +
+            '<div class="pf-enh-section">' +
+              '<div class="pf-row" style="justify-content:space-between;margin-bottom:8px;">' +
+                '<h4 style="margin:0;">Current Live Extension</h4>' +
+                '<span class="pf-meta-pill" id="pfExtCurrentPill">Loading...</span>' +
+              '</div>' +
+              '<p class="pf-enh-hint" id="pfExtCurrentInfo">Checking latest release...</p>' +
+              '<a id="pfExtCurrentDownload" href="/downloads/latest" class="pf-btn pf-btn-ghost" download>Download Current ZIP</a>' +
+            '</div>' +
+
+            '<div class="pf-enh-section">' +
+              '<h4>Regenerate Extension ZIP (From Repo Source)</h4>' +
+              '<p class="pf-enh-hint">Builds a Chrome-ready .zip directly from <code>extension-src/</code>, updates the version in manifest + popup header + scripts, and updates the user dashboard download banner immediately.</p>' +
               '<div class="pf-enh-grid">' +
                 '<div class="pf-field">' +
                   '<label for="pfExtVersion">New Version (e.g. 1.8)</label>' +
@@ -443,12 +593,12 @@
                   '<input id="pfExtPortalUrl" class="pf-input" type="url" placeholder="Leave empty for dynamic origin" />' +
                 '</div>' +
               '</div>' +
-              '<button type="button" class="pf-btn pf-btn-primary" id="pfRegenerateExtBtn">⚡ Regenerate &amp; Publish ZIP</button>' +
+              '<button type="button" class="pf-btn pf-btn-primary" id="pfRegenerateExtBtn">Regenerate &amp; Publish ZIP</button>' +
             '</div>' +
 
             '<div class="pf-enh-section">' +
-              '<h4>⬆ Upload Custom Extension ZIP</h4>' +
-              '<p class="pf-enh-hint">Prefer uploading your own pre-built .zip? Select it here and publish it to users.</p>' +
+              '<h4>Upload Custom Extension ZIP</h4>' +
+              '<p class="pf-enh-hint">Upload your own pre-built .zip to publish it to all users.</p>' +
               '<div class="pf-enh-grid">' +
                 '<div class="pf-field">' +
                   '<label for="pfUploadZipFile">Extension .zip File</label>' +
@@ -459,57 +609,15 @@
                   '<input id="pfUploadZipVer" class="pf-input" type="text" placeholder="1.8" />' +
                 '</div>' +
               '</div>' +
-              '<button type="button" class="pf-btn pf-btn-emerald" id="pfUploadZipBtn">⬆ Upload &amp; Publish ZIP</button>' +
-            '</div>' +
-          '</div>' +
-
-          /* TAB 2: SERVER SHUFFLE & DEFAULT SERVER */
-          '<div class="pf-tab-pane" data-pane="shuffle" style="display:none;">' +
-            '<div class="pf-enh-section">' +
-              '<div class="pf-row" style="justify-content:space-between;margin-bottom:10px;">' +
-                '<h4 style="margin:0;">Server Auto-Shuffle &amp; Default Server</h4>' +
-                '<span class="pf-meta-pill" id="pfShuffleEpochPill">Epoch #1</span>' +
-              '</div>' +
-              '<p class="pf-enh-hint">Automatically rotates users across active servers on a schedule to balance load. Users still keep the option to manually switch servers inside the extension popup.</p>' +
-              '<div class="pf-toggle-row">' +
-                '<div><strong>Enable Automatic Server Shuffle</strong><span>Distributes users across the selected server pool after every interval</span></div>' +
-                '<input type="checkbox" id="pfShuffleEnabled" />' +
-              '</div>' +
-              '<div class="pf-enh-grid">' +
-                '<div class="pf-field">' +
-                  '<label for="pfShuffleInterval">Shuffle Interval (Minutes)</label>' +
-                  '<input id="pfShuffleInterval" class="pf-input" type="number" min="5" max="10080" value="60" />' +
-                '</div>' +
-                '<div class="pf-field">' +
-                  '<label for="pfDefaultSlot">Default Fallback Server</label>' +
-                  '<select id="pfDefaultSlot" class="pf-select">' + defaultSlotOptions + '</select>' +
-                '</div>' +
-              '</div>' +
-              '<div class="pf-chip-list">' +
-                '<button type="button" class="pf-chip" data-mins="15">15 min</button>' +
-                '<button type="button" class="pf-chip" data-mins="30">30 min</button>' +
-                '<button type="button" class="pf-chip" data-mins="60">1 hour</button>' +
-                '<button type="button" class="pf-chip" data-mins="120">2 hours</button>' +
-                '<button type="button" class="pf-chip" data-mins="360">6 hours</button>' +
-                '<button type="button" class="pf-chip" data-mins="720">12 hours</button>' +
-                '<button type="button" class="pf-chip" data-mins="1440">24 hours</button>' +
-              '</div>' +
-              '<div class="pf-field">' +
-                '<label>Eligible Shuffle Server Pool (Google Flow Slots 1–10)</label>' +
-                '<div class="pf-pool-grid">' + poolCheckboxes + '</div>' +
-              '</div>' +
-              '<div class="pf-row" style="margin-top:14px;">' +
-                '<button type="button" class="pf-btn pf-btn-primary" id="pfSaveShuffleBtn">💾 Save Shuffle Settings</button>' +
-                '<button type="button" class="pf-btn pf-btn-amber" id="pfReshuffleNowBtn">🔀 Reshuffle All Users Now</button>' +
-              '</div>' +
+              '<button type="button" class="pf-btn pf-btn-emerald" id="pfUploadZipBtn">Upload &amp; Publish ZIP</button>' +
             '</div>' +
           '</div>' +
 
           /* TAB 3: FLOW ACCESS LOCK */
           '<div class="pf-tab-pane" data-pane="lock" style="display:none;">' +
             '<div class="pf-enh-section">' +
-              '<h4>🔒 Strict Google Flow Access Lock</h4>' +
-              '<p class="pf-enh-hint">Control when Google Flow must automatically lock and clear session cookies inside the user extension.</p>' +
+              '<h4>Strict Google Flow Access Lock</h4>' +
+              '<p class="pf-enh-hint">Control when Google Flow must lock and clear session cookies inside the user extension.</p>' +
               '<div class="pf-toggle-row">' +
                 '<div><strong>Require PakFlow Portal Tab Open</strong><span>If user closes their PakFlow dashboard tab, Google Flow locks until they reopen it</span></div>' +
                 '<input type="checkbox" id="pfRequirePortalOpen" />' +
@@ -519,21 +627,21 @@
                 '<input type="checkbox" id="pfBlockOnLogout" checked />' +
               '</div>' +
               '<div class="pf-toggle-row">' +
-                '<div><strong>Block Flow on Expired / Basic Plan</strong><span>Blocks Google Flow access and wipes cookies as soon as subscription expires</span></div>' +
+                '<div><strong>Block Flow on Expired / Basic Plan</strong><span>Blocks Google Flow access and wipes cookies as soon as subscription ends</span></div>' +
                 '<input type="checkbox" id="pfBlockOnExpired" checked />' +
               '</div>' +
               '<div class="pf-field" style="max-width:260px;">' +
                 '<label for="pfPortalGraceSec">Portal Close Grace Period (Seconds)</label>' +
-                '<input id="pfPortalGraceSec" class="pf-input" type="number" min="3" max="120" value="15" />' +
+                '<input id="pfPortalGraceSec" class="pf-input" type="number" min="5" max="120" value="15" />' +
               '</div>' +
-              '<button type="button" class="pf-btn pf-btn-primary" id="pfSaveLockBtn">💾 Save Access Lock Policy</button>' +
+              '<button type="button" class="pf-btn pf-btn-primary" id="pfSaveLockBtn">Save Access Lock Policy</button>' +
             '</div>' +
           '</div>' +
 
           /* TAB 4: WELCOME MESSAGE TEMPLATE */
           '<div class="pf-tab-pane" data-pane="tpl" style="display:none;">' +
             '<div class="pf-enh-section">' +
-              '<h4>💬 Default User Welcome Message Template</h4>' +
+              '<h4>Default User Welcome Message Template</h4>' +
               '<p class="pf-enh-hint">Whenever you add a user, a 1-click Copy popup opens with this template auto-filled with their site link, email, password, plan, and days.</p>' +
               '<div class="pf-chip-list" id="pfAdminTplChips"></div>' +
               '<div class="pf-field">' +
@@ -541,8 +649,8 @@
                 '<textarea id="pfAdminTplTextarea" class="pf-textarea" rows="8"></textarea>' +
               '</div>' +
               '<div class="pf-row" style="margin-bottom:14px;">' +
-                '<button type="button" class="pf-btn pf-btn-primary" id="pfSaveAdminTplBtn">💾 Save Template</button>' +
-                '<button type="button" class="pf-btn pf-btn-ghost" id="pfResetAdminTplBtn">↺ Reset Default</button>' +
+                '<button type="button" class="pf-btn pf-btn-primary" id="pfSaveAdminTplBtn">Save Template</button>' +
+                '<button type="button" class="pf-btn pf-btn-ghost" id="pfResetAdminTplBtn">Reset Default</button>' +
               '</div>' +
               '<div class="pf-field">' +
                 '<label>Live Preview</label>' +
@@ -608,6 +716,49 @@
       chipsBox.appendChild(b);
     });
 
+    // Save Session Shuffle
+    el.querySelector('#pfSaveShuffleBtn').addEventListener('click', async () => {
+      const btn = el.querySelector('#pfSaveShuffleBtn');
+      const enabled = el.querySelector('#pfShuffleEnabled').checked;
+      const intervalMinutes = parseInt(el.querySelector('#pfShuffleInterval').value, 10) || 60;
+      const defaultSlot = parseInt(el.querySelector('#pfDefaultSlot').value, 10) || 1;
+      const poolSlots = Array.from(el.querySelectorAll('input[name="pfShufflePool"]:checked')).map(i => parseInt(i.value, 10));
+      btn.disabled = true;
+      btn.textContent = 'Saving...';
+      try {
+        const res = await apiFetch('/api/admin/controls/server-shuffle', {
+          method: 'PUT',
+          body: JSON.stringify({ enabled, intervalMinutes, defaultSlot, poolSlots, resetTimer: true })
+        }, 'admin');
+        if (res.serverShuffle) applyCountdownFromShuffle(res.serverShuffle);
+        setBanner(statusEl, res.message || 'Session shuffle settings saved!', false);
+        await hydrateAdminControls();
+      } catch (err) {
+        setBanner(statusEl, err.message || 'Failed to save shuffle settings', true);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Save Shuffle Settings';
+      }
+    });
+
+    // Reshuffle Sessions Now
+    el.querySelector('#pfReshuffleNowBtn').addEventListener('click', async () => {
+      const btn = el.querySelector('#pfReshuffleNowBtn');
+      btn.disabled = true;
+      btn.textContent = 'Reshuffling...';
+      try {
+        const res = await apiFetch('/api/admin/controls/reshuffle-now', { method: 'POST', body: '{}' }, 'admin');
+        if (res.serverShuffle) applyCountdownFromShuffle(res.serverShuffle);
+        setBanner(statusEl, res.message || 'All user sessions reshuffled!', false);
+        await hydrateAdminControls();
+      } catch (err) {
+        setBanner(statusEl, err.message || 'Failed to reshuffle sessions', true);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Reshuffle Sessions Now';
+      }
+    });
+
     // Regenerate Extension ZIP
     el.querySelector('#pfRegenerateExtBtn').addEventListener('click', async () => {
       const btn = el.querySelector('#pfRegenerateExtBtn');
@@ -630,7 +781,7 @@
         setBanner(statusEl, err.message || 'Failed to regenerate extension', true);
       } finally {
         btn.disabled = false;
-        btn.textContent = '⚡ Regenerate & Publish ZIP';
+        btn.textContent = 'Regenerate & Publish ZIP';
       }
     });
 
@@ -667,48 +818,7 @@
         setBanner(statusEl, err.message || 'Failed to upload ZIP', true);
       } finally {
         btn.disabled = false;
-        btn.textContent = '⬆ Upload & Publish ZIP';
-      }
-    });
-
-    // Save Server Shuffle
-    el.querySelector('#pfSaveShuffleBtn').addEventListener('click', async () => {
-      const btn = el.querySelector('#pfSaveShuffleBtn');
-      const enabled = el.querySelector('#pfShuffleEnabled').checked;
-      const intervalMinutes = parseInt(el.querySelector('#pfShuffleInterval').value, 10) || 60;
-      const defaultSlot = parseInt(el.querySelector('#pfDefaultSlot').value, 10) || 1;
-      const poolSlots = Array.from(el.querySelectorAll('input[name="pfShufflePool"]:checked')).map(i => parseInt(i.value, 10));
-      btn.disabled = true;
-      btn.textContent = 'Saving...';
-      try {
-        const res = await apiFetch('/api/admin/controls/server-shuffle', {
-          method: 'PUT',
-          body: JSON.stringify({ enabled, intervalMinutes, defaultSlot, poolSlots })
-        }, 'admin');
-        setBanner(statusEl, res.message || 'Server shuffle settings saved!', false);
-        await hydrateAdminControls();
-      } catch (err) {
-        setBanner(statusEl, err.message || 'Failed to save shuffle settings', true);
-      } finally {
-        btn.disabled = false;
-        btn.textContent = '💾 Save Shuffle Settings';
-      }
-    });
-
-    // Reshuffle Now
-    el.querySelector('#pfReshuffleNowBtn').addEventListener('click', async () => {
-      const btn = el.querySelector('#pfReshuffleNowBtn');
-      btn.disabled = true;
-      btn.textContent = 'Reshuffling...';
-      try {
-        const res = await apiFetch('/api/admin/controls/reshuffle-now', { method: 'POST', body: '{}' }, 'admin');
-        setBanner(statusEl, res.message || 'All users reshuffled!', false);
-        await hydrateAdminControls();
-      } catch (err) {
-        setBanner(statusEl, err.message || 'Failed to reshuffle', true);
-      } finally {
-        btn.disabled = false;
-        btn.textContent = '🔀 Reshuffle All Users Now';
+        btn.textContent = 'Upload & Publish ZIP';
       }
     });
 
@@ -733,7 +843,7 @@
         setBanner(statusEl, err.message || 'Failed to save policy', true);
       } finally {
         btn.disabled = false;
-        btn.textContent = '💾 Save Access Lock Policy';
+        btn.textContent = 'Save Access Lock Policy';
       }
     });
 
@@ -755,7 +865,7 @@
         setBanner(statusEl, err.message || 'Failed to save template', true);
       } finally {
         btn.disabled = false;
-        btn.textContent = '💾 Save Template';
+        btn.textContent = 'Save Template';
       }
     });
 
@@ -767,112 +877,198 @@
     return el;
   }
 
+  function populateAdminControlsFromConfig(cfg) {
+    const modal = ensureAdminControlsModal();
+    if (!cfg || typeof cfg !== 'object') return;
+
+    const ext = cfg.extension || {};
+    const ver = String(ext.version || '1.7');
+    const fileName = String(ext.fileName || ('PakFlow_v' + ver + '.zip'));
+    const dlUrl = String(ext.downloadUrl || '/downloads/latest');
+    modal.querySelector('#pfExtCurrentPill').textContent = 'v' + ver + (ext.fileSize ? (' · ' + ext.fileSize) : '');
+    modal.querySelector('#pfExtCurrentInfo').textContent =
+      fileName + (ext.updatedAt ? (' · Updated ' + new Date(ext.updatedAt).toLocaleString()) : '') +
+      ((cfg.extensionSourceReady || cfg.hasExtensionSource) ? ' · Source ready (extension-src/)' : ' · Source folder missing');
+    const dlEl = modal.querySelector('#pfExtCurrentDownload');
+    dlEl.href = dlUrl;
+    dlEl.setAttribute('download', fileName);
+
+    const parts = ver.split('.');
+    let nextVer = ver;
+    if (parts.length >= 2 && !isNaN(parseInt(parts[1], 10))) {
+      nextVer = parts[0] + '.' + (parseInt(parts[1], 10) + 1);
+    }
+    if (!modal.querySelector('#pfExtVersion').value) {
+      modal.querySelector('#pfExtVersion').value = nextVer;
+    }
+    modal.querySelector('#pfExtMinVersion').value = cfg.minExtVersion || ver;
+    modal.querySelector('#pfExtReleaseNote').value = ext.releaseNote || '';
+
+    // Session Shuffle + Live Slot Statuses
+    const sh = cfg.serverShuffle || {};
+    modal.querySelector('#pfShuffleEnabled').checked = Boolean(sh.enabled);
+    modal.querySelector('#pfShuffleInterval').value = sh.intervalMinutes || 60;
+    modal.querySelector('#pfDefaultSlot').value = String(sh.defaultSlot || 1);
+    const pool = Array.isArray(sh.poolSlots) && sh.poolSlots.length ? sh.poolSlots.map(Number) : [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+    modal.querySelectorAll('input[name="pfShufflePool"]').forEach((cb) => {
+      cb.checked = pool.includes(parseInt(cb.value, 10));
+    });
+
+    const slotsByNum = {};
+    if (Array.isArray(cfg.slots)) {
+      cfg.slots.forEach((s) => {
+        if (s && s.slotNumber) slotsByNum[Number(s.slotNumber)] = s;
+      });
+    }
+    for (let n = 1; n <= 10; n++) {
+      const slotInfo = slotsByNum[n];
+      const badge = modal.querySelector('[data-session-badge="' + n + '"]');
+      const lbl = modal.querySelector('[data-session-label="' + n + '"]');
+      if (lbl && slotInfo && slotInfo.name) {
+        const cleanName = String(slotInfo.name).replace(/^Server\s*/i, 'Session ');
+        lbl.textContent = cleanName || ('Session ' + n);
+      }
+      if (badge) {
+        const isActive = slotInfo && String(slotInfo.status || '').toUpperCase() === 'ACTIVE' && Number(slotInfo.cookieCount || 0) > 0;
+        badge.className = 'pf-pool-badge ' + (isActive ? 'active' : 'empty');
+        badge.textContent = isActive ? ('ACTIVE · ' + slotInfo.cookieCount) : 'EMPTY';
+      }
+    }
+
+    applyCountdownFromShuffle(sh);
+
+    // Access Lock
+    const ap = cfg.accessPolicy || {};
+    modal.querySelector('#pfRequirePortalOpen').checked = Boolean(ap.requirePortalOpen);
+    modal.querySelector('#pfBlockOnLogout').checked = ap.blockOnLogout !== false;
+    modal.querySelector('#pfBlockOnExpired').checked = ap.blockOnExpired !== false;
+    modal.querySelector('#pfPortalGraceSec').value = ap.portalGraceSeconds || 15;
+
+    // Welcome Template
+    const tpl = cfg.messageTemplate || cfg.welcomeMessageTemplate || DEFAULT_TEMPLATE;
+    cachedAdminTemplate = tpl;
+    const ta = modal.querySelector('#pfAdminTplTextarea');
+    ta.value = tpl;
+    ta.dispatchEvent(new Event('input'));
+  }
+
   async function hydrateAdminControls() {
     const modal = ensureAdminControlsModal();
     const statusEl = modal.querySelector('#pfCtrlStatus');
     try {
       const cfg = await apiFetch('/api/admin/controls/config', { method: 'GET' }, 'admin');
       cachedConfig = cfg;
-
-      const ext = cfg.extension || {};
-      const ver = String(ext.version || '1.7');
-      const fileName = String(ext.fileName || ('PakFlow_v' + ver + '.zip'));
-      const dlUrl = String(ext.downloadUrl || '/downloads/latest');
-      modal.querySelector('#pfExtCurrentPill').textContent = 'v' + ver + (ext.fileSize ? (' · ' + ext.fileSize) : '');
-      modal.querySelector('#pfExtCurrentInfo').textContent =
-        fileName + (ext.updatedAt ? (' · Updated ' + new Date(ext.updatedAt).toLocaleString()) : '') +
-        ((cfg.extensionSourceReady || cfg.hasExtensionSource) ? ' · Source ready (extension-src/)' : ' · Source folder missing');
-      const dlEl = modal.querySelector('#pfExtCurrentDownload');
-      dlEl.href = dlUrl;
-      dlEl.setAttribute('download', fileName);
-
-      // Suggest next patch version (e.g. 1.7 -> 1.8)
-      const parts = ver.split('.');
-      let nextVer = ver;
-      if (parts.length >= 2 && !isNaN(parseInt(parts[1], 10))) {
-        nextVer = parts[0] + '.' + (parseInt(parts[1], 10) + 1);
-      }
-      if (!modal.querySelector('#pfExtVersion').value) {
-        modal.querySelector('#pfExtVersion').value = nextVer;
-      }
-      modal.querySelector('#pfExtMinVersion').value = cfg.minExtVersion || ver;
-      modal.querySelector('#pfExtReleaseNote').value = ext.releaseNote || '';
-
-      // Server Shuffle
-      const sh = cfg.serverShuffle || {};
-      modal.querySelector('#pfShuffleEnabled').checked = Boolean(sh.enabled);
-      modal.querySelector('#pfShuffleInterval').value = sh.intervalMinutes || 60;
-      modal.querySelector('#pfDefaultSlot').value = String(sh.defaultSlot || 1);
-      modal.querySelector('#pfShuffleEpochPill').textContent =
-        'Epoch #' + (sh.shuffleEpoch || 1) + (sh.lastShuffledAt ? (' · ' + new Date(sh.lastShuffledAt).toLocaleTimeString()) : '');
-      const pool = Array.isArray(sh.poolSlots) && sh.poolSlots.length ? sh.poolSlots.map(Number) : [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
-      modal.querySelectorAll('input[name="pfShufflePool"]').forEach((cb) => {
-        cb.checked = pool.includes(parseInt(cb.value, 10));
-      });
-
-      // Access Lock
-      const ap = cfg.accessPolicy || {};
-      modal.querySelector('#pfRequirePortalOpen').checked = Boolean(ap.requirePortalOpen);
-      modal.querySelector('#pfBlockOnLogout').checked = ap.blockOnLogout !== false;
-      modal.querySelector('#pfBlockOnExpired').checked = ap.blockOnExpired !== false;
-      modal.querySelector('#pfPortalGraceSec').value = ap.portalGraceSeconds || 15;
-
-      // Welcome Template
-      const tpl = cfg.messageTemplate || cfg.welcomeMessageTemplate || DEFAULT_TEMPLATE;
-      cachedAdminTemplate = tpl;
-      const ta = modal.querySelector('#pfAdminTplTextarea');
-      ta.value = tpl;
-      ta.dispatchEvent(new Event('input'));
+      populateAdminControlsFromConfig(cfg);
     } catch (err) {
       setBanner(statusEl, err.message || 'Could not load controls config', true);
     }
   }
 
-  function openAdminControlsModal() {
+  function openAdminControlsModal(defaultTab) {
     const modal = ensureAdminControlsModal();
     setBanner(modal.querySelector('#pfCtrlStatus'), '', false);
+    if (defaultTab) {
+      modal.querySelectorAll('.pf-enh-tab').forEach(b => b.classList.toggle('active', b.getAttribute('data-tab') === defaultTab));
+      modal.querySelectorAll('.pf-tab-pane').forEach(p => {
+        p.style.display = p.getAttribute('data-pane') === defaultTab ? 'block' : 'none';
+      });
+    }
     modal.classList.remove('pf-hidden');
     hydrateAdminControls();
   }
 
-  // ── 5. Mount Floating Dock on /admin & /reseller when authenticated ──
-  function syncDock() {
-    const role = detectPanelRole();
-    if (role === activeRole && document.getElementById('pfEnhancerDock')) return;
-    activeRole = role;
+  // ── 5. Mount Integrated Header Tools on /admin & Clean Dock on /reseller ──
+  function mountAdminHeaderControls() {
+    const header = document.querySelector('header.sticky');
+    const rightGroup = header && header.children.length >= 2 ? header.children[header.children.length - 1] : null;
+    if (!rightGroup) return false;
 
-    const existing = document.getElementById('pfEnhancerDock');
-    if (existing) existing.remove();
-    if (!role) return;
+    if (!document.getElementById('pfAdminHeaderTools')) {
+      const wrap = document.createElement('div');
+      wrap.id = 'pfAdminHeaderTools';
+      wrap.className = 'pf-header-tools';
 
-    const dock = document.createElement('div');
-    dock.id = 'pfEnhancerDock';
-    dock.className = 'pf-enh-dock';
+      const pill = document.createElement('button');
+      pill.type = 'button';
+      pill.id = 'pfHeaderCountdownPill';
+      pill.className = 'pf-hdr-countdown';
+      pill.style.display = 'none';
+      pill.title = 'Live Session Auto-Shuffle Countdown — Click to manage';
+      pill.innerHTML = '<span class="pf-hdr-dot"></span><span id="pfHeaderCountdownText">Shuffle 00:00:00</span>';
+      pill.addEventListener('click', () => openAdminControlsModal('shuffle'));
 
-    if (role === 'admin') {
       const btn = document.createElement('button');
       btn.type = 'button';
-      btn.className = 'pf-enh-fab';
-      btn.innerHTML = '<span>⚡</span><span>PakFlow Controls</span>';
-      btn.addEventListener('click', openAdminControlsModal);
-      dock.appendChild(btn);
-    } else if (role === 'reseller') {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'pf-enh-fab pf-enh-fab-secondary';
-      btn.innerHTML = '<span>✏️</span><span>Welcome Template</span>';
-      btn.addEventListener('click', openResellerTemplateModal);
-      dock.appendChild(btn);
+      btn.className = 'pf-hdr-btn';
+      btn.textContent = 'Controls';
+      btn.title = 'Session Shuffle, Extension Builder, Access Lock & Welcome Template';
+      btn.addEventListener('click', () => openAdminControlsModal());
+
+      wrap.append(pill, btn);
+      rightGroup.prepend(wrap);
+      renderCountdownTick();
     }
 
-    document.body.appendChild(dock);
+    const fallbackDock = document.getElementById('pfEnhancerDock');
+    if (fallbackDock) fallbackDock.remove();
+    return true;
+  }
+
+  function syncShellAndControls() {
+    if (document.body) {
+      document.body.classList.toggle('pf-admin-shell', isAdminOrResellerPath());
+    }
+
+    const role = detectPanelRole();
+    const roleChanged = role !== activeRole;
+    activeRole = role;
+
+    if (!role) {
+      const existingDock = document.getElementById('pfEnhancerDock');
+      if (existingDock) existingDock.remove();
+      const existingHdr = document.getElementById('pfAdminHeaderTools');
+      if (existingHdr) existingHdr.remove();
+      return;
+    }
+
+    if (role === 'admin') {
+      const mountedInHeader = mountAdminHeaderControls();
+      if (!mountedInHeader && !document.getElementById('pfEnhancerDock')) {
+        const dock = document.createElement('div');
+        dock.id = 'pfEnhancerDock';
+        dock.className = 'pf-enh-dock';
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'pf-enh-fab';
+        btn.textContent = 'Controls';
+        btn.addEventListener('click', () => openAdminControlsModal());
+        dock.appendChild(btn);
+        document.body.appendChild(dock);
+      }
+      if (roleChanged || !cachedConfig) {
+        refreshShuffleStateSilently();
+      }
+    } else if (role === 'reseller') {
+      if (!document.getElementById('pfEnhancerDock')) {
+        const dock = document.createElement('div');
+        dock.id = 'pfEnhancerDock';
+        dock.className = 'pf-enh-dock';
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'pf-enh-fab';
+        btn.textContent = 'Welcome Template';
+        btn.addEventListener('click', openResellerTemplateModal);
+        dock.appendChild(btn);
+        document.body.appendChild(dock);
+      }
+    }
   }
 
   function init() {
-    syncDock();
-    setInterval(syncDock, 1500);
-    window.addEventListener('popstate', syncDock);
-    window.addEventListener('storage', syncDock);
+    syncShellAndControls();
+    setInterval(syncShellAndControls, 1200);
+    window.addEventListener('popstate', syncShellAndControls);
+    window.addEventListener('storage', syncShellAndControls);
   }
 
   if (document.readyState === 'loading') {

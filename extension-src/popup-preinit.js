@@ -111,10 +111,10 @@
 
     var slotNum = Number(snap.activeSlot) || 1;
     var cycleTitle = document.getElementById("injectCycleTitle");
-    if (cycleTitle) cycleTitle.textContent = "Server " + slotNum + " Selected";
+    if (cycleTitle) cycleTitle.textContent = "Session " + slotNum + " Selected";
     var readyDesc = document.getElementById("readyDescText");
     if (readyDesc && (!readyDesc.textContent || readyDesc.textContent.indexOf("On Google Flow") === 0)) {
-      readyDesc.textContent = "Server " + slotNum + " Selected";
+      readyDesc.textContent = "Session " + slotNum + " Selected";
     }
 
     // Pre-populate session slot buttons synchronously before first paint to stop window height jumping
@@ -142,6 +142,23 @@
     if (portalLink) portalLink.href = base + "/";
     var regLink = document.querySelector('#loginView .footer-note a[href*="register"]');
     if (regLink) regLink.href = base + "/register";
+  }
+
+  function syncManifestVersionBadges() {
+    try {
+      var m = chrome && chrome.runtime && typeof chrome.runtime.getManifest === "function" ? chrome.runtime.getManifest() : null;
+      var ver = m && (m.version || m.version_name) ? String(m.version || m.version_name).replace(/^v/i, "") : "";
+      if (!ver) return;
+      var els = document.querySelectorAll(".top-version");
+      for (var i = 0; i < els.length; i++) {
+        els[i].textContent = "v" + ver;
+      }
+    } catch (_e) {}
+  }
+
+  syncManifestVersionBadges();
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", syncManifestVersionBadges);
   }
 
   // 1. Synchronous pre-paint restore (0ms) so there is no black flash or height jump
