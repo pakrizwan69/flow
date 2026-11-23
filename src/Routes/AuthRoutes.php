@@ -577,8 +577,8 @@ final class AuthRoutes
         $reqUser = Helpers::requireUser($path);
         $body = Http::body();
         $rawAmount = isset($body['amount']) && is_numeric($body['amount']) ? (int)round((float)$body['amount']) : 0;
-        // Random 6 to 15 credits per generation (clamped to 6..15 for consistency)
-        $amount = ($rawAmount >= 6 && $rawAmount <= 15) ? $rawAmount : random_int(6, 15);
+        // Exact per-model credit deduction (Veo Lite=5, Omni 1.1=12, Veo Fast=20, Omni 1.2=60, Veo Quality=100; clamped 1..200)
+        $amount = ($rawAmount >= 1 && $rawAmount <= 200) ? $rawAmount : 20;
 
         if (\App\Database::isEnabled()) {
             $user = Db::findUserByTokenMysql((string)($reqUser['id'] ?? ''), Db::sanitizeEmail($reqUser['email'] ?? ''));

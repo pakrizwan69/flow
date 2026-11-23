@@ -3,8 +3,8 @@
     if (!ev || ev.source !== window || !ev.data || ev.data.type !== "PAKFLOW_DEDUCT_CREDITS") return;
     try {
       var amt = Number(ev.data.amount);
-      if (!Number.isFinite(amt) || amt < 6 || amt > 15) {
-        amt = 6 + Math.floor(Math.random() * 10);
+      if (!Number.isFinite(amt) || amt < 1 || amt > 200) {
+        amt = 20;
       }
       chrome.runtime.sendMessage({
         type: "PAKFLOW_DEDUCT_CREDITS",

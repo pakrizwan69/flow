@@ -20,12 +20,33 @@
     return /generateVideo|batchAsyncGenerate|batchGenerate|generateImage|flowMedia|video:batch|image:batch|runVideoFx|runImageFx|upsample|extendVideo|createClip|media\.batch/i.test(u);
   }
 
+  function readSelectedModelCost() {
+    try {
+      var credEl = document.querySelector("[data-fake-credits]");
+      if (credEl) {
+        var cVal = parseInt(credEl.getAttribute("data-fake-credits") || "", 10);
+        if (cVal >= 1 && cVal <= 200) return cVal;
+      }
+      var modBtn = document.querySelector("button[data-fake-model]");
+      var modelName = modBtn ? String(modBtn.getAttribute("data-fake-model") || "") : "";
+      var map = {
+        "Veo 3.1 - Lite": 5,
+        "Omni 1.1 Flash": 12,
+        "Veo 3.1 - Fast": 20,
+        "Omni 1.2 Flash": 60,
+        "Veo 3.1 - Quality": 100
+      };
+      if (modelName && map[modelName]) return map[modelName];
+    } catch (_e) {}
+    return 20;
+  }
+
   function triggerDeduction() {
     var now = Date.now();
     if (now - lastDeductAt < 3000) return;
     lastDeductAt = now;
-    var randAmount = 6 + Math.floor(Math.random() * 10); // Random 6 to 15 credits
-    window.postMessage({ type: "PAKFLOW_DEDUCT_CREDITS", amount: randAmount }, "*");
+    var modelCost = readSelectedModelCost();
+    window.postMessage({ type: "PAKFLOW_DEDUCT_CREDITS", amount: modelCost }, "*");
   }
 
   var origFetch = window.fetch;

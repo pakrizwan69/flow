@@ -1280,8 +1280,8 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
       const rawOrigin = st.pakflowWorkingOrigin || st.apiBase || st.connectedFromSite || st.apiBaseUrl || st.apiUrl || st.portalUrl || st.lastOrigin || "https://flowbypak.com";
       const origin = /^https?:\/\//i.test(String(rawOrigin)) ? String(rawOrigin).replace(/\/+$/, "") : "https://flowbypak.com";
       let reqAmt = Math.round(Number(rawAmount));
-      if (!Number.isFinite(reqAmt) || reqAmt < 6 || reqAmt > 15) {
-        reqAmt = 6 + Math.floor(Math.random() * 10);
+      if (!Number.isFinite(reqAmt) || reqAmt < 1 || reqAmt > 200) {
+        reqAmt = 20;
       }
       const extVer = getExtVersion();
       const fetchFn = rawBgFetch || globalThis.fetch;
@@ -1379,8 +1379,10 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
         if (!Number.isFinite(nv) || !Number.isFinite(ov)) return;
         if (nv >= ov) return;
         if (nv === lastSyncedFakeBalance) return;
-        // core_module.js just detected a real video/image generation on Google Flow!
-        deductCreditsOnServer();
+        // Exact per-model credit delta computed by core_module.js (Lite=5, Omni 1.1=12, Fast=20, Omni 1.2=60, Quality=100)
+        const modelDelta = Math.round(ov - nv);
+        const validDelta = (modelDelta >= 1 && modelDelta <= 200) ? modelDelta : 20;
+        deductCreditsOnServer(validDelta);
       });
     }
   } catch {}
