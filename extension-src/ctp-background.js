@@ -1099,81 +1099,7 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
     }
 
     if (msg.type === "PAKFLOW_DEDUCT_CREDITS") {
-      (async () => {
-        try {
-          const st = await bgStorageGet([
-            "userToken", "pakflow_token", "flow_token", "authToken", "token",
-            "pakflowWorkingOrigin", "apiBase", "connectedFromSite", "apiBaseUrl", "apiUrl", "portalUrl", "lastOrigin",
-            "user", "credits", "creditsTotal"
-          ]);
-          const tok = st.userToken || st.pakflow_token || st.flow_token || st.authToken || st.token || "";
-          if (!tok || String(tok).startsWith("usertoken_local_")) {
-            sendResponse({ ok: false, error: "Not authenticated" });
-            return;
-          }
-          const rawOrigin = st.pakflowWorkingOrigin || st.apiBase || st.connectedFromSite || st.apiBaseUrl || st.apiUrl || st.portalUrl || st.lastOrigin || "https://flowbypak.com";
-          const origin = /^https?:\/\//i.test(String(rawOrigin)) ? String(rawOrigin).replace(/\/+$/, "") : "https://flowbypak.com";
-          let reqAmt = Math.round(Number(msg.amount));
-          if (!Number.isFinite(reqAmt) || reqAmt < 6 || reqAmt > 15) {
-            reqAmt = 6 + Math.floor(Math.random() * 10);
-          }
-          const extVer = getExtVersion();
-          const res = await fetch(`${origin}/api/user/deduct-credits?ext_v=${encodeURIComponent(extVer)}`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${tok}`,
-              "X-PakFlow-Extension-Version": extVer
-            },
-            body: JSON.stringify({ amount: reqAmt }),
-            cache: "no-store"
-          });
-          const data = await res.json().catch(() => ({}));
-          if (data && typeof data.credits === "number") {
-            const nextCredits = Math.max(0, Math.round(data.credits));
-            const nextTotal = typeof data.creditsTotal === "number" && data.creditsTotal > 0
-              ? Math.round(data.creditsTotal)
-              : (Number(st.creditsTotal || (st.user && st.user.creditsTotal) || 45000));
-            const nextUser = st.user && typeof st.user === "object"
-              ? Object.assign({}, st.user, { credits: nextCredits, creditsTotal: nextTotal })
-              : null;
-            const patch = { credits: String(nextCredits), creditsTotal: String(nextTotal) };
-            if (nextUser) {
-              patch.user = nextUser;
-              patch.pakflow_user = nextUser;
-            }
-            await bgStorageSet(patch);
-            // Instantly push updated credits to any open PakFlow User Panel tabs (zero extra server load)
-            try {
-              if (chrome.tabs && typeof chrome.tabs.query === "function") {
-                chrome.tabs.query(
-                  { url: ["https://*.flowbypak.com/*", "https://flowbypak.com/*", "https://*.flowbypak.site/*", "https://flowbypak.site/*", "http://localhost/*", "http://127.0.0.1/*"] },
-                  (tabs) => {
-                    void chrome.runtime?.lastError;
-                    if (!Array.isArray(tabs)) return;
-                    const msgPayload = {
-                      type: "PAKFLOW_CREDITS_UPDATED",
-                      credits: nextCredits,
-                      creditsTotal: nextTotal,
-                      deducted: data.deducted || reqAmt
-                    };
-                    for (const tab of tabs) {
-                      if (tab && tab.id) {
-                        try { chrome.tabs.sendMessage(tab.id, msgPayload, () => { void chrome.runtime?.lastError; }); } catch {}
-                      }
-                    }
-                  }
-                );
-              }
-            } catch {}
-            sendResponse({ ok: res.ok, deducted: data.deducted || reqAmt, credits: nextCredits, creditsTotal: nextTotal });
-            return;
-          }
-          sendResponse({ ok: false, error: data?.message || data?.error || `HTTP ${res.status}` });
-        } catch (err) {
-          sendResponse({ ok: false, error: err?.message || "Credit deduct failed" });
-        }
-      })();
+      deductCreditsOnServer(msg.amount).then((res) => sendResponse(res));
       return true;
     }
 
@@ -1206,6 +1132,16 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
                 patch.daysLeft = String(msg.user.daysRemaining);
               }
               if (msg.user.planExpiresAt) patch.expiresAt = String(msg.user.planExpiresAt);
+              if (msg.user.credits !== undefined && msg.user.credits !== null && Number.isFinite(Number(msg.user.credits))) {
+                const syncedC = Math.max(0, Math.round(Number(msg.user.credits)));
+                patch.credits = String(syncedC);
+                lastSyncedFakeBalance = syncedC;
+                patch.fakeBalance = syncedC;
+                patch.pf_last_synced_fb = syncedC;
+              }
+              if (msg.user.creditsTotal !== undefined && msg.user.creditsTotal !== null && Number.isFinite(Number(msg.user.creditsTotal))) {
+                patch.creditsTotal = String(Math.max(0, Math.round(Number(msg.user.creditsTotal))));
+              }
             }
             if (msg.apiBase && /^https?:\/\//i.test(String(msg.apiBase))) {
               const cleanBase = String(msg.apiBase).replace(/\/+$/, "");
@@ -1230,6 +1166,122 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
 
     return false;
   });
+
+  // ── Live Credit Deduction Engine (Syncs Google Flow + DB + Extension Popup + Open User Panel) ──
+  let lastSyncedFakeBalance = -1;
+  let lastCreditDeductMs = 0;
+  let creditDeductInFlight = false;
+
+  async function deductCreditsOnServer(rawAmount) {
+    const now = Date.now();
+    if (creditDeductInFlight || (now - lastCreditDeductMs) < 2800) {
+      return { ok: true, deduped: true };
+    }
+    creditDeductInFlight = true;
+    lastCreditDeductMs = now;
+    try {
+      const st = await bgStorageGet([
+        "userToken", "pakflow_token", "flow_token", "authToken", "token",
+        "pakflowWorkingOrigin", "apiBase", "connectedFromSite", "apiBaseUrl", "apiUrl", "portalUrl", "lastOrigin",
+        "user", "credits", "creditsTotal"
+      ]);
+      const tok = st.userToken || st.pakflow_token || st.flow_token || st.authToken || st.token || "";
+      if (!tok || String(tok).startsWith("usertoken_local_")) {
+        return { ok: false, error: "Not authenticated" };
+      }
+      const rawOrigin = st.pakflowWorkingOrigin || st.apiBase || st.connectedFromSite || st.apiBaseUrl || st.apiUrl || st.portalUrl || st.lastOrigin || "https://flowbypak.com";
+      const origin = /^https?:\/\//i.test(String(rawOrigin)) ? String(rawOrigin).replace(/\/+$/, "") : "https://flowbypak.com";
+      let reqAmt = Math.round(Number(rawAmount));
+      if (!Number.isFinite(reqAmt) || reqAmt < 6 || reqAmt > 15) {
+        reqAmt = 6 + Math.floor(Math.random() * 10);
+      }
+      const extVer = getExtVersion();
+      const fetchFn = rawBgFetch || globalThis.fetch;
+      const res = await fetchFn(`${origin}/api/user/deduct-credits?ext_v=${encodeURIComponent(extVer)}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${tok}`,
+          "X-PakFlow-Extension-Version": extVer
+        },
+        body: JSON.stringify({ amount: reqAmt }),
+        cache: "no-store"
+      });
+      const data = await res.json().catch(() => ({}));
+      if (data && typeof data.credits === "number") {
+        const nextCredits = Math.max(0, Math.round(data.credits));
+        const nextTotal = typeof data.creditsTotal === "number" && data.creditsTotal > 0
+          ? Math.round(data.creditsTotal)
+          : (Number(st.creditsTotal || (st.user && st.user.creditsTotal) || 45000));
+        const nextUser = st.user && typeof st.user === "object"
+          ? Object.assign({}, st.user, { credits: nextCredits, creditsTotal: nextTotal })
+          : null;
+        lastSyncedFakeBalance = nextCredits;
+        const patch = {
+          credits: String(nextCredits),
+          creditsTotal: String(nextTotal),
+          fakeBalance: nextCredits,
+          pf_last_synced_fb: nextCredits
+        };
+        if (nextUser) {
+          patch.user = nextUser;
+          patch.pakflow_user = nextUser;
+        }
+        await bgStorageSet(patch);
+        // Push updated balance live to every open PakFlow User Panel tab (zero extra server load)
+        try {
+          if (chrome.tabs && typeof chrome.tabs.query === "function") {
+            chrome.tabs.query(
+              { url: ["https://*.flowbypak.com/*", "https://flowbypak.com/*", "https://*.flowbypak.site/*", "https://flowbypak.site/*", "http://localhost/*", "http://127.0.0.1/*"] },
+              (tabs) => {
+                void chrome.runtime?.lastError;
+                if (!Array.isArray(tabs)) return;
+                const msgPayload = {
+                  type: "PAKFLOW_CREDITS_UPDATED",
+                  credits: nextCredits,
+                  creditsTotal: nextTotal,
+                  deducted: data.deducted || reqAmt
+                };
+                for (const tab of tabs) {
+                  if (tab && tab.id) {
+                    try { chrome.tabs.sendMessage(tab.id, msgPayload, () => { void chrome.runtime?.lastError; }); } catch {}
+                  }
+                }
+              }
+            );
+          }
+        } catch {}
+        return { ok: res.ok, deducted: data.deducted || reqAmt, credits: nextCredits, creditsTotal: nextTotal };
+      }
+      return { ok: false, error: data?.message || data?.error || `HTTP ${res.status}` };
+    } catch (err) {
+      return { ok: false, error: err?.message || "Credit deduct failed" };
+    } finally {
+      creditDeductInFlight = false;
+    }
+  }
+
+  // Watch Google Flow's core_module.js generation detector (fakeBalance drop) -> deduct real credits on server!
+  try {
+    if (chrome?.storage?.onChanged) {
+      chrome.storage.onChanged.addListener((changes, area) => {
+        if (area !== "local" || !changes || !changes.fakeBalance) return;
+        // Ignore our own server-sync writes (which always carry pf_last_synced_fb)
+        if (changes.pf_last_synced_fb) {
+          const syncedNum = Number(changes.pf_last_synced_fb.newValue);
+          if (Number.isFinite(syncedNum)) lastSyncedFakeBalance = syncedNum;
+          return;
+        }
+        const nv = Number(changes.fakeBalance.newValue);
+        const ov = Number(changes.fakeBalance.oldValue);
+        if (!Number.isFinite(nv) || !Number.isFinite(ov)) return;
+        if (nv >= ov) return;
+        if (nv === lastSyncedFakeBalance) return;
+        // core_module.js just detected a real video/image generation on Google Flow!
+        deductCreditsOnServer();
+      });
+    }
+  } catch {}
 
   // ── Smart Version-Checked Background Cookie Sync (flow-tab-only, persisted version, backoff on 403/502) ──
   let liveSyncInFlight = false;

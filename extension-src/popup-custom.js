@@ -182,7 +182,7 @@
                   daysValEl2.dataset.fromApi = "1";
                   chrome.storage.local.set({ pakflow_days_cache: dClean });
                 }
-                chrome.storage.local.set({ credits: cVal });
+                chrome.storage.local.set({ credits: cVal, fakeBalance: isBasic2 ? 0 : Math.round(liveCredNum), pf_last_synced_fb: isBasic2 ? 0 : Math.round(liveCredNum) });
               }
             })
             .catch(function () { if (authTid) clearTimeout(authTid); });
