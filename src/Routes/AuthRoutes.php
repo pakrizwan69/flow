@@ -312,12 +312,15 @@ final class AuthRoutes
 
         $loginClientApp = strtolower(trim((string)($body['clientApp'] ?? '')));
         if ($isExtLoginRequest && $loginClientApp !== 'social_pak_ext' && Helpers::isExtVersionOutdated(null, Helpers::MIN_PAKFLOW_EXT_VERSION)) {
+            $latestVer = Helpers::normalizeExtVersionString(Db::readSettings()['extensions']['flow']['version'] ?? '1.7', '1.7');
             Http::json([
                 'success' => false,
                 'outdatedExtension' => true,
                 'forceLogout' => true,
-                'error' => 'Extension Outdated',
-                'message' => 'Download latest extension (v1.5) from your dashboard.',
+                'latestVersion' => $latestVer,
+                'downloadUrl' => '/downloads/latest',
+                'error' => 'Extension Update Required',
+                'message' => "To use smoothly, please install the latest PakFlow Extension (v{$latestVer}) from your panel.",
             ], 403);
         }
 

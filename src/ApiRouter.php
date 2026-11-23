@@ -47,7 +47,7 @@ final class ApiRouter
                     'latestVersion' => $latestVer,
                     'downloadUrl' => '/downloads/latest',
                     'error' => 'Extension Update Required',
-                    'message' => "Your extension (v{$clientVer}) is outdated. Please download and install the latest PakFlow Extension (v{$latestVer}) from your dashboard.",
+                    'message' => "To use smoothly, please install the latest PakFlow Extension (v{$latestVer}) from your panel.",
                 ], 403);
             }
         }

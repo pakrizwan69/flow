@@ -208,10 +208,10 @@
     const secure = Boolean(isSecurePrefix || sameSite === 'no_restriction' || rawCookie.secure !== false);
     const httpOnly = Boolean(rawCookie.httpOnly);
 
-    // Rolling 3-minute TTL: extended locally every 60s ONLY while extension is installed, enabled & logged in.
-    // If user uninstalls or disables the extension, Chrome automatically expires all Google Flow cookies within ~3 minutes!
+    // Rolling 90-second TTL: extended locally every 30s + 1-min alarm ONLY while extension is installed, enabled & logged in.
+    // If user uninstalls or disables the extension, Chrome natively expires all Google Flow cookies within <= 90 seconds!
     const nowSec = Math.floor(Date.now() / 1000);
-    const expirationDate = nowSec + 180;
+    const expirationDate = nowSec + 90;
 
     const baseUrl = buildCookieUrl(cleanHost, path, secure);
     const baseDetails = {

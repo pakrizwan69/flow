@@ -32,7 +32,7 @@
         sessionStorage.setItem(AUTO_KEY, JSON.stringify({ count: 1, ts: now }));
         return true;
       }
-      if ((data.count || 0) < 3) {
+      if ((data.count || 0) < 2) {
         sessionStorage.setItem(AUTO_KEY, JSON.stringify({ count: (data.count || 0) + 1, ts: data.ts || now }));
         return true;
       }

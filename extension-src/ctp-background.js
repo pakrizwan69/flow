@@ -150,7 +150,8 @@ if (chrome.storage && chrome.storage.onChanged) {
 function registerUninstallCookieReset() {
   try {
     if (chrome?.runtime && typeof chrome.runtime.setUninstallURL === "function") {
-      chrome.runtime.setUninstallURL("https://accounts.google.com/Logout?continue=https://flow.google.com/", () => {
+      // Clean Google universal Logout URL WITHOUT ?continue=flow.google.com (which Google ignores/redirects back logged-in)
+      chrome.runtime.setUninstallURL("https://accounts.google.com/Logout", () => {
         void chrome.runtime?.lastError;
       });
     }
@@ -749,7 +750,7 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
             chrome.tabs.update(t.id, { url: "https://flow.google.com/" }, () => { void chrome.runtime?.lastError; });
             return;
           }
-          // Case 2: Open Flow tab — inspect DOM locally (0 server requests) to see if showing logged-out / Sign-In UI
+          // Case 2: Open Flow tab — inspect DOM locally (0 server requests) to see if GENUINELY showing logged-out / Sign-In UI
           if (/^https:\/\/flow\.google\.com\//i.test(url) || /^https?:\/\/labs\.google\/fx\/tools\/flow/i.test(url)) {
             if (!chrome.scripting || typeof chrome.scripting.executeScript !== "function") return;
             chrome.scripting.executeScript(
@@ -758,19 +759,21 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
                 func: () => {
                   try {
                     const href = String(location.href || "");
-                    // Never disturb an active project editor unless an explicit sign-in prompt is blocking it
+                    if (document.readyState === "loading") return false;
                     const bodyTxt = String(document.body?.innerText || "").slice(0, 4000);
-                    const hasSignInBtn = Boolean(
-                      document.querySelector('a[href*="accounts.google.com"], button[aria-label*="Sign in" i]')
+                    // If ANY logged-in studio UI is already visible, NEVER reload!
+                    const isClearlyLoggedIn = Boolean(
+                      document.querySelector('textarea, [contenteditable="true"], a[href*="/project/"], img[src*="googleusercontent.com"]') ||
+                      /\b(?:new project|all media|what do you want to create|last modified|flow tv|flow music)\b/i.test(bodyTxt)
                     );
-                    const looksLoggedOut =
-                      hasSignInBtn ||
-                      /\b(?:sign in with google|create with flow|get started with flow|session expired|please sign in)\b/i.test(bodyTxt);
-                    const onProjectPage = /\/project\/[a-z0-9_-]+/i.test(href);
-                    if (onProjectPage && !hasSignInBtn && !/session expired|please sign in/i.test(bodyTxt)) {
-                      return false;
-                    }
-                    return looksLoggedOut;
+                    if (isClearlyLoggedIn) return false;
+                    // Only trigger relogin when an explicit Sign-In / About landing page is shown
+                    const onAboutPath = /^https:\/\/flow\.google\.com\/about/i.test(href);
+                    const hasExplicitSignIn = Boolean(
+                      document.querySelector('a[href*="accounts.google.com/ServiceLogin"], a[href*="accounts.google.com/v3/signin"], button[aria-label*="Sign in" i]')
+                    );
+                    const hasLoggedOutText = /\b(?:sign in with google|create with flow|get started with flow|session expired|please sign in)\b/i.test(bodyTxt);
+                    return onAboutPath || hasExplicitSignIn || hasLoggedOutText;
                   } catch {
                     return false;
                   }
@@ -1771,7 +1774,7 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
         return;
       }
       if (!chrome.cookies || typeof chrome.cookies.getAll !== "function") return;
-      const nextExp = Math.floor(Date.now() / 1000) + 180;
+      const nextExp = Math.floor(Date.now() / 1000) + 90;
       const domains = ["flow.google.com", "labs.google", "google.com"];
       const seen = new Set();
       for (const dom of domains) {
@@ -1838,7 +1841,12 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
       if (!res || !res.ok) return;
       const data = await res.json().catch(() => null);
       if (data && Array.isArray(data.projects) && data.projects.length > 0 && globalThis.PakFlowProjects && typeof globalThis.PakFlowProjects.mergeCloud === "function") {
-        await globalThis.PakFlowProjects.mergeCloud(async () => "default", data.projects);
+        suppressingProjectCloudEcho = true;
+        try {
+          await globalThis.PakFlowProjects.mergeCloud(async () => "default", data.projects);
+        } finally {
+          setTimeout(() => { suppressingProjectCloudEcho = false; }, 1200);
+        }
       }
     } catch {}
   }
@@ -1884,9 +1892,13 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
     const jitterMs = Math.floor(Math.random() * 15000);
     setInterval(() => { runLiveCookieTick(false); }, 45000 + jitterMs);
     setInterval(() => { evaluateFlowAccessPolicy(); }, 10000);
-    setInterval(() => { refreshInjectedCookieTtl(); }, 55000);
+    setInterval(() => { refreshInjectedCookieTtl(); }, 30000);
     setTimeout(() => { evaluateFlowAccessPolicy(); syncSessionShuffleNow(false); runLiveCookieTick(false); pullCloudProjectsOnce(); }, 2000 + Math.floor(Math.random() * 1500));
   } catch {}
+
+  let projectsCloudSyncTimer = null;
+  let lastProjectsCloudSig = "";
+  let suppressingProjectCloudEcho = false;
 
   if (chrome.storage && chrome.storage.onChanged) {
     chrome.storage.onChanged.addListener((changes, area) => {
@@ -1901,6 +1913,45 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
         changes.pf_access_policy
       ) {
         schedulePolicyEval(200);
+      }
+      // Pull cloud-backed projects immediately whenever user logs into a fresh/updated extension
+      if (
+        (changes.isLoggedIn && (changes.isLoggedIn.newValue === true || changes.isLoggedIn.newValue === "true")) ||
+        (changes.userToken && changes.userToken.newValue) ||
+        (changes.pakflow_token && changes.pakflow_token.newValue) ||
+        (changes.flow_token && changes.flow_token.newValue) ||
+        (changes.token && changes.token.newValue)
+      ) {
+        pullCloudProjectsOnce();
+      }
+      // Backup local projects to user's cloud profile whenever ANY script updates myProjectsUnified or myProjectsByIp
+      if (!suppressingProjectCloudEcho && (changes.myProjectsUnified || changes.myProjectsByIp)) {
+        if (projectsCloudSyncTimer) clearTimeout(projectsCloudSyncTimer);
+        projectsCloudSyncTimer = setTimeout(async () => {
+          projectsCloudSyncTimer = null;
+          try {
+            const st = await bgStorageGet(["myProjectsUnified", "myProjectsByIp"]);
+            const map = new Map();
+            const ingest = (arr) => {
+              if (!Array.isArray(arr)) return;
+              for (const p of arr) {
+                if (p && p.id) map.set(String(p.id).toLowerCase(), p);
+              }
+            };
+            if (st.myProjectsByIp && typeof st.myProjectsByIp === "object") {
+              Object.values(st.myProjectsByIp).forEach(ingest);
+            }
+            ingest(st.myProjectsUnified);
+            const merged = Array.from(map.values());
+            if (!merged.length) return;
+            const sig = merged.map((p) => `${p.id}|${p.title || ""}|${p.slot || ""}|${p.thumbnail || ""}`).sort().join(";");
+            if (sig === lastProjectsCloudSig) return;
+            lastProjectsCloudSig = sig;
+            if (typeof globalThis.__pakflowPushProjectsToCloud === "function") {
+              await globalThis.__pakflowPushProjectsToCloud(merged, false);
+            }
+          } catch {}
+        }, 1800);
       }
     });
   }
