@@ -3910,9 +3910,23 @@
         }
       }, sessionPollMs);
       document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible' && (Date.now() - lastSessionCheckMs) >= 60000) {
+        if (document.visibilityState === 'visible' && (Date.now() - lastSessionCheckMs) >= 15000) {
           verifyActiveSession();
         }
+      });
+
+      // Live credit balance push from PakFlow Chrome Extension (instant, zero extra server requests)
+      window.addEventListener('message', (event) => {
+        if (event.source !== window || !event.data || event.data.type !== 'PAKFLOW_CREDITS_UPDATED') return;
+        const nextCred = Number(event.data.credits);
+        if (!Number.isFinite(nextCred) || nextCred < 0 || !currentUser) return;
+        const nextTotal = Number(event.data.creditsTotal);
+        currentUser = Object.assign({}, currentUser, {
+          credits: Math.round(nextCred),
+          creditsTotal: Number.isFinite(nextTotal) && nextTotal > 0 ? Math.round(nextTotal) : (currentUser.creditsTotal || 45000),
+        });
+        try { localStorage.setItem('pakflow_user_cache', JSON.stringify(currentUser)); } catch (_) {}
+        renderUser(currentUser);
       });
 
       const heroTypedEl = document.getElementById('heroTypedText');

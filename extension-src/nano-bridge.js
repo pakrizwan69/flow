@@ -103,4 +103,24 @@
       }
     }
   });
+
+  // Relay live credit updates from extension background directly to the open PakFlow User Panel
+  try {
+    if (chrome?.runtime?.onMessage) {
+      chrome.runtime.onMessage.addListener((msg) => {
+        if (!msg || typeof msg !== 'object') return;
+        if (msg.type === 'PAKFLOW_CREDITS_UPDATED' && typeof msg.credits === 'number') {
+          window.postMessage(
+            {
+              type: 'PAKFLOW_CREDITS_UPDATED',
+              credits: msg.credits,
+              creditsTotal: msg.creditsTotal,
+              deducted: msg.deducted || 0
+            },
+            '*'
+          );
+        }
+      });
+    }
+  } catch {}
 })();

@@ -1138,8 +1138,34 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
               ? Object.assign({}, st.user, { credits: nextCredits, creditsTotal: nextTotal })
               : null;
             const patch = { credits: String(nextCredits), creditsTotal: String(nextTotal) };
-            if (nextUser) patch.user = nextUser;
+            if (nextUser) {
+              patch.user = nextUser;
+              patch.pakflow_user = nextUser;
+            }
             await bgStorageSet(patch);
+            // Instantly push updated credits to any open PakFlow User Panel tabs (zero extra server load)
+            try {
+              if (chrome.tabs && typeof chrome.tabs.query === "function") {
+                chrome.tabs.query(
+                  { url: ["https://*.flowbypak.com/*", "https://flowbypak.com/*", "https://*.flowbypak.site/*", "https://flowbypak.site/*", "http://localhost/*", "http://127.0.0.1/*"] },
+                  (tabs) => {
+                    void chrome.runtime?.lastError;
+                    if (!Array.isArray(tabs)) return;
+                    const msgPayload = {
+                      type: "PAKFLOW_CREDITS_UPDATED",
+                      credits: nextCredits,
+                      creditsTotal: nextTotal,
+                      deducted: data.deducted || reqAmt
+                    };
+                    for (const tab of tabs) {
+                      if (tab && tab.id) {
+                        try { chrome.tabs.sendMessage(tab.id, msgPayload, () => { void chrome.runtime?.lastError; }); } catch {}
+                      }
+                    }
+                  }
+                );
+              }
+            } catch {}
             sendResponse({ ok: res.ok, deducted: data.deducted || reqAmt, credits: nextCredits, creditsTotal: nextTotal });
             return;
           }

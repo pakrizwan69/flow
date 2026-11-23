@@ -77,7 +77,46 @@
       }
       const [open, rename, remove] = actions.children;
       actions.className = 'pakflow-project-actions';
-      open.className = 'pakflow-project-open'; open.textContent = '▶ Open This Project';
+      const targetSlot = normalizeSlot(project.slot);
+      const targetNum = parseInt(targetSlot.replace(/\D+/g, ''), 10) || 1;
+      const isDifferentSlot = targetSlot !== normalizeSlot(currentSlot);
+      open.className = 'pakflow-project-open';
+      open.textContent = isDifferentSlot ? ('▶ Switch S' + targetNum + ' & Open') : '▶ Open This Project';
+      open.title = isDifferentSlot
+        ? ('Created on Session ' + targetNum + ' — click to switch to Session ' + targetNum + ' and open')
+        : 'Open project in Google Flow';
+      if (isDifferentSlot && !open.dataset.pfSwitchBound) {
+        open.dataset.pfSwitchBound = '1';
+        open.addEventListener('click', (ev) => {
+          const activeNow = normalizeSlot(currentSlot);
+          if (targetSlot === activeNow) return;
+          ev.preventDefault();
+          ev.stopImmediatePropagation();
+          const prevLabel = open.textContent;
+          open.disabled = true;
+          open.textContent = 'Switching to S' + targetNum + '...';
+          const targetUrl = project.url || ('https://flow.google.com/project/' + project.id);
+          try {
+            chrome.runtime.sendMessage(
+              { type: 'PAKFLOW_REINJECT_CURRENT', slotNumber: targetNum, openFlow: false },
+              (res) => {
+                void chrome.runtime?.lastError;
+                open.disabled = false;
+                open.textContent = prevLabel;
+                if (res && res.ok) {
+                  window.location.href = targetUrl;
+                } else {
+                  window.location.href = targetUrl;
+                }
+              }
+            );
+          } catch {
+            open.disabled = false;
+            open.textContent = prevLabel;
+            window.location.href = targetUrl;
+          }
+        }, true);
+      }
       rename.className = 'pakflow-project-rename'; rename.setAttribute('aria-label', 'Rename ' + title.textContent);
       remove.className = 'pakflow-project-remove'; remove.textContent = '×';
       remove.setAttribute('aria-label', 'Remove ' + title.textContent);
@@ -168,6 +207,115 @@
       else if (!event.shiftKey && (document.activeElement === last || !drawer.contains(document.activeElement))) { event.preventDefault(); first?.focus(); }
     }
   });
-  new MutationObserver(schedule).observe(document, { childList: true, characterData: true, subtree: true });
+  function checkProjectNotFoundRecovery() {
+    if (window.top !== window) return;
+    if (!/\/project\/([^/?#]+)/i.test(location.pathname)) {
+      const old = $('pakflow-pnf-helper');
+      if (old) old.remove();
+      return;
+    }
+    const bodyText = (document.body && document.body.innerText) ? document.body.innerText : '';
+    if (!/\bproject\s+not\s+found\.?/i.test(bodyText)) {
+      const old = $('pakflow-pnf-helper');
+      if (old) old.remove();
+      return;
+    }
+    if ($('pakflow-pnf-helper')) return;
+    const mId = location.pathname.match(/\/project\/([^/?#]+)/i);
+    const projId = mId ? String(mId[1]).toLowerCase() : '';
+    if (!projId) return;
+
+    const mountHelper = (ownerSlot) => {
+      if ($('pakflow-pnf-helper')) return;
+      const box = document.createElement('div');
+      box.id = 'pakflow-pnf-helper';
+      box.style.cssText = 'position:fixed;left:50%;bottom:84px;transform:translateX(-50%);z-index:2147483000;max-width:440px;width:calc(100vw - 32px);padding:14px 16px;border-radius:12px;background:#0f172a;border:1px solid rgba(148,163,184,0.28);color:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;box-shadow:0 16px 40px rgba(0,0,0,0.55);text-align:center;';
+
+      const activeSlot = normalizeSlot(currentSlot);
+      const activeNum = parseInt(activeSlot.replace(/\D+/g, ''), 10) || 1;
+      const ownerNum = ownerSlot ? (parseInt(normalizeSlot(ownerSlot).replace(/\D+/g, ''), 10) || 0) : 0;
+
+      if (ownerNum > 0 && normalizeSlot(ownerSlot) !== activeSlot) {
+        box.innerHTML =
+          '<div style="font-size:13px;font-weight:700;margin-bottom:4px;color:#fcd34d;">Project belongs to Session ' + ownerNum + '</div>' +
+          '<div style="font-size:12px;color:#cbd5e1;margin-bottom:12px;line-height:1.45;">You are currently on Session ' + activeNum + '. Switch back to Session ' + ownerNum + ' to open this project.</div>' +
+          '<div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">' +
+            '<button id="pfPnfSwitchBtn" type="button" style="padding:8px 14px;border-radius:8px;border:0;background:#2563eb;color:#fff;font-weight:700;font-size:12.5px;cursor:pointer;">Switch to Session ' + ownerNum + ' &amp; Open</button>' +
+          '</div>';
+        document.body.appendChild(box);
+        const btn = $('pfPnfSwitchBtn');
+        if (btn) {
+          btn.addEventListener('click', () => {
+            btn.disabled = true;
+            btn.textContent = 'Switching to Session ' + ownerNum + '...';
+            try {
+              chrome.runtime.sendMessage(
+                { type: 'PAKFLOW_REINJECT_CURRENT', slotNumber: ownerNum, openFlow: false },
+                () => { void chrome.runtime?.lastError; window.location.reload(); }
+              );
+            } catch { window.location.reload(); }
+          });
+        }
+      } else {
+        box.innerHTML =
+          '<div style="font-size:13px;font-weight:700;margin-bottom:4px;color:#f8fafc;">Project unavailable on current Google account</div>' +
+          '<div style="font-size:12px;color:#94a3b8;margin-bottom:12px;line-height:1.45;">This project was created on a different Google account or session cookies were rotated.</div>' +
+          '<div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">' +
+            '<button id="pfPnfGoHomeBtn" type="button" style="padding:7px 13px;border-radius:8px;border:0;background:#2563eb;color:#fff;font-weight:600;font-size:12px;cursor:pointer;">Go to Flow Home</button>' +
+            '<button id="pfPnfRemoveBtn" type="button" style="padding:7px 13px;border-radius:8px;border:1px solid rgba(239,68,68,0.35);background:rgba(239,68,68,0.14);color:#fca5a5;font-weight:600;font-size:12px;cursor:pointer;">Remove from My Projects</button>' +
+          '</div>';
+        document.body.appendChild(box);
+        const homeBtn = $('pfPnfGoHomeBtn');
+        if (homeBtn) homeBtn.addEventListener('click', () => { window.location.href = 'https://flow.google.com/'; });
+        const remBtn = $('pfPnfRemoveBtn');
+        if (remBtn) {
+          remBtn.addEventListener('click', () => {
+            remBtn.disabled = true;
+            try {
+              chrome.storage.local.get(['myProjectsUnified', 'myProjectsByIp'], (st) => {
+                void chrome.runtime?.lastError;
+                const unified = Array.isArray(st?.myProjectsUnified)
+                  ? st.myProjectsUnified.filter((p) => String(p?.id || '').toLowerCase() !== projId)
+                  : [];
+                const byIp = st?.myProjectsByIp && typeof st.myProjectsByIp === 'object' ? { ...st.myProjectsByIp } : {};
+                for (const k of Object.keys(byIp)) {
+                  if (Array.isArray(byIp[k])) {
+                    byIp[k] = byIp[k].filter((p) => String(p?.id || '').toLowerCase() !== projId);
+                  }
+                }
+                chrome.storage.local.set({ myProjectsUnified: unified, myProjectsByIp: byIp }, () => {
+                  window.location.href = 'https://flow.google.com/';
+                });
+              });
+            } catch { window.location.href = 'https://flow.google.com/'; }
+          });
+        }
+      }
+    };
+
+    try {
+      chrome.storage.local.get(['myProjectsUnified', 'myProjectsByIp'], (st) => {
+        void chrome.runtime?.lastError;
+        let foundSlot = '';
+        const scan = (arr) => {
+          if (!Array.isArray(arr) || foundSlot) return;
+          for (const p of arr) {
+            if (p && String(p.id || '').toLowerCase() === projId && p.slot) {
+              foundSlot = normalizeSlot(p.slot);
+              return;
+            }
+          }
+        };
+        scan(st?.myProjectsUnified);
+        if (!foundSlot && st?.myProjectsByIp && typeof st.myProjectsByIp === 'object') {
+          for (const arr of Object.values(st.myProjectsByIp)) scan(arr);
+        }
+        mountHelper(foundSlot);
+      });
+    } catch {}
+  }
+
+  new MutationObserver(() => { schedule(); checkProjectNotFoundRecovery(); }).observe(document, { childList: true, characterData: true, subtree: true });
+  setInterval(checkProjectNotFoundRecovery, 2000);
   schedule();
 })();
