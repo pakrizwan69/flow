@@ -52,6 +52,13 @@
     const data = event.data;
     if (!data || typeof data !== 'object') return;
 
+    if (data.type === 'PAKFLOW_SITE_LOGOUT') {
+      try {
+        chrome.runtime.sendMessage({ type: 'PAKFLOW_HARD_LOGOUT' }, () => { void chrome.runtime?.lastError; });
+      } catch {}
+      return;
+    }
+
     if (data.type === 'PAKFLOW_SET_MODE') {
       const mode = data.mode === 'nano_banana' ? 'nano_banana' : 'google_flow';
       const slotId = (data.slotId && data.slotId !== 'auto') ? String(data.slotId) : '';

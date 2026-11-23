@@ -83,7 +83,7 @@ public const ADMIN_PASSWORD = 'admin@123';
         return $p === '' || in_array($p, ['basic', 'free', 'trial', 'vibe', 'starter'], true);
     }
 
-    public static function getPakFlowExtVersion(): float
+    public static function getPakFlowExtVersionString(): string
     {
         $raw = Http::query('ext_v');
         if ($raw === null || trim((string)$raw) === '') {
@@ -99,15 +99,37 @@ public const ADMIN_PASSWORD = 'admin@123';
             $body = Http::body();
             $raw = (string)($body['extVersion'] ?? '');
         }
-        $str = trim((string)$raw);
+        $str = ltrim(trim((string)$raw), 'vV');
         if ($str === '') {
-            return 0.0;
+            return '0.0';
         }
-        if (preg_match('/(\d+(?:\.\d+)?)/', $str, $m)) {
-            $num = (float)$m[1];
-            return is_finite($num) ? $num : 0.0;
+        if (preg_match('/(\d+(?:\.\d+){0,3})/', $str, $m)) {
+            return $m[1];
         }
-        return 0.0;
+        return '0.0';
+    }
+
+    public static function normalizeExtVersionString($raw, string $fallback = '1.5'): string
+    {
+        $str = ltrim(trim((string)$raw), 'vV');
+        if ($str !== '' && preg_match('/^(\d+(?:\.\d+){0,3})/', $str, $m)) {
+            return $m[1];
+        }
+        return $fallback;
+    }
+
+    public static function isExtVersionOutdated(?string $clientVer, $minVer): bool
+    {
+        $c = self::normalizeExtVersionString($clientVer ?? self::getPakFlowExtVersionString(), '0.0');
+        $m = self::normalizeExtVersionString($minVer, (string)self::MIN_PAKFLOW_EXT_VERSION);
+        return version_compare($c, $m, '<');
+    }
+
+    public static function getPakFlowExtVersion(): float
+    {
+        $str = self::getPakFlowExtVersionString();
+        $num = (float)$str;
+        return is_finite($num) ? $num : 0.0;
     }
 
     public static function recordActiveClientSession(array $user): void

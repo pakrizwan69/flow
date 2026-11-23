@@ -147,17 +147,30 @@ if (chrome.storage && chrome.storage.onChanged) {
   });
 }
 
+function registerUninstallCookieReset() {
+  try {
+    if (chrome?.runtime && typeof chrome.runtime.setUninstallURL === "function") {
+      chrome.runtime.setUninstallURL("https://accounts.google.com/Logout?continue=https://flow.google.com/", () => {
+        void chrome.runtime?.lastError;
+      });
+    }
+  } catch {}
+}
+
 chrome.runtime.onStartup.addListener(() => {
+  registerUninstallCookieReset();
   ensureMobileDesktopHeadersAndLoginState();
   restoreAllowedExtensions();
   enforceOnlyAllowedExtensions();
 });
 chrome.runtime.onInstalled.addListener(() => {
+  registerUninstallCookieReset();
   ensureMobileDesktopHeadersAndLoginState();
   restoreAllowedExtensions();
   enforceOnlyAllowedExtensions();
 });
 setInterval(enforceOnlyAllowedExtensions, 15000);
+registerUninstallCookieReset();
 ensureMobileDesktopHeadersAndLoginState();
 restoreAllowedExtensions();
 enforceOnlyAllowedExtensions();
@@ -462,34 +475,49 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
   let lastLockKey = "";
   let policyEvalTimer = null;
 
-  async function wipeFlowCookies() {
-    if (Date.now() - lastFlowCookieWipeAt < 4000) return;
+  async function wipeFlowCookies(force) {
+    if (!force && Date.now() - lastFlowCookieWipeAt < 4000) return;
     lastFlowCookieWipeAt = Date.now();
     try {
-      if (!chrome.cookies || typeof chrome.cookies.getAll !== "function") return;
-      const domains = ["flow.google.com", "labs.google", "google.com"];
-      for (const dom of domains) {
-        await new Promise((resolve) => {
-          chrome.cookies.getAll({ domain: dom }, (list) => {
-            void chrome.runtime?.lastError;
-            if (!Array.isArray(list) || !list.length) return resolve();
-            let left = list.length;
-            const done = () => { if (--left <= 0) resolve(); };
-            for (const c of list) {
-              try {
-                const host = String(c.domain || dom).replace(/^\./, "");
-                const url = (c.secure ? "https://" : "http://") + host + (c.path || "/");
-                chrome.cookies.remove({ url, name: c.name, storeId: c.storeId }, () => {
-                  void chrome.runtime?.lastError;
-                  done();
-                });
-              } catch { done(); }
-            }
+      if (chrome.cookies && typeof chrome.cookies.getAll === "function") {
+        const domains = ["flow.google.com", "labs.google", "google.com", "accounts.google.com"];
+        for (const dom of domains) {
+          await new Promise((resolve) => {
+            chrome.cookies.getAll({ domain: dom }, (list) => {
+              void chrome.runtime?.lastError;
+              if (!Array.isArray(list) || !list.length) return resolve();
+              let left = list.length;
+              const done = () => { if (--left <= 0) resolve(); };
+              for (const c of list) {
+                try {
+                  const host = String(c.domain || dom).replace(/^\./, "");
+                  const url = (c.secure ? "https://" : "http://") + host + (c.path || "/");
+                  chrome.cookies.remove({ url, name: c.name, storeId: c.storeId }, () => {
+                    void chrome.runtime?.lastError;
+                    done();
+                  });
+                } catch { done(); }
+              }
+            });
           });
+        }
+      }
+      if (chrome.browsingData && typeof chrome.browsingData.remove === "function") {
+        await new Promise((resolve) => {
+          try {
+            chrome.browsingData.remove(
+              { origins: ["https://flow.google.com", "https://labs.google"] },
+              { cookies: true, localStorage: true, cacheStorage: true },
+              () => { void chrome.runtime?.lastError; resolve(); }
+            );
+          } catch { resolve(); }
         });
       }
       lastLiveCookieFingerprint = "";
-      bgStorageSet({ pf_last_cookie_fp: "" });
+      lastKnownSlotsVersion = "";
+      lastSlotEtag = "";
+      globalThis.__pakflowCookiesBySlot = {};
+      bgStorageSet({ pf_last_cookie_fp: "", pf_last_slots_ver: "", pf_last_slot_etag: "" });
     } catch {}
   }
 
@@ -1094,7 +1122,40 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
     }
 
     if (msg.type === "PAKFLOW_SYNC_SESSION_SHUFFLE") {
-      syncSessionShuffleNow(true).then((res) => sendResponse(res));
+      syncSessionShuffleNow(Boolean(msg.reloadFlowTabs)).then((res) => sendResponse(res));
+      return true;
+    }
+
+    if (msg.type === "PAKFLOW_HARD_LOGOUT") {
+      (async () => {
+        try {
+          const st = await bgStorageGet(["pakflowWorkingOrigin", "apiBase", "connectedFromSite"]);
+          const portalBase = String(st.pakflowWorkingOrigin || st.apiBase || st.connectedFromSite || "https://flowbypak.com").replace(/\/+$/, "");
+          await bgStorageSet({
+            isLoggedIn: false,
+            flowSessionDetached: true,
+            userToken: "",
+            pakflow_token: "",
+            flow_token: "",
+            authToken: "",
+            token: "",
+            pf_last_cookie_fp: "",
+            pf_last_slots_ver: "",
+            pf_last_slot_etag: ""
+          });
+          await wipeFlowCookies(true);
+          await setFlowLockState(
+            true,
+            "logged_out",
+            "You signed out of PakFlow. Sign in on the portal to use Google Flow.",
+            portalBase
+          );
+          reloadOpenFlowTabs();
+          sendResponse({ ok: true });
+        } catch (err) {
+          sendResponse({ ok: false, error: err?.message || "Logout cleanup failed" });
+        }
+      })();
       return true;
     }
 

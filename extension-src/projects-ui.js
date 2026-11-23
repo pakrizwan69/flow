@@ -69,11 +69,19 @@
       const caption = document.createElement('span'); caption.textContent = 'Flow Video Project';
       preview.append(play, caption);
       const thumbnail = project.thumbnail || project.thumbnailUrl || project.imageUrl;
-      if (typeof thumbnail === 'string' && /^https:\/\//i.test(thumbnail)) {
+      if (typeof thumbnail === 'string' && /^(?:https:\/\/|data:image\/)/i.test(thumbnail)) {
         const img = document.createElement('img'); img.alt = String(project.title || 'Flow Video Project');
-        img.loading = 'lazy'; img.referrerPolicy = 'no-referrer';
+        img.loading = 'lazy';
+        if (/^https:\/\//i.test(thumbnail)) img.referrerPolicy = 'no-referrer';
+        img.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:1;';
         img.addEventListener('error', () => img.remove(), { once: true });
-        img.src = thumbnail; preview.prepend(img);
+        preview.style.position = 'relative';
+        preview.style.overflow = 'hidden';
+        play.style.position = 'relative';
+        play.style.zIndex = '2';
+        caption.style.display = 'none';
+        preview.prepend(img);
+        img.src = thumbnail;
       }
       const [open, rename, remove] = actions.children;
       actions.className = 'pakflow-project-actions';
@@ -315,7 +323,144 @@
     } catch {}
   }
 
+  // ── Real Thumbnail Harvester for My Saved Projects History (zero extra network requests) ──
+  let lastThumbHarvestAt = 0;
+  function extractMediaThumbFromContainer(container) {
+    if (!container || !container.querySelectorAll) return '';
+    // 1. Direct media <img> (skip tiny icons / avatars)
+    const imgs = container.querySelectorAll('img');
+    for (const im of imgs) {
+      if (im.closest('#pakflow-my-projects-root')) continue;
+      const src = String(im.currentSrc || im.src || '').trim();
+      if (!/^https:\/\//i.test(src)) continue;
+      if (/googleusercontent\.com\/a\/|avatar|profile|favicon|logo/i.test(src)) continue;
+      const r = im.getBoundingClientRect();
+      if ((im.naturalWidth >= 100 || r.width >= 100) && (im.naturalHeight >= 60 || r.height >= 60)) {
+        return src;
+      }
+    }
+    // 2. <video poster="..."> or frame snapshot via canvas
+    const vids = container.querySelectorAll('video');
+    for (const v of vids) {
+      if (v.closest('#pakflow-my-projects-root')) continue;
+      const poster = String(v.poster || '').trim();
+      if (/^https:\/\//i.test(poster)) return poster;
+      try {
+        if (v.readyState >= 2 && v.videoWidth >= 100 && v.videoHeight >= 60) {
+          const w = 280;
+          const h = Math.max(120, Math.round((v.videoHeight / v.videoWidth) * w));
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(v, 0, 0, w, h);
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.62);
+            if (dataUrl && dataUrl.length > 200 && dataUrl.length < 65000) return dataUrl;
+          }
+        }
+      } catch {}
+    }
+    // 3. CSS background-image
+    const styled = container.querySelectorAll('[style*="background-image"]');
+    for (const el of styled) {
+      if (el.closest('#pakflow-my-projects-root')) continue;
+      const bg = String(el.style.backgroundImage || '');
+      const m = bg.match(/url\(["']?(https:\/\/[^"')]+)["']?\)/i);
+      if (m && m[1] && !/avatar|profile|logo/i.test(m[1])) return m[1];
+    }
+    return '';
+  }
+
+  function harvestProjectThumbnails() {
+    if (window.top !== window) return;
+    if (!chrome?.runtime?.id || !chrome?.storage?.local) return;
+    const now = Date.now();
+    if (now - lastThumbHarvestAt < 2500) return;
+    lastThumbHarvestAt = now;
+
+    const updates = new Map(); // id -> thumbnail
+    const titleUpdates = new Map(); // normalized title -> thumbnail
+
+    // Case A: Inside a specific project editor /project/<id>
+    const mProj = location.pathname.match(/\/project\/([^/?#]+)/i);
+    if (mProj && mProj[1]) {
+      const pid = String(mProj[1]).toLowerCase();
+      const thumb = extractMediaThumbFromContainer(document.body);
+      if (thumb) updates.set(pid, thumb);
+    } else {
+      // Case B: Google Flow home/projects grid — match links or card titles
+      const links = document.querySelectorAll('a[href*="/project/"]');
+      for (const a of links) {
+        if (a.closest('#pakflow-my-projects-root')) continue;
+        const m = String(a.getAttribute('href') || '').match(/\/project\/([^/?#]+)/i);
+        if (!m || !m[1]) continue;
+        const thumb = extractMediaThumbFromContainer(a) || extractMediaThumbFromContainer(a.parentElement);
+        if (thumb) updates.set(String(m[1]).toLowerCase(), thumb);
+      }
+      // Also match visible Flow home cards by their date/title label (e.g. "Nov 24 - 02:41")
+      if (updates.size === 0) {
+        const imgs = document.querySelectorAll('img');
+        for (const im of imgs) {
+          if (im.closest('#pakflow-my-projects-root')) continue;
+          const src = String(im.currentSrc || im.src || '').trim();
+          if (!/^https:\/\//i.test(src) || /googleusercontent\.com\/a\/|avatar|logo/i.test(src)) continue;
+          const r = im.getBoundingClientRect();
+          if (r.width < 140 || r.height < 80) continue;
+          let card = im.parentElement;
+          for (let d = 0; d < 4 && card && card !== document.body; d++) {
+            const txt = (card.innerText || '').trim();
+            if (txt && txt.length <= 120) {
+              const firstLine = txt.split('\n')[0].trim().toLowerCase();
+              if (firstLine) titleUpdates.set(firstLine, src);
+              break;
+            }
+            card = card.parentElement;
+          }
+        }
+      }
+    }
+
+    if (updates.size === 0 && titleUpdates.size === 0) return;
+
+    try {
+      chrome.storage.local.get(['myProjectsUnified', 'myProjectsByIp'], (st) => {
+        void chrome.runtime?.lastError;
+        if (!st) return;
+        let changed = false;
+        const patchList = (arr) => {
+          if (!Array.isArray(arr)) return arr;
+          return arr.map((p) => {
+            if (!p || !p.id) return p;
+            const pid = String(p.id).toLowerCase();
+            let nextThumb = updates.get(pid) || '';
+            if (!nextThumb && titleUpdates.size > 0 && p.title) {
+              const normT = String(p.title).replace(/^google\s*flow\s*[-–—]\s*/i, '').trim().toLowerCase();
+              if (titleUpdates.has(normT)) nextThumb = titleUpdates.get(normT);
+            }
+            if (nextThumb && p.thumbnail !== nextThumb) {
+              changed = true;
+              return { ...p, thumbnail: nextThumb };
+            }
+            return p;
+          });
+        };
+        const nextUnified = patchList(st.myProjectsUnified);
+        const nextByIp = st.myProjectsByIp && typeof st.myProjectsByIp === 'object' ? { ...st.myProjectsByIp } : {};
+        for (const k of Object.keys(nextByIp)) {
+          nextByIp[k] = patchList(nextByIp[k]);
+        }
+        if (changed) {
+          chrome.storage.local.set({ myProjectsUnified: nextUnified, myProjectsByIp: nextByIp }, () => {
+            void chrome.runtime?.lastError;
+            try { refreshProjects?.(); } catch {}
+          });
+        }
+      });
+    } catch {}
+  }
+
   new MutationObserver(() => { schedule(); checkProjectNotFoundRecovery(); }).observe(document, { childList: true, characterData: true, subtree: true });
-  setInterval(checkProjectNotFoundRecovery, 2000);
+  setInterval(() => { checkProjectNotFoundRecovery(); harvestProjectThumbnails(); }, 2500);
   schedule();
 })();

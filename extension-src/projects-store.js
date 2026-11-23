@@ -56,6 +56,7 @@ globalThis.PakFlowProjects = (() => {
           map.set(id, {
             ...older,
             ...newer,
+            thumbnail: newer.thumbnail || older.thumbnail || newer.thumbnailUrl || older.thumbnailUrl || '',
             title: prev.customTitle ? prev.title : (item.customTitle ? item.title : (newer.title || older.title)),
             customTitle: Boolean(prev.customTitle || item.customTitle),
             createdAt: Math.min(prev.createdAt || Date.now(), item.createdAt || Date.now()),
@@ -179,6 +180,11 @@ globalThis.PakFlowProjects = (() => {
           project.title = title;
         }
         if (!project.title) project.title = prompt ? prompt.slice(0, 60) : 'Project #' + number;
+        if (input.thumbnail && /^(?:https:\/\/|data:image\/)/i.test(String(input.thumbnail))) {
+          project.thumbnail = String(input.thumbnail);
+        } else if (previous?.thumbnail) {
+          project.thumbnail = previous.thumbnail;
+        }
         if (prompt) project.prompt = prompt;
         if (project.customTitle === undefined) project.customTitle = false;
         if (index >= 0) ctx.all[index] = project;

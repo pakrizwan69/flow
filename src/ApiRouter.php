@@ -18,14 +18,18 @@ final class ApiRouter
         $isLogoutPath = $apiPath === '/auth/logout' || $apiPath === '/user/logout';
 
         if (($isExtOrigin || $isExtPath) && !$isLogoutPath) {
-            $minVer = Helpers::MIN_PAKFLOW_EXT_VERSION;
+            $minVer = Helpers::normalizeExtVersionString(Helpers::MIN_PAKFLOW_EXT_VERSION, '1.5');
             try {
                 $cfgMin = Db::readSettings()['minExtVersion'] ?? null;
-                if (is_numeric($cfgMin) && (float)$cfgMin >= 1.0) {
-                    $minVer = (float)$cfgMin;
+                if ($cfgMin !== null && trim((string)$cfgMin) !== '') {
+                    $parsedMin = Helpers::normalizeExtVersionString($cfgMin, $minVer);
+                    if (version_compare($parsedMin, '1.0', '>=')) {
+                        $minVer = $parsedMin;
+                    }
                 }
             } catch (\Throwable $_e) {}
-            if (Helpers::getPakFlowExtVersion() < $minVer) {
+            $clientVer = Helpers::getPakFlowExtVersionString();
+            if (Helpers::isExtVersionOutdated($clientVer, $minVer)) {
                 Http::json([
                     'success' => false,
                     'authenticated' => false,

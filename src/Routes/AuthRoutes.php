@@ -303,7 +303,7 @@ final class AuthRoutes
             || !empty($body['clientApp']);
 
         $loginClientApp = strtolower(trim((string)($body['clientApp'] ?? '')));
-        if ($isExtLoginRequest && $loginClientApp !== 'social_pak_ext' && Helpers::getPakFlowExtVersion() < Helpers::MIN_PAKFLOW_EXT_VERSION) {
+        if ($isExtLoginRequest && $loginClientApp !== 'social_pak_ext' && Helpers::isExtVersionOutdated(null, Helpers::MIN_PAKFLOW_EXT_VERSION)) {
             Http::json([
                 'success' => false,
                 'outdatedExtension' => true,

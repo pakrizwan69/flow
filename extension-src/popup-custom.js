@@ -220,7 +220,8 @@
                 },
               }).catch(function () {});
             }
-            try { chrome.storage.local.remove(["pakflow_token","flow_token","token","authToken","user","pakflow_cookies_cache"]); } catch (_e) {}
+            try { chrome.storage.local.remove(["pakflow_token","flow_token","token","authToken","user","pakflow_user","pakflow_cookies_cache"]); } catch (_e) {}
+            try { chrome.runtime.sendMessage({ type: "PAKFLOW_HARD_LOGOUT" }, function () { void chrome.runtime?.lastError; }); } catch (_e) {}
           });
         });
       }
@@ -518,7 +519,7 @@
     loadSessionButtons();
     // Immediately sync any admin Reshuffle Now / auto-shuffle period change when popup opens
     try {
-      chrome.runtime.sendMessage({ type: "PAKFLOW_SYNC_SESSION_SHUFFLE" }, function (res) {
+      chrome.runtime.sendMessage({ type: "PAKFLOW_SYNC_SESSION_SHUFFLE", reloadFlowTabs: false }, function (res) {
         void chrome.runtime?.lastError;
         if (res && res.activeSlot) {
           var nextNum = parseSlotNum(res.activeSlot);

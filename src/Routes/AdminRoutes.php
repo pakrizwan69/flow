@@ -1371,7 +1371,7 @@ final class AdminRoutes
                 'pakTts' => false,
             ],
             'extensions' => ['flow' => $flowExt],
-            'minExtVersion' => (float)($settings['minExtVersion'] ?? $defaults['minExtVersion']),
+            'minExtVersion' => Helpers::normalizeExtVersionString($settings['minExtVersion'] ?? $defaults['minExtVersion'], '1.5'),
             'accessPolicy' => array_merge($defaults['accessPolicy'], is_array($settings['accessPolicy'] ?? null) ? $settings['accessPolicy'] : []),
             'serverShuffle' => array_merge($defaults['serverShuffle'], is_array($settings['serverShuffle'] ?? null) ? $settings['serverShuffle'] : []),
             'maintenance' => $settings['maintenance'] ?? $defaults['maintenance'],
@@ -1411,7 +1411,7 @@ final class AdminRoutes
             'success' => true,
             'extensionSourceReady' => is_dir($extSrcDir) && is_file($extSrcDir . '/manifest.json'),
             'extension' => $settings['extensions']['flow'] ?? ($defaults['extensions']['flow'] ?? []),
-            'minExtVersion' => (float)($settings['minExtVersion'] ?? $defaults['minExtVersion']),
+            'minExtVersion' => Helpers::normalizeExtVersionString($settings['minExtVersion'] ?? $defaults['minExtVersion'], '1.5'),
             'accessPolicy' => array_merge($defaults['accessPolicy'], is_array($settings['accessPolicy'] ?? null) ? $settings['accessPolicy'] : []),
             'serverShuffle' => $shuffleCfg,
             'messageTemplate' => (string)($settings['welcomeMessageTemplate'] ?? $defaults['welcomeMessageTemplate']),
@@ -1623,8 +1623,11 @@ final class AdminRoutes
             'downloadUrl' => "/downloads/$targetName",
             'updatedAt' => $nowIso,
         ]);
-        if ($minVerRaw !== null && $minVerRaw !== '' && is_numeric($minVerRaw)) {
-            $settings['minExtVersion'] = max(1.0, (float)$minVerRaw);
+        if ($minVerRaw !== null && trim((string)$minVerRaw) !== '') {
+            $cleanMin = Helpers::normalizeExtVersionString($minVerRaw, '1.5');
+            if (version_compare($cleanMin, '1.0', '>=')) {
+                $settings['minExtVersion'] = $cleanMin;
+            }
         }
         Db::writeSettings($settings);
 
@@ -1632,7 +1635,7 @@ final class AdminRoutes
             'success' => true,
             'message' => "Extension v{$rawVer} ({$sizeLabel}) generated & live for all users!",
             'extension' => $extEntry,
-            'minExtVersion' => (float)($settings['minExtVersion'] ?? Helpers::MIN_PAKFLOW_EXT_VERSION),
+            'minExtVersion' => Helpers::normalizeExtVersionString($settings['minExtVersion'] ?? Helpers::MIN_PAKFLOW_EXT_VERSION, '1.5'),
         ]);
     }
 
