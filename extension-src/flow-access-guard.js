@@ -21,6 +21,16 @@
         ctaHref: portalBase + '/dashboard'
       };
     }
+    if (reason === 'credits_exhausted') {
+      return {
+        icon: '⚡',
+        badge: '0 CREDITS REMAINING',
+        title: 'AI Credits Exhausted',
+        message: lockState?.message || 'Your AI credits have reached 0. Please contact support or renew your plan to refill credits and continue using Google Flow.',
+        ctaText: 'Open PakFlow Dashboard →',
+        ctaHref: portalBase + '/dashboard'
+      };
+    }
     if (reason === 'expired') {
       return {
         icon: '⏳',

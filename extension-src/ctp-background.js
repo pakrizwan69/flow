@@ -395,7 +395,17 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
           if (payload.user.daysRemaining !== undefined && payload.user.daysRemaining !== null) {
             patch.daysLeft = String(payload.user.daysRemaining);
           }
-          if (Object.keys(patch).length > 0) bgStorageSet(patch);
+          if (payload.user.credits !== undefined && payload.user.credits !== null && Number.isFinite(Number(payload.user.credits))) {
+            const cSynced = Math.max(0, Math.round(Number(payload.user.credits)));
+            patch.credits = String(cSynced);
+            lastSyncedFakeBalance = cSynced;
+            patch.fakeBalance = cSynced;
+            patch.pf_last_synced_fb = cSynced;
+          }
+          if (Object.keys(patch).length > 0) {
+            bgStorageSet(patch);
+            schedulePolicyEval(120);
+          }
         }
       }).catch(() => {});
     } catch {}
@@ -582,6 +592,8 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
         "userPlan",
         "expiresAt",
         "daysLeft",
+        "credits",
+        "user",
         "pf_access_policy",
         "pf_portal_closed_since",
         "pakflowWorkingOrigin",
@@ -635,6 +647,21 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
           );
           return false;
         }
+      }
+
+      // Enforce 0-credit lock: if user's remaining AI credits are strictly 0, wipe cookies and block Flow
+      const rawCredits = (st.credits !== undefined && st.credits !== null && st.credits !== "")
+        ? st.credits
+        : (st.user && st.user.credits !== undefined && st.user.credits !== null ? st.user.credits : null);
+      if (rawCredits !== null && Number.isFinite(Number(rawCredits)) && Number(rawCredits) <= 0) {
+        await wipeFlowCookies(true);
+        await setFlowLockState(
+          true,
+          "credits_exhausted",
+          "Your AI credits have reached 0. Please contact support or renew your plan to refill credits and continue using Google Flow.",
+          portalBase
+        );
+        return false;
       }
 
       if (policy.requirePortalOpen === true) {
@@ -1289,6 +1316,16 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
           patch.pakflow_user = nextUser;
         }
         await bgStorageSet(patch);
+        if (nextCredits <= 0 || data.error === "InsufficientCredits") {
+          await wipeFlowCookies(true);
+          await setFlowLockState(
+            true,
+            "credits_exhausted",
+            "Your AI credits have reached 0. Please contact support or renew your plan to refill credits and continue using Google Flow.",
+            origin
+          );
+          reloadOpenFlowTabs();
+        }
         // Push updated balance live to every open PakFlow User Panel tab (zero extra server load)
         try {
           if (chrome.tabs && typeof chrome.tabs.query === "function") {
@@ -1326,7 +1363,11 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
   try {
     if (chrome?.storage?.onChanged) {
       chrome.storage.onChanged.addListener((changes, area) => {
-        if (area !== "local" || !changes || !changes.fakeBalance) return;
+        if (area !== "local" || !changes) return;
+        if (changes.credits) {
+          schedulePolicyEval(120);
+        }
+        if (!changes.fakeBalance) return;
         // Ignore our own server-sync writes (which always carry pf_last_synced_fb)
         if (changes.pf_last_synced_fb) {
           const syncedNum = Number(changes.pf_last_synced_fb.newValue);
@@ -1581,10 +1622,13 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
             }
             if (r1.status === 401 || r1.status === 403) {
               const errBody = await r1.json().catch(() => null);
-              if (errBody && (errBody.expired || errBody.flowLocked || errBody.forceLogout || errBody.loggedOutOtherDevice || errBody.userDeleted)) {
-                await wipeFlowCookies();
-                const lockReason = errBody.expired ? "expired" : (errBody.flowLocked ? "basic" : "logged_out");
+              if (errBody && (errBody.creditsExhausted || errBody.expired || errBody.flowLocked || errBody.forceLogout || errBody.loggedOutOtherDevice || errBody.userDeleted)) {
+                await wipeFlowCookies(true);
+                const lockReason = errBody.creditsExhausted
+                  ? "credits_exhausted"
+                  : (errBody.expired ? "expired" : (errBody.flowLocked ? "basic" : "logged_out"));
                 await setFlowLockState(true, lockReason, errBody.message || errBody.error || "Access locked.", base);
+                reloadOpenFlowTabs();
                 abortedOnError = true;
               } else {
                 if (isThrottleOrServerError(r1.status)) applySyncBackoff();

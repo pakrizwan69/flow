@@ -378,6 +378,13 @@ final class CookieSlotRoutes
     private static function publicSlotsList(): void
     {
         $access = Helpers::resolveSlotRequestAccess(false);
+        if (!empty($access['creditsExhausted'])) {
+            Http::json([
+                'success' => false, 'flowLocked' => true, 'creditsExhausted' => true,
+                'count' => 0, 'files' => [], 'slots' => [], 'tools' => [],
+                'message' => 'Your AI credits have reached 0. Contact support or renew your plan to continue using Google Flow.',
+            ], 403);
+        }
         if (!empty($access['flowLocked'])) {
             Http::json([
                 'success' => true, 'flowLocked' => true, 'plan' => 'basic',
@@ -455,6 +462,13 @@ final class CookieSlotRoutes
         $access = Helpers::resolveSlotRequestAccess(true);
         if (!empty($access['forcedLogout'])) {
             Http::json($access['forcedLogout'], 401);
+        }
+        if (!empty($access['creditsExhausted'])) {
+            Http::json([
+                'success' => false, 'flowLocked' => true, 'creditsExhausted' => true,
+                'cookieCount' => 0, 'cookies' => [], 'data' => [], 'activeSlots' => [],
+                'message' => 'Your AI credits have reached 0. Contact support or renew your plan to continue using Google Flow.',
+            ], 403);
         }
         if (!empty($access['flowLocked'])) {
             Http::json([
@@ -613,6 +627,13 @@ final class CookieSlotRoutes
         $access = Helpers::resolveSlotRequestAccess(true);
         if (!empty($access['forcedLogout'])) {
             Http::json($access['forcedLogout'], 401);
+        }
+        if (!empty($access['creditsExhausted'])) {
+            Http::json([
+                'success' => false, 'flowLocked' => true, 'creditsExhausted' => true,
+                'cookieCount' => 0, 'cookies' => [], 'data' => [],
+                'message' => 'Your AI credits have reached 0. Contact support or renew your plan to continue using Google Flow.',
+            ], 403);
         }
         if (!empty($access['flowLocked'])) {
             Http::json([

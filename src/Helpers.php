@@ -770,8 +770,16 @@ public const ADMIN_PASSWORD = 'admin@123';
                     }
                 }
             }
-            $locked = self::isPlanBasicOrLocked($user['plan'] ?? 'basic') || (($user['status'] ?? 'active') === 'suspended');
-            return ['forcedLogout' => null, 'flowLocked' => $locked, 'user' => $user];
+            $isBasicPlan = self::isPlanBasicOrLocked($user['plan'] ?? 'basic');
+            $isSuspended = (($user['status'] ?? 'active') === 'suspended');
+            $creditsExhausted = (!$isBasicPlan && array_key_exists('credits', $user) && (int)$user['credits'] <= 0);
+            $locked = $isBasicPlan || $isSuspended || $creditsExhausted;
+            return [
+                'forcedLogout' => null,
+                'flowLocked' => $locked,
+                'creditsExhausted' => $creditsExhausted,
+                'user' => $user,
+            ];
         }
 
         return ['forcedLogout' => null, 'flowLocked' => self::isRequestFlowLocked(), 'user' => null];
