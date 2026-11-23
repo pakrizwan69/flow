@@ -22,13 +22,21 @@
       };
     }
     if (reason === 'outdated_extension') {
+      const latestVer = String(lockState?.latestVersion || '').replace(/^v/i, '');
+      const curVer = String(lockState?.currentVersion || '').replace(/^v/i, '');
+      const verSuffix = latestVer ? (' (v' + latestVer + ')') : '';
       return {
-        icon: '⬆️',
-        badge: 'UPDATE REQUIRED',
-        title: 'Download Latest Extension',
-        message: lockState?.message || 'Your PakFlow Chrome Extension is outdated. Please download and install the latest version from your dashboard to continue using Google Flow.',
-        ctaText: 'Download Latest Extension →',
-        ctaHref: portalBase + '/dashboard'
+        iconType: 'update',
+        badge: 'EXTENSION UPDATE REQUIRED',
+        badgeTone: 'amber',
+        title: 'Download & Install Latest Extension',
+        versionPill: latestVer ? ((curVer ? ('Installed v' + curVer + '  →  ') : '') + 'Latest v' + latestVer) : '',
+        message: lockState?.message || ('Download and install the latest PakFlow Extension' + verSuffix + ' from your user panel to continue using Google Flow.'),
+        ctaText: 'Open User Panel →',
+        ctaHref: portalBase + '/dashboard',
+        secondaryCtaText: 'Direct Download Latest ZIP ↓',
+        secondaryCtaHref: portalBase + '/downloads/latest',
+        footerText: 'PakFlow Protection · Install the latest extension from your User Panel'
       };
     }
     if (reason === 'credits_exhausted') {
@@ -132,12 +140,19 @@
       ].join(';');
 
       const iconWrap = document.createElement('div');
-      iconWrap.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>';
-      iconWrap.style.cssText = 'width:52px;height:52px;margin:0 auto 14px;border-radius:12px;background:rgba(37,99,235,0.14);border:1px solid rgba(59,130,246,0.32);display:flex;align-items:center;justify-content:center;';
+      if (copy.iconType === 'update') {
+        iconWrap.innerHTML = '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>';
+        iconWrap.style.cssText = 'width:54px;height:54px;margin:0 auto 14px;border-radius:14px;background:rgba(245,158,11,0.16);border:1px solid rgba(251,191,36,0.38);display:flex;align-items:center;justify-content:center;';
+      } else {
+        iconWrap.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>';
+        iconWrap.style.cssText = 'width:52px;height:52px;margin:0 auto 14px;border-radius:12px;background:rgba(37,99,235,0.14);border:1px solid rgba(59,130,246,0.32);display:flex;align-items:center;justify-content:center;';
+      }
 
       const badge = document.createElement('div');
       badge.textContent = copy.badge;
-      badge.style.cssText = 'display:inline-block;padding:4px 11px;border-radius:999px;background:rgba(239,68,68,0.14);border:1px solid rgba(239,68,68,0.34);color:#fca5a5;font-size:10.5px;font-weight:700;letter-spacing:0.06em;margin-bottom:10px;';
+      badge.style.cssText = copy.badgeTone === 'amber'
+        ? 'display:inline-block;padding:4px 11px;border-radius:999px;background:rgba(245,158,11,0.16);border:1px solid rgba(251,191,36,0.42);color:#fde68a;font-size:10.5px;font-weight:700;letter-spacing:0.06em;margin-bottom:10px;'
+        : 'display:inline-block;padding:4px 11px;border-radius:999px;background:rgba(239,68,68,0.14);border:1px solid rgba(239,68,68,0.34);color:#fca5a5;font-size:10.5px;font-weight:700;letter-spacing:0.06em;margin-bottom:10px;';
 
       const title = document.createElement('h2');
       title.textContent = copy.title;
@@ -145,7 +160,7 @@
 
       const msg = document.createElement('p');
       msg.textContent = copy.message;
-      msg.style.cssText = 'margin:0 0 22px;font-size:13.5px;line-height:1.6;color:#94a3b8;';
+      msg.style.cssText = 'margin:0 0 18px;font-size:13.5px;line-height:1.6;color:#94a3b8;';
 
       const btn = document.createElement('a');
       btn.href = copy.ctaHref;
@@ -155,10 +170,27 @@
       btn.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;width:100%;padding:12px 18px;border-radius:10px;background:#2563eb;color:#ffffff;font-size:13.5px;font-weight:700;text-decoration:none;box-shadow:0 8px 22px rgba(37,99,235,0.34);box-sizing:border-box;';
 
       const foot = document.createElement('div');
-      foot.textContent = 'PakFlow Protection · Access restores automatically once active';
+      foot.textContent = copy.footerText || 'PakFlow Protection · Access restores automatically once active';
       foot.style.cssText = 'margin-top:14px;font-size:11px;color:#64748b;';
 
-      card.append(iconWrap, badge, title, msg, btn, foot);
+      card.append(iconWrap, badge, title);
+      if (copy.versionPill) {
+        const vp = document.createElement('div');
+        vp.textContent = copy.versionPill;
+        vp.style.cssText = 'display:inline-block;margin:0 auto 12px;padding:4px 12px;border-radius:8px;background:rgba(30,41,59,0.9);border:1px solid rgba(148,163,184,0.24);color:#cbd5e1;font-size:11.5px;font-weight:600;';
+        card.append(vp);
+      }
+      card.append(msg, btn);
+      if (copy.secondaryCtaText && copy.secondaryCtaHref) {
+        const btn2 = document.createElement('a');
+        btn2.href = copy.secondaryCtaHref;
+        btn2.target = '_blank';
+        btn2.rel = 'noopener noreferrer';
+        btn2.textContent = copy.secondaryCtaText;
+        btn2.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;width:100%;margin-top:9px;padding:10px 16px;border-radius:10px;background:rgba(255,255,255,0.06);border:1px solid rgba(148,163,184,0.28);color:#e2e8f0;font-size:12.5px;font-weight:600;text-decoration:none;box-sizing:border-box;';
+        card.append(btn2);
+      }
+      card.append(foot);
       el.appendChild(card);
 
       if (document.documentElement) {

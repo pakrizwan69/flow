@@ -37,17 +37,18 @@ final class ApiRouter
                 }
             } catch (\Throwable $_e) {}
             $clientVer = Helpers::getPakFlowExtVersionString();
-            if (Helpers::isExtVersionOutdated($clientVer, $minVer)) {
+            $requiredVer = version_compare($latestVer, $minVer, '>') ? $latestVer : $minVer;
+            if (Helpers::isExtVersionOutdated($clientVer, $requiredVer)) {
                 Http::json([
                     'success' => false,
                     'authenticated' => false,
                     'forceLogout' => true,
                     'outdatedExtension' => true,
                     'minVersion' => $minVer,
-                    'latestVersion' => $latestVer,
+                    'latestVersion' => $requiredVer,
                     'downloadUrl' => '/downloads/latest',
                     'error' => 'Extension Update Required',
-                    'message' => "To use smoothly, please install the latest PakFlow Extension (v{$latestVer}) from your panel.",
+                    'message' => "Download and install the latest PakFlow Extension (v{$requiredVer}) from your user panel.",
                 ], 403);
             }
         }

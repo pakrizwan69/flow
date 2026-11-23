@@ -297,6 +297,8 @@ if ($method === 'GET' && in_array($reqPath, ['/api/slots/version', '/api/cookies
 
         $policyMeta = null;
         $rawShuffle = null;
+        $latestExtVersion = null;
+        $minExtVersion = null;
         try {
             require_once __DIR__ . '/src/Database.php';
             require_once __DIR__ . '/src/Db.php';
@@ -317,12 +319,24 @@ if ($method === 'GET' && in_array($reqPath, ['/api/slots/version', '/api/cookies
                 'shuffleAnchorTs' => (int)($sh['shuffleAnchorTs'] ?? 0),
                 'lastShuffledAt' => $sh['lastShuffledAt'] ?? null,
             ];
+            $rawLatestExt = trim((string)($st['extensions']['flow']['version'] ?? ($st['windowsApp']['version'] ?? '')));
+            $rawLatestExt = ltrim($rawLatestExt, 'vV');
+            if ($rawLatestExt !== '' && preg_match('/^\d+(?:\.\d+){0,3}/', $rawLatestExt, $lm)) {
+                $latestExtVersion = $lm[0];
+            }
+            $rawMinExt = trim((string)($st['minExtVersion'] ?? ''));
+            $rawMinExt = ltrim($rawMinExt, 'vV');
+            if ($rawMinExt !== '' && preg_match('/^\d+(?:\.\d+){0,3}/', $rawMinExt, $mm)) {
+                $minExtVersion = $mm[0];
+            }
         } catch (\Throwable $_metaErr) {}
 
         $cachedSnap = [
             'versions' => $versionsMap,
             'accessPolicy' => $policyMeta,
             'rawShuffle' => $rawShuffle,
+            'latestExtVersion' => $latestExtVersion,
+            'minExtVersion' => $minExtVersion,
         ];
         if ($rawShuffle !== null) {
             if (!is_dir($dataDir)) {
@@ -380,6 +394,8 @@ if ($method === 'GET' && in_array($reqPath, ['/api/slots/version', '/api/cookies
         'success' => true,
         'version' => $ver,
         'slot' => $slotNum > 0 ? $slotNum : null,
+        'latestExtVersion' => $cachedSnap['latestExtVersion'] ?? null,
+        'minExtVersion' => $cachedSnap['minExtVersion'] ?? null,
         'accessPolicy' => $policyMeta,
         'serverShuffle' => $shuffleMeta,
     ]);

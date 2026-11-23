@@ -222,7 +222,17 @@
 
         if (chrome.storage && chrome.storage.onChanged) {
           chrome.storage.onChanged.addListener(function (changes, area) {
-            if (area !== "local" || !changes.credits) return;
+            if (area !== "local") return;
+            if (changes.pf_outdated_ext_notice) {
+              var odVal = changes.pf_outdated_ext_notice.newValue;
+              if (odVal && odVal.message) {
+                showOutdatedExtensionBanner(odVal.message, origin);
+              } else {
+                var oldBanner = document.getElementById("pfOutdatedBanner");
+                if (oldBanner) oldBanner.remove();
+              }
+            }
+            if (!changes.credits) return;
             var el = document.getElementById("customCreditsVal");
             var nv = Number(changes.credits.newValue);
             if (el && isFinite(nv) && nv >= 0) {

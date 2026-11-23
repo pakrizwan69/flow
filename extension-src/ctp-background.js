@@ -378,12 +378,17 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
   // Intercept service worker fetch so slot lists and slot fetches strictly stay inside their mode's slot pool
   // and automatically pick up serverShuffle / accessPolicy updates from backend JSON responses.
   const rawBgFetch = globalThis.fetch ? globalThis.fetch.bind(globalThis) : null;
-  function inspectBackendPolicyResponse(cleanPath, resp) {
+  function inspectBackendPolicyResponse(cleanPath, resp, respOrigin) {
     try {
       if (!resp || !resp.ok || typeof resp.clone !== "function") return;
-      if (!/\/api\/(?:slots|auth\/me|user\/me|settings\/public)$/i.test(cleanPath)) return;
+      if (!/\/api\/(?:slots(?:\/version)?|auth\/me|user\/me|settings\/public)$/i.test(cleanPath)) return;
       resp.clone().json().then((payload) => {
         if (!payload || typeof payload !== "object") return;
+        const latestExt = payload.latestExtVersion || payload.latestVersion || payload.extensions?.flow?.version || payload.windowsApp?.version || "";
+        const minExt = payload.minExtVersion || payload.minVersion || "";
+        if (latestExt || minExt) {
+          enforceExtensionVersionMatch(latestExt, minExt, respOrigin || "");
+        }
         const ap = payload.accessPolicy || payload.user?.accessPolicy || null;
         const asrv = payload.assignedServer || payload.user?.assignedServer || null;
         if (ap || asrv) {
@@ -414,10 +419,12 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
   if (rawBgFetch) {
     globalThis.fetch = async function (input, init) {
       let cleanPath = "";
+      let reqOrigin = "";
       try {
         const rawUrl = typeof input === "string" ? input : (input && input.url ? input.url : String(input));
         const u = new URL(rawUrl);
         cleanPath = u.pathname.replace(/\/+$/, "");
+        reqOrigin = `${u.protocol}//${u.host}`;
 
         const st = await bgStorageGet(["launchMode"]);
         const isNano = (st.launchMode || cachedLaunchMode) === "nano_banana";
@@ -429,7 +436,7 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
             u.searchParams.set("mode", isNano ? "nano" : "flow");
           }
           const resp = await rawBgFetch(u.toString(), init);
-          inspectBackendPolicyResponse(cleanPath, resp);
+          inspectBackendPolicyResponse(cleanPath, resp, reqOrigin);
           return resp;
         }
 
@@ -476,7 +483,7 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
         }
       } catch {}
       const resp = await rawBgFetch(input, init);
-      if (cleanPath) inspectBackendPolicyResponse(cleanPath, resp);
+      if (cleanPath) inspectBackendPolicyResponse(cleanPath, resp, reqOrigin);
       return resp;
     };
   }
@@ -564,20 +571,98 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
     });
   }
 
-  async function setFlowLockState(locked, reason, message, portalUrl) {
+  async function setFlowLockState(locked, reason, message, portalUrl, extraMeta) {
     const cleanBase = String(portalUrl || "https://flowbypak.com").replace(/\/+$/, "");
-    const key = `${locked ? 1 : 0}|${reason || ""}|${message || ""}|${cleanBase}`;
+    const extraObj = extraMeta && typeof extraMeta === "object" ? extraMeta : {};
+    const latestV = String(extraObj.latestVersion || "");
+    const curV = String(extraObj.currentVersion || "");
+    const key = `${locked ? 1 : 0}|${reason || ""}|${message || ""}|${cleanBase}|${latestV}|${curV}`;
     if (key === lastLockKey) return;
     lastLockKey = key;
-    await bgStorageSet({
-      pf_flow_lock_state: {
-        locked: Boolean(locked),
-        reason: reason || "",
-        message: message || "",
-        portalUrl: cleanBase,
-        updatedAt: Date.now()
+    const payload = {
+      locked: Boolean(locked),
+      reason: reason || "",
+      message: message || "",
+      portalUrl: cleanBase,
+      updatedAt: Date.now()
+    };
+    if (latestV) payload.latestVersion = latestV;
+    if (curV) payload.currentVersion = curV;
+    await bgStorageSet({ pf_flow_lock_state: payload });
+  }
+
+  function normalizeSemver(v) {
+    const clean = String(v || "").trim().replace(/^v/i, "");
+    const m = clean.match(/^(\d+(?:\.\d+){0,3})/);
+    return m ? m[1] : "";
+  }
+
+  function isVersionOlder(currentVer, requiredVer) {
+    const cur = normalizeSemver(currentVer);
+    const req = normalizeSemver(requiredVer);
+    if (!cur || !req) return false;
+    const a = cur.split(".").map((n) => parseInt(n, 10) || 0);
+    const b = req.split(".").map((n) => parseInt(n, 10) || 0);
+    const len = Math.max(a.length, b.length);
+    for (let i = 0; i < len; i++) {
+      const av = a[i] || 0;
+      const bv = b[i] || 0;
+      if (av < bv) return true;
+      if (av > bv) return false;
+    }
+    return false;
+  }
+
+  function getRequiredExtVersion(latestVer, minVer) {
+    const l = normalizeSemver(latestVer);
+    const m = normalizeSemver(minVer);
+    if (l && m) return isVersionOlder(m, l) ? l : m;
+    return l || m || "";
+  }
+
+  let cachedKnownLatestExtVer = "";
+  async function enforceExtensionVersionMatch(latestVer, minVer, portalBase) {
+    const reqVer = getRequiredExtVersion(latestVer, minVer);
+    if (!reqVer) return true;
+    const curVer = getExtVersion();
+    let cleanBase = String(portalBase || "").replace(/\/+$/, "");
+    if (!cleanBase) {
+      try {
+        const stBase = await bgStorageGet(["pakflowWorkingOrigin", "apiBase", "connectedFromSite"]);
+        cleanBase = String(stBase.pakflowWorkingOrigin || stBase.apiBase || stBase.connectedFromSite || "https://flowbypak.com").replace(/\/+$/, "");
+      } catch {
+        cleanBase = "https://flowbypak.com";
       }
-    });
+    }
+    if (reqVer !== cachedKnownLatestExtVer) {
+      cachedKnownLatestExtVer = reqVer;
+      await bgStorageSet({ pf_latest_ext_version: reqVer });
+    }
+    if (isVersionOlder(curVer, reqVer)) {
+      const msgTxt = `Download and install the latest PakFlow Extension (v${reqVer}) from your user panel.`;
+      await wipeFlowCookies(true);
+      await bgStorageSet({
+        pf_outdated_ext_notice: {
+          message: msgTxt,
+          latestVersion: reqVer,
+          currentVersion: curVer,
+          downloadUrl: cleanBase + "/downloads/latest",
+          dashboardUrl: cleanBase + "/dashboard"
+        }
+      });
+      await setFlowLockState(true, "outdated_extension", msgTxt, cleanBase, {
+        latestVersion: reqVer,
+        currentVersion: curVer
+      });
+      return false;
+    }
+    try {
+      const curNotice = await bgStorageGet(["pf_outdated_ext_notice"]);
+      if (curNotice && curNotice.pf_outdated_ext_notice) {
+        await bgStorageSet({ pf_outdated_ext_notice: null });
+      }
+    } catch {}
+    return true;
   }
 
   async function evaluateFlowAccessPolicy() {
@@ -596,6 +681,7 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
         "credits",
         "user",
         "pf_access_policy",
+        "pf_latest_ext_version",
         "pf_portal_closed_since",
         "pakflowWorkingOrigin",
         "apiBase",
@@ -606,6 +692,21 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
         st.pf_access_policy && typeof st.pf_access_policy === "object" ? st.pf_access_policy : {}
       );
       const portalBase = String(st.pakflowWorkingOrigin || st.apiBase || st.connectedFromSite || "https://flowbypak.com").replace(/\/+$/, "");
+
+      // Enforce latest released extension version match first: if installed extension is older than latest release,
+      // wipe Flow cookies and lock flow.google.com with a direct User Panel update prompt.
+      const latestReqVer = normalizeSemver(st.pf_latest_ext_version || cachedKnownLatestExtVer || "");
+      if (latestReqVer && isVersionOlder(getExtVersion(), latestReqVer)) {
+        const curVer = getExtVersion();
+        const msgTxt = `Download and install the latest PakFlow Extension (v${latestReqVer}) from your user panel.`;
+        await wipeFlowCookies();
+        await setFlowLockState(true, "outdated_extension", msgTxt, portalBase, {
+          latestVersion: latestReqVer,
+          currentVersion: curVer
+        });
+        return false;
+      }
+
       const loggedIn = st.isLoggedIn === true || st.isLoggedIn === "true";
       const tok = st.userToken || st.pakflow_token || st.flow_token || st.authToken || st.token || "";
       const detached = st.flowSessionDetached === true || st.flowSessionDetached === "true";
@@ -1503,11 +1604,27 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
       ]);
       const loggedIn = st.isLoggedIn === true || st.isLoggedIn === "true";
       const tok = st.userToken || st.pakflow_token || st.flow_token || st.authToken || st.token || "";
+      const base = String(st.pakflowWorkingOrigin || st.apiBase || st.connectedFromSite || "https://flowbypak.com").replace(/\/+$/, "");
+      const fetchFn = rawBgFetch || globalThis.fetch;
+
       if (!loggedIn || !tok || st.flowSessionDetached === true || st.flowSessionDetached === "true") {
         lastLiveCookieFingerprint = "";
         lastKnownSlotsVersion = "";
         lastKnownVersionSlot = 0;
         lastSlotEtag = "";
+        // Still check latest released extension version (5s micro-cached endpoint, throttled to <= 1/min when logged out)
+        if (forceCheck || (Date.now() - (globalThis.__pfLoggedOutVerCheckAt || 0)) > 60000) {
+          globalThis.__pfLoggedOutVerCheckAt = Date.now();
+          try {
+            const vrOut = await fetchFn(`${base}/api/slots/version`, { method: "GET", cache: "no-store" });
+            if (vrOut && vrOut.ok) {
+              const vdOut = await vrOut.json();
+              if (vdOut?.latestExtVersion || vdOut?.minExtVersion) {
+                await enforceExtensionVersionMatch(vdOut.latestExtVersion, vdOut.minExtVersion, base);
+              }
+            }
+          } catch {}
+        }
         return;
       }
 
@@ -1522,8 +1639,6 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
         lastSlotEtag = String(st.pf_last_slot_etag);
       }
 
-      const base = String(st.pakflowWorkingOrigin || st.apiBase || st.connectedFromSite || "https://flowbypak.com").replace(/\/+$/, "");
-      const fetchFn = rawBgFetch || globalThis.fetch;
       const jarOk = await hasCoreGoogleCookieInJar();
 
       const mode = st.launchMode === "nano_banana" ? "nano_banana" : "google_flow";
@@ -1556,6 +1671,10 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
           if (vr && vr.ok) {
             clearSyncBackoff();
             const vd = await vr.json();
+            if (vd?.latestExtVersion || vd?.minExtVersion) {
+              const verOk = await enforceExtensionVersionMatch(vd.latestExtVersion, vd.minExtVersion, base);
+              if (!verOk) return;
+            }
             if (vd?.accessPolicy && typeof vd.accessPolicy === "object") {
               bgStorageSet({ pf_access_policy: vd.accessPolicy });
               schedulePolicyEval(150);
@@ -1633,18 +1752,26 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
             if (r1.status === 401 || r1.status === 403) {
               const errBody = await r1.json().catch(() => null);
               if (errBody && errBody.outdatedExtension) {
-                await wipeFlowCookies(true);
-                const msgTxt = errBody.message || "Your PakFlow extension is outdated. Please download and install the latest version from your dashboard.";
-                await bgStorageSet({
-                  pf_outdated_ext_notice: {
-                    message: msgTxt,
+                const reqV = getRequiredExtVersion(errBody.latestVersion, errBody.minVersion);
+                if (reqV) {
+                  await enforceExtensionVersionMatch(reqV, errBody.minVersion, base);
+                } else {
+                  await wipeFlowCookies(true);
+                  const msgTxt = errBody.message || "Download and install the latest PakFlow Extension from your user panel.";
+                  await bgStorageSet({
+                    pf_outdated_ext_notice: {
+                      message: msgTxt,
+                      latestVersion: errBody.latestVersion || errBody.minVersion || "",
+                      currentVersion: extVer,
+                      downloadUrl: base + (errBody.downloadUrl || "/downloads/latest"),
+                      dashboardUrl: base + "/dashboard"
+                    }
+                  });
+                  await setFlowLockState(true, "outdated_extension", msgTxt, base, {
                     latestVersion: errBody.latestVersion || errBody.minVersion || "",
-                    downloadUrl: base + (errBody.downloadUrl || "/downloads/latest"),
-                    dashboardUrl: base + "/dashboard"
-                  }
-                });
-                await setFlowLockState(true, "outdated_extension", msgTxt, base);
-                reloadOpenFlowTabs();
+                    currentVersion: extVer
+                  });
+                }
                 abortedOnError = true;
               } else if (errBody && (errBody.creditsExhausted || errBody.expired || errBody.flowLocked || errBody.forceLogout || errBody.loggedOutOtherDevice || errBody.userDeleted)) {
                 await wipeFlowCookies(true);
@@ -1682,8 +1809,24 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
         try {
           const r2Headers = { Accept: "application/json", Authorization: `Bearer ${tok}`, "X-PakFlow-Extension-Version": extVer };
           const r2 = await fetchFn(`${base}/api/cookies/active?mode=${modeParam}&ext_v=${encodeURIComponent(extVer)}`, { method: "GET", headers: r2Headers, cache: "no-store" });
-          if (r2 && (isThrottleOrServerError(r2.status) || r2.status === 401)) {
+          if (r2 && (r2.status === 401 || r2.status === 403)) {
+            const errBody2 = await r2.json().catch(() => null);
+            if (errBody2 && errBody2.outdatedExtension) {
+              const reqV2 = getRequiredExtVersion(errBody2.latestVersion, errBody2.minVersion);
+              if (reqV2) {
+                await enforceExtensionVersionMatch(reqV2, errBody2.minVersion, base);
+              } else {
+                await wipeFlowCookies(true);
+                const msgTxt2 = errBody2.message || "Download and install the latest PakFlow Extension from your user panel.";
+                await setFlowLockState(true, "outdated_extension", msgTxt2, base, { currentVersion: extVer });
+              }
+              return;
+            }
             if (isThrottleOrServerError(r2.status)) applySyncBackoff();
+            return;
+          }
+          if (r2 && isThrottleOrServerError(r2.status)) {
+            applySyncBackoff();
             return;
           }
           if (r2 && r2.ok) {
@@ -1910,7 +2053,8 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
         changes.pakflow_token ||
         changes.userPlan ||
         changes.expiresAt ||
-        changes.pf_access_policy
+        changes.pf_access_policy ||
+        changes.pf_latest_ext_version
       ) {
         schedulePolicyEval(200);
       }

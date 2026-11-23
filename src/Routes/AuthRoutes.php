@@ -311,17 +311,22 @@ final class AuthRoutes
             || !empty($body['clientApp']);
 
         $loginClientApp = strtolower(trim((string)($body['clientApp'] ?? '')));
-        if ($isExtLoginRequest && $loginClientApp !== 'social_pak_ext' && Helpers::isExtVersionOutdated(null, Helpers::MIN_PAKFLOW_EXT_VERSION)) {
-            $latestVer = Helpers::normalizeExtVersionString(Db::readSettings()['extensions']['flow']['version'] ?? '1.7', '1.7');
-            Http::json([
-                'success' => false,
-                'outdatedExtension' => true,
-                'forceLogout' => true,
-                'latestVersion' => $latestVer,
-                'downloadUrl' => '/downloads/latest',
-                'error' => 'Extension Update Required',
-                'message' => "To use smoothly, please install the latest PakFlow Extension (v{$latestVer}) from your panel.",
-            ], 403);
+        if ($isExtLoginRequest && $loginClientApp !== 'social_pak_ext') {
+            $minVer = Helpers::normalizeExtVersionString($settings['minExtVersion'] ?? Helpers::MIN_PAKFLOW_EXT_VERSION, '1.5');
+            $latestVer = Helpers::normalizeExtVersionString($settings['extensions']['flow']['version'] ?? ($settings['windowsApp']['version'] ?? $minVer), $minVer);
+            $requiredVer = version_compare($latestVer, $minVer, '>') ? $latestVer : $minVer;
+            if (Helpers::isExtVersionOutdated(null, $requiredVer)) {
+                Http::json([
+                    'success' => false,
+                    'outdatedExtension' => true,
+                    'forceLogout' => true,
+                    'minVersion' => $minVer,
+                    'latestVersion' => $requiredVer,
+                    'downloadUrl' => '/downloads/latest',
+                    'error' => 'Extension Update Required',
+                    'message' => "Download and install the latest PakFlow Extension (v{$requiredVer}) from your user panel.",
+                ], 403);
+            }
         }
 
         if (!$email || !$password) {
