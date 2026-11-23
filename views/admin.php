@@ -26,11 +26,14 @@
       --emerald: #10b981;
       --amber: #f59e0b;
       --rose: #ef4444;
-      --sidebar-w: 256px;
+      --sidebar-w: 248px;
       --radius: 12px;
       --radius-sm: 8px;
       --font-sans: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+    @media (max-width: 1360px) and (min-width: 1121px) {
+      :root { --sidebar-w: 228px; }
     }
     html, body {
       min-height: 100%;
@@ -42,6 +45,16 @@
       -webkit-font-smoothing: antialiased;
       overflow-x: hidden;
     }
+    /* Custom slim dark scrollbars everywhere (no thick white Windows bars) */
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: rgba(148, 163, 184, 0.28) transparent;
+    }
+    *::-webkit-scrollbar { width: 6px; height: 6px; }
+    *::-webkit-scrollbar-track { background: transparent; }
+    *::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.28); border-radius: 999px; }
+    *::-webkit-scrollbar-thumb:hover { background: rgba(148, 163, 184, 0.45); }
+
     .hidden { display: none !important; }
     button, input, select, textarea { font-family: inherit; }
     button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
@@ -72,108 +85,63 @@
       padding: 32px 28px;
       box-shadow: 0 24px 64px rgba(0, 0, 0, 0.45);
     }
-    .login-brand {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      margin-bottom: 24px;
-    }
+    .login-brand { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; }
     .login-brand img {
-      width: 40px;
-      height: 40px;
-      border-radius: 10px;
-      border: 1px solid var(--border-strong);
-      object-fit: cover;
+      width: 40px; height: 40px; border-radius: 10px;
+      border: 1px solid var(--border-strong); object-fit: cover;
     }
     .login-brand h1 { font-size: 18px; font-weight: 800; letter-spacing: -0.02em; }
     .login-brand p { font-size: 12px; color: var(--text-muted); }
 
-    /* ── App Shell (Desktop Sidebar + Mobile Drawer) ── */
+    /* ── App Shell (Desktop Sidebar + Collapsible Drawer <= 1120px) ── */
     .shell { display: flex; min-height: 100vh; width: 100%; }
     .sidebar-backdrop {
-      position: fixed;
-      inset: 0;
-      z-index: 40;
-      background: rgba(2, 6, 23, 0.72);
-      backdrop-filter: blur(4px);
+      position: fixed; inset: 0; z-index: 40;
+      background: rgba(2, 6, 23, 0.72); backdrop-filter: blur(4px);
     }
     .sidebar {
-      position: fixed;
-      top: 0;
-      left: 0;
-      bottom: 0;
-      width: var(--sidebar-w);
-      z-index: 50;
+      position: fixed; top: 0; left: 0; bottom: 0;
+      width: var(--sidebar-w); z-index: 50;
       background: var(--bg-elevated);
       border-right: 1px solid var(--border);
-      display: flex;
-      flex-direction: column;
+      display: flex; flex-direction: column;
       transition: transform 0.2s ease;
     }
-    @media (max-width: 1023px) {
-      .sidebar { transform: translateX(-100%); }
+    @media (max-width: 1120px) {
+      .sidebar { transform: translateX(-100%); width: 260px; }
       .sidebar.is-open { transform: translateX(0); }
     }
     .sidebar-head {
-      height: 64px;
-      padding: 0 18px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      border-bottom: 1px solid var(--border);
-      flex-shrink: 0;
+      height: 62px; padding: 0 16px;
+      display: flex; align-items: center; justify-content: space-between;
+      border-bottom: 1px solid var(--border); flex-shrink: 0;
     }
-    .brand-link {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      text-decoration: none;
-      color: var(--text);
-    }
+    .brand-link { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--text); min-width: 0; }
     .brand-link img {
-      width: 30px;
-      height: 30px;
-      border-radius: 8px;
-      border: 1px solid var(--border-strong);
-      object-fit: cover;
+      width: 30px; height: 30px; border-radius: 8px;
+      border: 1px solid var(--border-strong); object-fit: cover; flex-shrink: 0;
     }
     .brand-title { font-size: 15px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.1; }
     .brand-sub { font-size: 11px; color: var(--text-muted); font-weight: 500; }
     .sidebar-nav {
-      flex: 1;
-      overflow-y: auto;
-      padding: 14px 12px;
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
+      flex: 1; overflow-y: auto; padding: 10px 10px 14px;
+      display: flex; flex-direction: column; gap: 2px;
     }
     .nav-group-label {
-      font-size: 10.5px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      color: #64748b;
-      padding: 12px 10px 6px;
+      font-size: 10px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.07em; color: #64748b; padding: 11px 10px 5px;
     }
     .nav-group-label:first-child { padding-top: 2px; }
     .nav-btn {
-      width: 100%;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 9px 11px;
-      border-radius: var(--radius-sm);
-      border: 1px solid transparent;
-      background: transparent;
-      color: var(--text-muted);
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-      text-align: left;
-      text-decoration: none;
+      width: 100%; display: flex; align-items: center; gap: 9px;
+      padding: 8px 10px; border-radius: var(--radius-sm);
+      border: 1px solid transparent; background: transparent;
+      color: var(--text-muted); font-size: 12.75px; font-weight: 600;
+      cursor: pointer; text-align: left; text-decoration: none;
       transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
     }
-    .nav-btn svg { width: 17px; height: 17px; flex-shrink: 0; opacity: 0.85; }
+    .nav-btn > span:first-of-type { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .nav-btn svg { width: 16px; height: 16px; flex-shrink: 0; opacity: 0.85; }
     .nav-btn:hover { background: rgba(255, 255, 255, 0.04); color: var(--text); }
     .nav-btn.active {
       background: rgba(37, 99, 235, 0.14);
@@ -182,102 +150,63 @@
     }
     .nav-btn.active svg { color: #60a5fa; opacity: 1; }
     .nav-badge {
-      margin-left: auto;
-      font-family: var(--font-mono);
-      font-size: 11px;
-      font-weight: 600;
-      padding: 1px 7px;
-      border-radius: 999px;
-      background: var(--muted-bg);
-      color: var(--text-secondary);
+      margin-left: auto; font-family: var(--font-mono); font-size: 10.5px; font-weight: 600;
+      padding: 1px 6px; border-radius: 999px; background: var(--muted-bg); color: var(--text-secondary);
+      flex-shrink: 0;
     }
+    .nav-badge.warn { background: rgba(245, 158, 11, 0.18); color: #fcd34d; }
     .sidebar-foot {
-      padding: 12px;
-      border-top: 1px solid var(--border);
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
+      padding: 10px; border-top: 1px solid var(--border);
+      display: flex; flex-direction: column; gap: 3px; flex-shrink: 0;
     }
 
     /* ── Main Column ── */
-    .main-col {
-      flex: 1;
-      min-width: 0;
-      display: flex;
-      flex-direction: column;
-    }
-    @media (min-width: 1024px) {
+    .main-col { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+    @media (min-width: 1121px) {
       .main-col { padding-left: var(--sidebar-w); }
     }
     .topbar {
-      position: sticky;
-      top: 0;
-      z-index: 30;
-      min-height: 64px;
-      padding: 10px 24px;
-      background: rgba(11, 17, 32, 0.88);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
+      position: sticky; top: 0; z-index: 30;
+      min-height: 62px; padding: 10px 22px;
+      background: rgba(11, 17, 32, 0.9);
+      backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
       border-bottom: 1px solid var(--border);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      flex-wrap: wrap;
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 10px; flex-wrap: wrap;
     }
-    .topbar-left { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .topbar-left { display: flex; align-items: center; gap: 11px; min-width: 0; flex: 1; }
     .menu-toggle {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 36px;
-      height: 36px;
-      border-radius: var(--radius-sm);
-      border: 1px solid var(--border);
-      background: var(--card);
-      color: var(--text);
-      cursor: pointer;
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 36px; height: 36px; border-radius: var(--radius-sm);
+      border: 1px solid var(--border); background: var(--card); color: var(--text);
+      cursor: pointer; flex-shrink: 0;
     }
-    @media (min-width: 1024px) { .menu-toggle { display: none; } }
-    .page-title { font-size: 17px; font-weight: 800; letter-spacing: -0.02em; color: var(--text); }
-    .page-sub { font-size: 12px; color: var(--text-muted); }
+    @media (min-width: 1121px) { .menu-toggle { display: none; } }
+    .page-title { font-size: 16.5px; font-weight: 800; letter-spacing: -0.02em; color: var(--text); line-height: 1.2; }
+    .page-sub { font-size: 12px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .topbar-right { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 
     .countdown-pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 7px;
-      padding: 6px 12px;
-      border-radius: var(--radius-sm);
-      background: var(--card);
-      border: 1px solid var(--border-strong);
-      color: var(--text-secondary);
-      font-family: var(--font-mono);
-      font-size: 12px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: border-color 0.15s ease, background 0.15s ease;
+      display: inline-flex; align-items: center; gap: 7px;
+      padding: 6px 11px; border-radius: var(--radius-sm);
+      background: var(--card); border: 1px solid var(--border-strong);
+      color: var(--text-secondary); font-family: var(--font-mono);
+      font-size: 11.5px; font-weight: 600; cursor: pointer;
     }
     .countdown-pill:hover { border-color: #60a5fa; background: var(--card-hover); color: #fff; }
-    .status-dot {
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      background: var(--emerald);
-      flex-shrink: 0;
+    .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--emerald); flex-shrink: 0; }
+    .maint-pill {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 5px 10px; border-radius: 999px;
+      background: rgba(239, 68, 68, 0.16); border: 1px solid rgba(239, 68, 68, 0.38);
+      color: #fca5a5; font-size: 11.5px; font-weight: 700; cursor: pointer;
     }
-    .status-dot.off { background: #64748b; }
 
     .workspace {
-      width: 100%;
-      max-width: 1440px;
-      margin: 0 auto;
-      padding: 24px;
-      display: flex;
-      flex-direction: column;
-      gap: 20px;
+      width: 100%; max-width: 1480px; margin: 0 auto;
+      padding: 20px 22px; display: flex; flex-direction: column; gap: 18px; min-width: 0;
     }
-    @media (max-width: 640px) {
+    @media (max-width: 768px) {
       .topbar { padding: 10px 14px; }
       .workspace { padding: 14px; gap: 14px; }
       .page-sub { display: none; }
@@ -285,18 +214,10 @@
 
     /* ── Buttons ── */
     .btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 7px;
-      padding: 8px 14px;
-      border-radius: var(--radius-sm);
-      border: 1px solid transparent;
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-      text-decoration: none;
-      white-space: nowrap;
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+      padding: 8px 13px; border-radius: var(--radius-sm);
+      border: 1px solid transparent; font-size: 12.75px; font-weight: 600;
+      cursor: pointer; text-decoration: none; white-space: nowrap;
       transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;
     }
     .btn svg { width: 15px; height: 15px; flex-shrink: 0; }
@@ -311,176 +232,137 @@
     .btn-danger:hover { background: rgba(239, 68, 68, 0.24); color: #fff; }
     .btn-ghost { background: var(--card); border-color: var(--border); color: var(--text-secondary); }
     .btn-ghost:hover { background: var(--muted-bg); border-color: var(--border-strong); color: #fff; }
-    .btn-sm { padding: 5px 10px; font-size: 12px; }
+    .btn-sm { padding: 5px 9px; font-size: 11.75px; }
+    .btn-xs { padding: 3px 7px; font-size: 11px; border-radius: 6px; }
     .btn-icon { padding: 7px; }
 
-    /* ── Cards & Grids ── */
+    /* ── Cards, Subtabs & Grids ── */
     .card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 20px;
-      min-width: 0;
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 18px; min-width: 0;
     }
+    @media (max-width: 640px) { .card { padding: 14px; } }
     .card-head {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 12px;
-      flex-wrap: wrap;
-      margin-bottom: 16px;
+      display: flex; align-items: flex-start; justify-content: space-between;
+      gap: 12px; flex-wrap: wrap; margin-bottom: 14px;
     }
     .card-title { font-size: 15px; font-weight: 700; color: var(--text); letter-spacing: -0.01em; }
-    .card-desc { font-size: 12.5px; color: var(--text-muted); margin-top: 2px; }
+    .card-desc { font-size: 12.25px; color: var(--text-muted); margin-top: 2px; }
+
+    .subtabs {
+      display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+      padding: 5px; border-radius: 10px;
+      background: var(--bg-elevated); border: 1px solid var(--border);
+      margin-bottom: 16px;
+    }
+    .subtab-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 7px 13px; border-radius: 7px; border: 1px solid transparent;
+      background: transparent; color: var(--text-muted);
+      font-size: 12.5px; font-weight: 600; cursor: pointer;
+      transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+    }
+    .subtab-btn:hover { color: var(--text); background: rgba(255, 255, 255, 0.04); }
+    .subtab-btn.active {
+      background: rgba(37, 99, 235, 0.16);
+      border-color: rgba(59, 130, 246, 0.34);
+      color: #ffffff;
+    }
 
     .kpi-grid {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 14px;
+      gap: 12px;
     }
-    @media (max-width: 1024px) { .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-    @media (max-width: 480px) { .kpi-grid { grid-template-columns: 1fr; } }
+    @media (max-width: 1279px) { .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (max-width: 560px) { .kpi-grid { grid-template-columns: 1fr; } }
 
     .kpi-card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 16px 18px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 15px 16px;
+      display: flex; flex-direction: column; gap: 7px;
+      min-width: 0; overflow: hidden;
     }
     .kpi-top {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      color: var(--text-muted);
-      font-size: 12px;
-      font-weight: 600;
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+      color: var(--text-muted); font-size: 12px; font-weight: 600;
     }
     .kpi-icon {
-      width: 32px;
-      height: 32px;
-      border-radius: 8px;
-      background: var(--muted-bg);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #60a5fa;
+      width: 30px; height: 30px; border-radius: 8px; background: var(--muted-bg);
+      display: flex; align-items: center; justify-content: center; color: #60a5fa; flex-shrink: 0;
     }
     .kpi-icon.emerald { color: #34d399; background: rgba(16, 185, 129, 0.12); }
     .kpi-icon.amber { color: #fbbf24; background: rgba(245, 158, 11, 0.12); }
     .kpi-icon.rose { color: #f87171; background: rgba(239, 68, 68, 0.12); }
     .kpi-val {
       font-family: var(--font-mono);
-      font-size: 26px;
-      font-weight: 700;
-      letter-spacing: -0.02em;
-      color: var(--text);
-      line-height: 1.1;
+      font-size: clamp(18px, 1.7vw, 24px);
+      font-weight: 700; letter-spacing: -0.02em;
+      color: var(--text); line-height: 1.15;
+      overflow-wrap: anywhere; word-break: break-word;
     }
-    .kpi-sub { font-size: 12px; color: var(--text-muted); }
+    .kpi-val.is-compact { font-size: clamp(16px, 1.35vw, 20px); }
+    .kpi-sub { font-size: 11.75px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
     .grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
     .grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
-    @media (max-width: 1100px) { .grid-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-    @media (max-width: 768px) { .grid-2, .grid-3 { grid-template-columns: 1fr; } }
+    @media (max-width: 1279px) { .grid-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (max-width: 820px) { .grid-2, .grid-3 { grid-template-columns: 1fr; } }
 
     /* ── Toolbar & Filters ── */
     .toolbar {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      flex-wrap: wrap;
-      margin-bottom: 14px;
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 10px; flex-wrap: wrap; margin-bottom: 14px;
     }
-    .search-box {
-      position: relative;
-      flex: 1;
-      min-width: 220px;
-      max-width: 380px;
-    }
+    .search-box { position: relative; flex: 1; min-width: 200px; max-width: 380px; }
+    @media (max-width: 640px) { .search-box { max-width: 100%; width: 100%; } }
     .search-box svg {
-      position: absolute;
-      left: 11px;
-      top: 50%;
-      transform: translateY(-50%);
-      width: 15px;
-      height: 15px;
-      color: var(--text-muted);
-      pointer-events: none;
+      position: absolute; left: 11px; top: 50%; transform: translateY(-50%);
+      width: 15px; height: 15px; color: var(--text-muted); pointer-events: none;
     }
     .search-box input { padding-left: 34px; }
     .filter-group { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 
     /* ── Form Controls ── */
-    .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+    .field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 13px; min-width: 0; }
     .field:last-child { margin-bottom: 0; }
-    .field label {
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--text-secondary);
-    }
+    .field label { font-size: 12px; font-weight: 600; color: var(--text-secondary); }
     .input, .select, .textarea {
-      width: 100%;
-      padding: 9px 12px;
-      border-radius: var(--radius-sm);
-      border: 1px solid var(--border-strong);
-      background: var(--bg);
-      color: var(--text);
-      font-size: 13.5px;
-      transition: border-color 0.15s ease;
+      width: 100%; min-width: 0; padding: 8px 11px; border-radius: var(--radius-sm);
+      border: 1px solid var(--border-strong); background: var(--bg); color: var(--text);
+      font-size: 13px; transition: border-color 0.15s ease;
     }
-    .textarea { min-height: 150px; resize: vertical; line-height: 1.55; font-family: var(--font-sans); }
+    .textarea { min-height: 120px; resize: vertical; line-height: 1.55; font-family: var(--font-sans); }
     .textarea.mono { font-family: var(--font-mono); font-size: 12px; }
     .input:focus, .select:focus, .textarea:focus { border-color: var(--primary-hover); }
 
     /* ── Tables ── */
     .table-wrap {
-      width: 100%;
-      overflow-x: auto;
-      -webkit-overflow-scrolling: touch;
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      background: var(--bg-elevated);
+      width: 100%; max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch;
+      border: 1px solid var(--border); border-radius: 10px; background: var(--bg-elevated);
     }
     table { width: 100%; border-collapse: collapse; text-align: left; }
     thead th {
-      padding: 11px 14px;
-      font-size: 11px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: var(--text-muted);
-      background: rgba(15, 23, 42, 0.9);
-      border-bottom: 1px solid var(--border);
-      white-space: nowrap;
+      padding: 10px 11px; font-size: 10.75px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted);
+      background: rgba(15, 23, 42, 0.92); border-bottom: 1px solid var(--border); white-space: nowrap;
     }
     tbody td {
-      padding: 12px 14px;
-      border-bottom: 1px solid var(--border);
-      font-size: 13px;
-      color: var(--text-secondary);
-      vertical-align: middle;
+      padding: 10px 11px; border-bottom: 1px solid var(--border);
+      font-size: 12.75px; color: var(--text-secondary); vertical-align: middle;
     }
     tbody tr:last-child td { border-bottom: 0; }
     tbody tr:hover { background: rgba(255, 255, 255, 0.025); }
-    .user-cell-name { font-weight: 700; color: var(--text); font-size: 13.5px; }
-    .user-cell-email { font-size: 12px; color: var(--text-muted); }
-    .actions-cell { display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; }
+    .user-cell-name { font-weight: 700; color: var(--text); font-size: 13px; line-height: 1.3; }
+    .user-cell-email { font-size: 11.75px; color: var(--text-muted); word-break: break-word; }
+    .actions-cell { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+    .quick-ext-row { display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap; }
 
     /* ── Badges ── */
     .badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      padding: 3px 9px;
-      border-radius: 999px;
-      font-size: 11.5px;
-      font-weight: 700;
-      white-space: nowrap;
-      border: 1px solid transparent;
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2.5px 8px; border-radius: 999px; font-size: 11px; font-weight: 700;
+      white-space: nowrap; border: 1px solid transparent;
     }
     .badge-emerald { background: rgba(16, 185, 129, 0.14); border-color: rgba(16, 185, 129, 0.3); color: #34d399; }
     .badge-blue { background: rgba(37, 99, 235, 0.16); border-color: rgba(59, 130, 246, 0.32); color: #93c5fd; }
@@ -488,104 +370,63 @@
     .badge-rose { background: rgba(239, 68, 68, 0.14); border-color: rgba(239, 68, 68, 0.3); color: #fca5a5; }
     .badge-muted { background: var(--muted-bg); border-color: var(--border); color: var(--text-muted); }
 
+    /* ── Progress Bars (Analytics) ── */
+    .bar-row { display: flex; flex-direction: column; gap: 5px; margin-bottom: 12px; }
+    .bar-row:last-child { margin-bottom: 0; }
+    .bar-meta { display: flex; justify-content: space-between; font-size: 12.5px; font-weight: 600; }
+    .bar-track { height: 8px; border-radius: 999px; background: var(--muted-bg); overflow: hidden; }
+    .bar-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, #2563eb, #38bdf8); transition: width 0.35s ease; }
+
     /* ── Session Shuffle Hero & Slot Cards ── */
     .shuffle-hero {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
-      gap: 16px;
-      align-items: center;
-      padding: 18px 20px;
-      border-radius: var(--radius);
-      background: var(--bg-elevated);
-      border: 1px solid var(--border-strong);
-      margin-bottom: 16px;
+      display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 14px; align-items: center;
+      padding: 16px 18px; border-radius: var(--radius);
+      background: var(--bg-elevated); border: 1px solid var(--border-strong); margin-bottom: 14px;
     }
     @media (max-width: 700px) { .shuffle-hero { grid-template-columns: 1fr; } }
     .countdown-clock {
-      font-family: var(--font-mono);
-      font-size: 32px;
-      font-weight: 700;
-      color: var(--text);
-      letter-spacing: -0.02em;
-      line-height: 1.1;
-      margin: 4px 0;
+      font-family: var(--font-mono); font-size: clamp(24px, 3vw, 32px); font-weight: 700;
+      color: var(--text); letter-spacing: -0.02em; line-height: 1.1; margin: 4px 0;
     }
     .countdown-clock.is-off { font-size: 18px; color: var(--text-muted); }
 
     .session-card {
-      background: var(--bg-elevated);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      transition: border-color 0.15s ease;
+      background: var(--bg-elevated); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 15px; display: flex; flex-direction: column; gap: 11px;
+      min-width: 0; transition: border-color 0.15s ease;
     }
     .session-card:hover { border-color: var(--border-strong); }
-    .session-card.is-active { border-color: rgba(16, 185, 129, 0.32); }
-    .session-card-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-    }
-    .session-name { font-size: 14px; font-weight: 700; color: var(--text); }
+    .session-card.is-active { border-color: rgba(16, 185, 129, 0.34); }
+    .session-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .session-name { font-size: 13.5px; font-weight: 700; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .session-meta {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      font-size: 12px;
-      color: var(--text-muted);
-      font-family: var(--font-mono);
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+      font-size: 11.5px; color: var(--text-muted); font-family: var(--font-mono); flex-wrap: wrap;
     }
     .session-pool-check {
-      display: inline-flex;
-      align-items: center;
-      gap: 7px;
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--text-secondary);
-      cursor: pointer;
+      display: inline-flex; align-items: center; gap: 7px;
+      font-size: 12px; font-weight: 600; color: var(--text-secondary); cursor: pointer;
     }
     .session-pool-check input { width: 15px; height: 15px; accent-color: var(--emerald); cursor: pointer; }
     .session-actions { display: flex; gap: 6px; flex-wrap: wrap; }
 
     /* ── Toggle Row & Chips ── */
     .toggle-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 16px;
-      padding: 13px 15px;
-      border-radius: 10px;
-      background: var(--bg-elevated);
-      border: 1px solid var(--border);
-      margin-bottom: 10px;
+      display: flex; align-items: center; justify-content: space-between; gap: 14px;
+      padding: 12px 14px; border-radius: 10px;
+      background: var(--bg-elevated); border: 1px solid var(--border); margin-bottom: 10px;
     }
-    .toggle-row strong { display: block; font-size: 13.5px; color: var(--text); }
-    .toggle-row span { display: block; font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+    .toggle-row strong { display: block; font-size: 13px; color: var(--text); }
+    .toggle-row span { display: block; font-size: 11.75px; color: var(--text-muted); margin-top: 2px; }
     .switch {
-      width: 42px;
-      height: 24px;
-      appearance: none;
-      background: var(--muted-bg);
-      border: 1px solid var(--border-strong);
-      border-radius: 999px;
-      position: relative;
-      cursor: pointer;
-      flex-shrink: 0;
+      width: 42px; height: 24px; appearance: none;
+      background: var(--muted-bg); border: 1px solid var(--border-strong);
+      border-radius: 999px; position: relative; cursor: pointer; flex-shrink: 0;
       transition: background 0.16s ease, border-color 0.16s ease;
     }
     .switch::after {
-      content: "";
-      position: absolute;
-      top: 2px;
-      left: 2px;
-      width: 18px;
-      height: 18px;
-      border-radius: 50%;
-      background: #cbd5e1;
+      content: ""; position: absolute; top: 2px; left: 2px;
+      width: 18px; height: 18px; border-radius: 50%; background: #cbd5e1;
       transition: transform 0.16s ease, background 0.16s ease;
     }
     .switch:checked { background: var(--emerald); border-color: var(--emerald); }
@@ -593,113 +434,73 @@
 
     .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 12px; }
     .chip {
-      padding: 5px 10px;
-      border-radius: 6px;
-      border: 1px solid var(--border);
-      background: var(--bg-elevated);
-      color: var(--text-secondary);
-      font-size: 12px;
-      font-weight: 600;
-      cursor: pointer;
+      padding: 5px 10px; border-radius: 6px; border: 1px solid var(--border);
+      background: var(--bg-elevated); color: var(--text-secondary);
+      font-size: 12px; font-weight: 600; cursor: pointer;
     }
     .chip:hover { border-color: var(--primary-hover); color: #fff; background: var(--muted-bg); }
 
     .preview-box {
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 14px;
-      font-size: 13px;
-      line-height: 1.6;
-      color: var(--text-secondary);
-      white-space: pre-wrap;
-      word-break: break-word;
-      min-height: 180px;
+      background: var(--bg); border: 1px solid var(--border); border-radius: 10px;
+      padding: 14px; font-size: 13px; line-height: 1.6; color: var(--text-secondary);
+      white-space: pre-wrap; word-break: break-word; min-height: 180px;
     }
+
+    /* ── Plan Config Cards ── */
+    .plan-card {
+      background: var(--bg-elevated); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 15px; display: flex; flex-direction: column; gap: 10px;
+    }
+    .plan-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 
     /* ── Modals ── */
     .modal-backdrop {
-      position: fixed;
-      inset: 0;
-      z-index: 80;
-      background: rgba(2, 6, 23, 0.78);
-      backdrop-filter: blur(6px);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 16px;
-      overflow-y: auto;
+      position: fixed; inset: 0; z-index: 80;
+      background: rgba(2, 6, 23, 0.78); backdrop-filter: blur(6px);
+      display: flex; align-items: center; justify-content: center;
+      padding: 14px; overflow-y: auto;
     }
     .modal {
-      width: 100%;
-      max-width: 520px;
-      max-height: calc(100dvh - 32px);
-      background: var(--card);
-      border: 1px solid var(--border-strong);
-      border-radius: 14px;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-      margin: auto;
-      box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
+      width: 100%; max-width: min(94vw, 540px); max-height: calc(100dvh - 28px);
+      background: var(--card); border: 1px solid var(--border-strong);
+      border-radius: 14px; display: flex; flex-direction: column; overflow: hidden;
+      margin: auto; box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
     }
+    .modal.modal-lg { max-width: min(96vw, 940px); }
     .modal-head {
-      padding: 16px 20px;
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      background: var(--bg-elevated);
+      padding: 14px 18px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      background: var(--bg-elevated); flex-shrink: 0;
     }
-    .modal-head h3 { font-size: 15.5px; font-weight: 700; }
-    .modal-body { padding: 18px 20px; overflow-y: auto; flex: 1; }
+    .modal-head h3 { font-size: 15px; font-weight: 700; }
+    .modal-body { padding: 16px 18px; overflow-y: auto; flex: 1; min-height: 0; }
     .modal-foot {
-      padding: 14px 20px;
-      border-top: 1px solid var(--border);
-      display: flex;
-      justify-content: flex-end;
-      gap: 8px;
-      flex-wrap: wrap;
-      background: var(--bg-elevated);
+      padding: 12px 18px; border-top: 1px solid var(--border);
+      display: flex; justify-content: flex-end; align-items: center; gap: 8px;
+      flex-wrap: wrap; background: var(--bg-elevated); flex-shrink: 0;
     }
 
-    /* ── Toast Notification ── */
+    /* ── Toast & Alerts ── */
     .toast {
-      position: fixed;
-      right: 20px;
-      bottom: 20px;
-      z-index: 120;
-      max-width: 380px;
-      padding: 12px 16px;
-      border-radius: 10px;
-      background: var(--card);
-      border: 1px solid var(--border-strong);
-      color: var(--text);
-      font-size: 13px;
-      font-weight: 600;
-      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.55);
-      display: flex;
-      align-items: center;
-      gap: 10px;
+      position: fixed; right: 16px; bottom: 16px; z-index: 120;
+      max-width: min(92vw, 390px); padding: 11px 15px; border-radius: 10px;
+      background: var(--card); border: 1px solid var(--border-strong); color: var(--text);
+      font-size: 13px; font-weight: 600; box-shadow: 0 18px 40px rgba(0, 0, 0, 0.55);
+      display: flex; align-items: center; gap: 10px;
     }
     .toast.ok { border-color: rgba(16, 185, 129, 0.45); }
     .toast.err { border-color: rgba(239, 68, 68, 0.45); color: #fecaca; }
 
     .alert-box {
-      padding: 10px 13px;
-      border-radius: var(--radius-sm);
-      font-size: 13px;
-      font-weight: 500;
-      margin-bottom: 14px;
+      padding: 10px 13px; border-radius: var(--radius-sm); font-size: 13px;
+      font-weight: 500; margin-bottom: 14px;
     }
     .alert-box.err { background: rgba(239, 68, 68, 0.14); border: 1px solid rgba(239, 68, 68, 0.3); color: #fca5a5; }
-    .alert-box.ok { background: rgba(16, 185, 129, 0.14); border: 1px solid rgba(16, 185, 129, 0.3); color: #6ee7b7; }
-    .empty-state {
-      text-align: center;
-      padding: 36px 16px;
-      color: var(--text-muted);
-      font-size: 13px;
+    .alert-box.warn { background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.34); color: #fde68a; }
+    .empty-state { text-align: center; padding: 32px 14px; color: var(--text-muted); font-size: 13px; }
+    .proof-thumb {
+      width: 44px; height: 34px; border-radius: 6px; object-fit: cover;
+      border: 1px solid var(--border-strong); cursor: pointer; vertical-align: middle;
     }
   </style>
 </head>
@@ -711,7 +512,7 @@
         <img src="/flowbypak-logo.png" alt="PakFlow" />
         <div>
           <h1>PakFlow Admin</h1>
-          <p>Sign in to manage users, sessions &amp; releases</p>
+          <p>Sign in to manage users, resellers, sessions &amp; releases</p>
         </div>
       </div>
       <div id="loginError" class="alert-box err hidden"></div>
@@ -747,21 +548,29 @@
       </div>
 
       <nav class="sidebar-nav">
-        <div class="nav-group-label">Core</div>
+        <div class="nav-group-label">Core Management</div>
         <button type="button" class="nav-btn active" data-view="users">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-          <span>Users &amp; Overview</span>
+          <span>Users &amp; Approvals</span>
           <span class="nav-badge" id="navUsersCount">0</span>
         </button>
         <button type="button" class="nav-btn" data-view="sessions">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="3" width="20" height="7" rx="2"/><rect x="2" y="14" width="20" height="7" rx="2"/><path d="M6 6.5h.01M6 17.5h.01"/></svg>
-          <span>Flow Sessions (1–10)</span>
+          <span>Flow Sessions (1–15)</span>
           <span class="nav-badge" id="navSessionsCount">0</span>
         </button>
         <button type="button" class="nav-btn" data-view="resellers">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 21h18M5 21V7l8-4v18M19 21V11l-6-4"/><path d="M9 9h.01M9 12h.01M9 15h.01"/></svg>
           <span>Resellers &amp; Payouts</span>
           <span class="nav-badge" id="navResellersCount">0</span>
+        </button>
+        <button type="button" class="nav-btn" data-view="analytics">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+          <span>Analytics &amp; Revenue</span>
+        </button>
+        <button type="button" class="nav-btn" data-view="plans">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+          <span>Plans &amp; Pricing</span>
         </button>
 
         <div class="nav-group-label">Distribution &amp; Access</div>
@@ -808,12 +617,13 @@
           <button id="openSidebarBtn" type="button" class="menu-toggle" aria-label="Open Navigation">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
           </button>
-          <div>
-            <h2 id="topbarTitle" class="page-title">Users &amp; Overview</h2>
-            <p id="topbarSub" class="page-sub">Manage accounts, subscriptions and device access</p>
+          <div style="min-width:0;">
+            <h2 id="topbarTitle" class="page-title">Users &amp; Approvals</h2>
+            <p id="topbarSub" class="page-sub">Manage accounts, quick extend, reset limits &amp; device locks</p>
           </div>
         </div>
         <div class="topbar-right">
+          <button id="topMaintPill" type="button" class="maint-pill hidden" title="Maintenance Mode is Active">Maintenance ON</button>
           <button id="topCountdownPill" type="button" class="countdown-pill hidden" title="Auto Session Shuffle Countdown">
             <span class="status-dot"></span>
             <span id="topCountdownText">Shuffle 00:00:00</span>
@@ -829,13 +639,13 @@
       </header>
 
       <main class="workspace">
-        <!-- VIEW 1: USERS & OVERVIEW -->
+        <!-- VIEW 1: USERS & APPROVALS -->
         <section id="view-users" class="view-pane">
-          <div class="kpi-grid" style="margin-bottom:18px;">
+          <div class="kpi-grid" style="margin-bottom:16px;">
             <div class="kpi-card">
               <div class="kpi-top">
                 <span>Total Users</span>
-                <span class="kpi-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></span>
+                <span class="kpi-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></span>
               </div>
               <div class="kpi-val" id="kpiTotal">0</div>
               <div class="kpi-sub">Registered accounts</div>
@@ -843,7 +653,7 @@
             <div class="kpi-card">
               <div class="kpi-top">
                 <span>Active Plans</span>
-                <span class="kpi-icon emerald"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></span>
+                <span class="kpi-icon emerald"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></span>
               </div>
               <div class="kpi-val" id="kpiActive" style="color:#34d399;">0</div>
               <div class="kpi-sub">Paid Flow access</div>
@@ -851,7 +661,7 @@
             <div class="kpi-card">
               <div class="kpi-top">
                 <span>Expired</span>
-                <span class="kpi-icon amber"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
+                <span class="kpi-icon amber"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
               </div>
               <div class="kpi-val" id="kpiExpired" style="color:#fbbf24;">0</div>
               <div class="kpi-sub">Pending renewal</div>
@@ -859,10 +669,33 @@
             <div class="kpi-card">
               <div class="kpi-top">
                 <span>Suspended / Locked</span>
-                <span class="kpi-icon rose"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
+                <span class="kpi-icon rose"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
               </div>
               <div class="kpi-val" id="kpiSuspended" style="color:#f87171;">0</div>
               <div class="kpi-sub">Restricted accounts</div>
+            </div>
+          </div>
+
+          <!-- Pending Approvals Card (Auto-visible when pending > 0) -->
+          <div id="pendingApprovalsCard" class="card hidden" style="margin-bottom:16px;border-color:rgba(245,158,11,0.38);">
+            <div class="card-head">
+              <div>
+                <h3 class="card-title" style="color:#fcd34d;">Pending User Approvals (<span id="pendingCountNum">0</span>)</h3>
+                <p class="card-desc">Approve or reject new account requests waiting for activation.</p>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>User</th>
+                    <th>Requested Plan</th>
+                    <th>Reseller</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="pendingTableBody"></tbody>
+              </table>
             </div>
           </div>
 
@@ -873,19 +706,21 @@
                 <input id="userSearchInput" class="input" type="search" placeholder="Search name, email or username..." />
               </div>
               <div class="filter-group">
-                <select id="userPlanFilter" class="select" style="width:auto;min-width:130px;">
+                <select id="userPlanFilter" class="select" style="width:auto;min-width:124px;">
                   <option value="all">All Plans</option>
                   <option value="pro">Pro</option>
                   <option value="max">Max</option>
                   <option value="plus">Plus</option>
                   <option value="ultra">Ultra</option>
-                  <option value="basic">Basic</option>
+                  <option value="vibe">Vibe</option>
+                  <option value="basic">Basic / Free</option>
                 </select>
-                <select id="userStatusFilter" class="select" style="width:auto;min-width:130px;">
+                <select id="userStatusFilter" class="select" style="width:auto;min-width:136px;">
                   <option value="all">All Statuses</option>
                   <option value="active">Active</option>
+                  <option value="expiring">Expiring (&le; 7d)</option>
                   <option value="expired">Expired</option>
-                  <option value="suspended">Suspended</option>
+                  <option value="suspended">Suspended / Locked</option>
                 </select>
               </div>
             </div>
@@ -895,8 +730,8 @@
                 <thead>
                   <tr>
                     <th>User</th>
-                    <th>Plan</th>
-                    <th>Days Left</th>
+                    <th>Plan &amp; Credits</th>
+                    <th>Days &amp; Quick Extend</th>
                     <th>Status</th>
                     <th>Devices</th>
                     <th>Actions</th>
@@ -907,7 +742,7 @@
                 </tbody>
               </table>
             </div>
-            <div id="usersPaginationBar" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);font-size:12.5px;color:var(--text-muted);">
+            <div id="usersPaginationBar" style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:1px solid var(--border);font-size:12.5px;color:var(--text-muted);">
               <span id="usersPageInfo">Showing 0 users</span>
               <div style="display:flex;align-items:center;gap:8px;">
                 <button id="usersPrevBtn" type="button" class="btn btn-ghost btn-sm" disabled>Previous</button>
@@ -918,14 +753,14 @@
           </div>
         </section>
 
-        <!-- VIEW 2: GOOGLE FLOW SESSIONS (1-10) & AUTO-SHUFFLE -->
+        <!-- VIEW 2: GOOGLE FLOW SESSIONS (1-10) & NANO BANANA (11-15) -->
         <section id="view-sessions" class="view-pane hidden">
           <div class="card" style="margin-bottom:16px;">
             <div class="shuffle-hero">
               <div>
-                <div style="font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);">Next Automatic Session Shuffle</div>
+                <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);">Next Automatic Session Shuffle</div>
                 <div id="liveCountdownClock" class="countdown-clock is-off">Timer Off</div>
-                <div id="liveCountdownMeta" style="font-size:12.5px;color:var(--text-muted);">Epoch #1 · Enable timer to automatically rotate users across active sessions</div>
+                <div id="liveCountdownMeta" style="font-size:12.25px;color:var(--text-muted);">Epoch #1 · Enable timer to automatically rotate users across active sessions</div>
               </div>
               <div style="display:flex;gap:8px;flex-wrap:wrap;">
                 <button id="reshuffleNowBtn" type="button" class="btn btn-amber">
@@ -938,7 +773,7 @@
             <div class="toggle-row">
               <div>
                 <strong>Automatic Session Rotation Timer</strong>
-                <span>Distributes users across selected ACTIVE sessions and rotates everyone when the countdown reaches 00:00:00. Users can still manually switch sessions in the extension.</span>
+                <span>Distributes users across selected ACTIVE sessions and rotates everyone when the countdown reaches 00:00:00.</span>
               </div>
               <input id="shuffleEnabledToggle" type="checkbox" class="switch" />
             </div>
@@ -982,9 +817,17 @@
           <div class="card">
             <div class="card-head">
               <div>
-                <h3 class="card-title">Google Flow Cookie Sessions (Session 1 – 10)</h3>
-                <p class="card-desc">Manage session cookies, toggle active status, and select which sessions participate in auto-shuffle.</p>
+                <h3 class="card-title">Cookie Sessions Manager (Slots 1 – 15)</h3>
+                <p class="card-desc">Paste JSON/Netscape cookies or upload .json/.txt files. Bulk enable/disable loaded servers in 1 click.</p>
               </div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <button id="bulkEnableSlotsBtn" type="button" class="btn btn-emerald btn-sm">Enable All Loaded</button>
+                <button id="bulkStandbySlotsBtn" type="button" class="btn btn-ghost btn-sm">Standby All</button>
+              </div>
+            </div>
+            <div class="subtabs" id="slotGroupTabs">
+              <button type="button" class="subtab-btn active" data-slot-tab="flow">Google Flow Servers (1–10)</button>
+              <button type="button" class="subtab-btn" data-slot-tab="nano">Nano Banana Pro (11–15)</button>
             </div>
             <div id="sessionsGrid" class="grid-3">
               <div class="empty-state">Loading sessions...</div>
@@ -992,13 +835,13 @@
           </div>
         </section>
 
-        <!-- VIEW 3: RESELLERS & PAYOUTS -->
+        <!-- VIEW 3: RESELLERS & PAYOUTS (COMPLETE 4-SUBTAB SUITE) -->
         <section id="view-resellers" class="view-pane hidden">
-          <div class="kpi-grid" style="margin-bottom:18px;">
+          <div class="kpi-grid" style="margin-bottom:16px;">
             <div class="kpi-card">
               <div class="kpi-top">
                 <span>Total Resellers</span>
-                <span class="kpi-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M5 21V7l8-4v18M19 21V11l-6-4"/></svg></span>
+                <span class="kpi-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M5 21V7l8-4v18M19 21V11l-6-4"/></svg></span>
               </div>
               <div class="kpi-val" id="kpiResellersTotal">0</div>
               <div class="kpi-sub">Authorized partners</div>
@@ -1006,7 +849,7 @@
             <div class="kpi-card">
               <div class="kpi-top">
                 <span>Reseller Users</span>
-                <span class="kpi-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></span>
+                <span class="kpi-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></span>
               </div>
               <div class="kpi-val" id="kpiResellerUsersTotal" style="color:#60a5fa;">0</div>
               <div class="kpi-sub">Total accounts created</div>
@@ -1014,104 +857,294 @@
             <div class="kpi-card">
               <div class="kpi-top">
                 <span>Outstanding Dues</span>
-                <span class="kpi-icon amber"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></span>
+                <span class="kpi-icon amber"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></span>
               </div>
               <div class="kpi-val" id="kpiResellersDue" style="color:#fbbf24;">Rs. 0</div>
-              <div class="kpi-sub">Pending collection</div>
+              <div class="kpi-sub" id="kpiResellersDueSub">Pending collection</div>
             </div>
             <div class="kpi-card">
               <div class="kpi-top">
                 <span>Total Collected</span>
-                <span class="kpi-icon emerald"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></span>
+                <span class="kpi-icon emerald"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></span>
               </div>
               <div class="kpi-val" id="kpiResellersPaid" style="color:#34d399;">Rs. 0</div>
-              <div class="kpi-sub">Cleared payouts</div>
+              <div class="kpi-sub" id="kpiResellersPaidSub">Cleared payouts</div>
             </div>
           </div>
 
-          <div class="card" style="margin-bottom:16px;">
-            <div class="card-head">
-              <div>
-                <h3 class="card-title">Authorized Resellers</h3>
-                <p class="card-desc">Search resellers, inspect every reseller's users, manage dues or record partial payments.</p>
+          <div class="subtabs" id="resellerSubtabs">
+            <button type="button" class="subtab-btn active" data-rtab="partners">Reseller Partners</button>
+            <button type="button" class="subtab-btn" data-rtab="analytics">Analytics (Aaj &amp; Signups)</button>
+            <button type="button" class="subtab-btn" data-rtab="payments">Payment Receipts <span class="nav-badge warn" id="pendingPayBadge" style="display:none;">0</span></button>
+            <button type="button" class="subtab-btn" data-rtab="config">Rates, Bank &amp; Notice</button>
+          </div>
+
+          <!-- Sub-tab 1: Reseller Partners -->
+          <div id="rtab-partners" class="rtab-pane">
+            <div class="card">
+              <div class="card-head">
+                <div>
+                  <h3 class="card-title">Authorized Resellers</h3>
+                  <p class="card-desc">Search resellers, inspect every reseller's users, manage dues or edit rates &amp; discounts.</p>
+                </div>
+                <button id="openAddResellerBtn" type="button" class="btn btn-primary">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+                  <span>Add Reseller</span>
+                </button>
               </div>
-              <button id="openAddResellerBtn" type="button" class="btn btn-primary">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
-                <span>Add Reseller</span>
-              </button>
-            </div>
-            <div class="toolbar">
-              <div class="search-box">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-                <input id="resellerSearchInput" class="input" type="search" placeholder="Search reseller by name, email or WhatsApp..." />
+              <div class="toolbar">
+                <div class="search-box">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                  <input id="resellerSearchInput" class="input" type="search" placeholder="Search reseller by name, email or WhatsApp..." />
+                </div>
+                <div class="filter-group">
+                  <select id="resellerDueFilter" class="select" style="width:auto;min-width:155px;">
+                    <option value="all">All Resellers</option>
+                    <option value="due">Has Balance Due</option>
+                    <option value="overdue">Overdue (&gt; 3d)</option>
+                    <option value="cleared">Cleared / Paid</option>
+                    <option value="suspended">Suspended</option>
+                  </select>
+                </div>
               </div>
-              <div class="filter-group">
-                <select id="resellerDueFilter" class="select" style="width:auto;min-width:155px;">
-                  <option value="all">All Resellers</option>
-                  <option value="due">Has Balance Due</option>
-                  <option value="overdue">Overdue (&gt; 3d)</option>
-                  <option value="cleared">Cleared / Paid</option>
-                  <option value="suspended">Suspended</option>
-                </select>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Reseller</th>
+                      <th>WhatsApp</th>
+                      <th>Users &amp; Quota</th>
+                      <th>Billing &amp; Dues</th>
+                      <th>Status</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="resellersTableBody">
+                    <tr><td colspan="6" class="empty-state">Loading resellers...</td></tr>
+                  </tbody>
+                </table>
               </div>
-            </div>
-            <div class="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Reseller</th>
-                    <th>WhatsApp</th>
-                    <th>Users &amp; Quota</th>
-                    <th>Billing &amp; Dues</th>
-                    <th>Status</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody id="resellersTableBody">
-                  <tr><td colspan="6" class="empty-state">Loading resellers...</td></tr>
-                </tbody>
-              </table>
             </div>
           </div>
 
-          <div class="card">
-            <div class="card-head">
-              <div>
-                <h3 class="card-title">Reseller Payment Submissions</h3>
-                <p class="card-desc">Review and approve or reject reseller payment proofs.</p>
+          <!-- Sub-tab 2: Resellers Analytics (Aaj & Signups) -->
+          <div id="rtab-analytics" class="rtab-pane hidden">
+            <div class="kpi-grid" style="margin-bottom:14px;">
+              <div class="kpi-card">
+                <div class="kpi-top"><span>Added Today (Aaj)</span></div>
+                <div class="kpi-val" id="raTodayVal" style="color:#60a5fa;">0</div>
+                <div class="kpi-sub">Signups in last 24h</div>
+              </div>
+              <div class="kpi-card">
+                <div class="kpi-top"><span>Added This Week</span></div>
+                <div class="kpi-val" id="raWeekVal" style="color:#34d399;">0</div>
+                <div class="kpi-sub">Last 7 days total</div>
+              </div>
+              <div class="kpi-card">
+                <div class="kpi-top"><span>Overdue Resellers</span></div>
+                <div class="kpi-val" id="raOverdueVal" style="color:#f87171;">0</div>
+                <div class="kpi-sub">Past 3-day grace period</div>
+              </div>
+              <div class="kpi-card">
+                <div class="kpi-top"><span>Active Network Users</span></div>
+                <div class="kpi-val" id="raTotalUsersVal">0</div>
+                <div class="kpi-sub">Across all resellers</div>
               </div>
             </div>
-            <div class="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Reseller</th>
-                    <th>Amount</th>
-                    <th>Method / Ref</th>
-                    <th>Status</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody id="paymentsTableBody">
-                  <tr><td colspan="5" class="empty-state">Loading payments...</td></tr>
-                </tbody>
-              </table>
+            <div class="card">
+              <div class="card-head">
+                <div>
+                  <h3 class="card-title">Resellers Real-Time Performance &amp; Daily Signups</h3>
+                  <p class="card-desc">Track today's signups, weekly growth, 3-day grace status, and clear dues in 1 click.</p>
+                </div>
+                <button id="refreshResellerAnalyticsBtn" type="button" class="btn btn-ghost btn-sm">Refresh Analytics</button>
+              </div>
+              <div class="toolbar">
+                <div class="search-box">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                  <input id="raSearchInput" class="input" type="search" placeholder="Filter reseller analytics..." />
+                </div>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Reseller Partner</th>
+                      <th>Today (Aaj)</th>
+                      <th>This Week</th>
+                      <th>Total Users</th>
+                      <th>Balance Due</th>
+                      <th>Status</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="raTableBody">
+                    <tr><td colspan="7" class="empty-state">Loading analytics...</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- Sub-tab 3: Payment Receipts & Approvals -->
+          <div id="rtab-payments" class="rtab-pane hidden">
+            <div class="card">
+              <div class="card-head">
+                <div>
+                  <h3 class="card-title">Reseller Balance Top-up Approvals</h3>
+                  <p class="card-desc">Inspect payment screenshots, Trx IDs, and approve or reject reseller payment submissions.</p>
+                </div>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Reseller</th>
+                      <th>Amount Paid</th>
+                      <th>Proof Screenshot</th>
+                      <th>Note / Trx ID</th>
+                      <th>Date &amp; Status</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="paymentsTableBody">
+                    <tr><td colspan="6" class="empty-state">Loading payments...</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- Sub-tab 4: Rates, Bank Details & Reseller Notice Board -->
+          <div id="rtab-config" class="rtab-pane hidden">
+            <div class="grid-2" style="margin-bottom:16px;">
+              <div class="card">
+                <div class="card-head">
+                  <div>
+                    <h3 class="card-title">Partner Bank Account &amp; Billing Details</h3>
+                    <p class="card-desc">Displayed to resellers on their payment submission page.</p>
+                  </div>
+                </div>
+                <div class="field">
+                  <label for="rbBankName">Bank Name</label>
+                  <input id="rbBankName" class="input" type="text" placeholder="Raqami Islamic Digital Bank" />
+                </div>
+                <div class="field">
+                  <label for="rbAccountTitle">Account Title (Name)</label>
+                  <input id="rbAccountTitle" class="input" type="text" placeholder="Account Holder Name" />
+                </div>
+                <div class="grid-2">
+                  <div class="field">
+                    <label for="rbAccountNumber">Account Number</label>
+                    <input id="rbAccountNumber" class="input" type="text" />
+                  </div>
+                  <div class="field">
+                    <label for="rbIban">IBAN</label>
+                    <input id="rbIban" class="input" type="text" />
+                  </div>
+                </div>
+                <div class="field">
+                  <label for="rbInstructions">Instructions / Note for Resellers</label>
+                  <textarea id="rbInstructions" class="textarea" style="min-height:80px;"></textarea>
+                </div>
+                <button id="saveResellerBankBtn" type="button" class="btn btn-primary">Save Bank Details</button>
+              </div>
+
+              <div class="card">
+                <div class="card-head">
+                  <div>
+                    <h3 class="card-title">Default Reseller Plan Rates (PKR)</h3>
+                    <p class="card-desc">Wholesale charge per user created by resellers (unless custom rate is set per partner).</p>
+                  </div>
+                </div>
+                <div class="grid-2">
+                  <div class="field">
+                    <label for="rrPro">PRO Plan Rate (Rs.)</label>
+                    <input id="rrPro" class="input" type="number" min="0" value="500" />
+                  </div>
+                  <div class="field">
+                    <label for="rrMax">MAX Plan Rate (Rs.)</label>
+                    <input id="rrMax" class="input" type="number" min="0" value="800" />
+                  </div>
+                  <div class="field">
+                    <label for="rrPlus">PLUS Plan Rate (Rs.)</label>
+                    <input id="rrPlus" class="input" type="number" min="0" value="500" />
+                  </div>
+                  <div class="field">
+                    <label for="rrUltra">ULTRA Plan Rate (Rs.)</label>
+                    <input id="rrUltra" class="input" type="number" min="0" value="800" />
+                  </div>
+                </div>
+                <button id="saveResellerRatesBtn" type="button" class="btn btn-primary" style="margin-bottom:18px;">Save Default Rates</button>
+
+                <div style="border-top:1px solid var(--border);padding-top:16px;">
+                  <div class="card-title" style="margin-bottom:8px;">Reseller Partner Notice Board</div>
+                  <div class="toggle-row">
+                    <div>
+                      <strong>Show Announcement to Resellers</strong>
+                      <span>Displays a notice banner inside the Reseller Portal.</span>
+                    </div>
+                    <input id="rbcEnabled" type="checkbox" class="switch" />
+                  </div>
+                  <div class="field">
+                    <label for="rbcTitle">Announcement Heading</label>
+                    <input id="rbcTitle" class="input" type="text" placeholder="Hello dear resellers," />
+                  </div>
+                  <div class="field">
+                    <label for="rbcMessage">Announcement Message Body</label>
+                    <textarea id="rbcMessage" class="textarea" style="min-height:85px;"></textarea>
+                  </div>
+                  <div class="grid-2">
+                    <div class="field">
+                      <label for="rbcPhone1">Contact Phone 1</label>
+                      <input id="rbcPhone1" class="input" type="text" placeholder="+92 331 0356428" />
+                    </div>
+                    <div class="field">
+                      <label for="rbcPhone2">Contact Phone 2</label>
+                      <input id="rbcPhone2" class="input" type="text" placeholder="+92 319 8273690" />
+                    </div>
+                  </div>
+                  <button id="saveResellerBroadcastBtn" type="button" class="btn btn-emerald">Save Reseller Notice</button>
+                </div>
+              </div>
             </div>
           </div>
         </section>
 
-        <!-- VIEW 4: EXTENSION BUILDER & RELEASES -->
-        <section id="view-extension" class="view-pane hidden">
-          <div class="card" style="margin-bottom:16px;">
-            <div class="card-head" style="margin-bottom:0;">
-              <div>
-                <h3 class="card-title">Current Live Extension Release</h3>
-                <p id="extLiveMeta" class="card-desc">Checking active release...</p>
+        <!-- VIEW 4: ANALYTICS & REVENUE (RESTORED FROM OLD ADMIN PANEL) -->
+        <section id="view-analytics" class="view-pane hidden">
+          <div class="kpi-grid" style="margin-bottom:16px;">
+            <div class="kpi-card">
+              <div class="kpi-top">
+                <span>Estimated MRR</span>
+                <span class="kpi-icon emerald"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>
               </div>
-              <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-                <span id="extLivePill" class="badge badge-emerald">v1.7</span>
-                <a id="extLiveDownloadBtn" href="/downloads/latest" class="btn btn-ghost" download>Download Current ZIP</a>
+              <div class="kpi-val" id="anMrrVal" style="color:#34d399;">Rs. 0</div>
+              <div class="kpi-sub">Based on active subscriptions</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-top">
+                <span>Active Retention Rate</span>
+                <span class="kpi-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></span>
               </div>
+              <div class="kpi-val" id="anRetentionVal" style="color:#60a5fa;">0%</div>
+              <div class="kpi-sub">Active vs total accounts</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-top">
+                <span>Expiring In 7 Days</span>
+                <span class="kpi-icon amber"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
+              </div>
+              <div class="kpi-val" id="anExpiringVal" style="color:#fbbf24;">0</div>
+              <div class="kpi-sub">Ready for renewal reminder</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-top">
+                <span>Active Paid Users</span>
+                <span class="kpi-icon emerald"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></span>
+              </div>
+              <div class="kpi-val" id="anPaidActiveVal">0</div>
+              <div class="kpi-sub">Currently valid plans</div>
             </div>
           </div>
 
@@ -1119,14 +1152,85 @@
             <div class="card">
               <div class="card-head">
                 <div>
-                  <h3 class="card-title">Regenerate Extension ZIP (From Repo Source)</h3>
-                  <p class="card-desc">Packages Chrome-ready .zip directly from <code>extension-src/</code>, updates version in manifest + popup + scripts, and updates the user dashboard top bar.</p>
+                  <h3 class="card-title">Plan Subscriptions Distribution</h3>
+                  <p class="card-desc">Live account breakdown across all subscription tiers.</p>
+                </div>
+              </div>
+              <div id="planDistContainer">
+                <div class="empty-state">Loading distribution...</div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-head">
+                <div>
+                  <h3 class="card-title">Accounts Expiring Soon (&le; 7 Days)</h3>
+                  <p class="card-desc">Send renewal reminders or extend plans in 1 click.</p>
+                </div>
+                <button id="runExpiryEmailsBtn" type="button" class="btn btn-amber btn-sm">Send Expiry Emails</button>
+              </div>
+              <div class="table-wrap" style="max-height:360px;overflow-y:auto;">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>User</th>
+                      <th>Plan</th>
+                      <th>Days Left</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="expiringUsersBody">
+                    <tr><td colspan="4" class="empty-state">Loading expiring accounts...</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- VIEW 5: SUBSCRIPTION PLANS & PRICING (RESTORED FROM OLD ADMIN PANEL) -->
+        <section id="view-plans" class="view-pane hidden">
+          <div class="card">
+            <div class="card-head">
+              <div>
+                <h3 class="card-title">Plan Manager &amp; Pricing Configuration</h3>
+                <p class="card-desc">Configure display names, PKR pricing, credits, visibility, and plan perks shown across the portal.</p>
+              </div>
+              <button id="savePlansBtn" type="button" class="btn btn-primary">Save All Plans</button>
+            </div>
+            <div id="plansEditorGrid" class="grid-3">
+              <div class="empty-state">Loading plans...</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- VIEW 6: EXTENSION BUILDER & RELEASES -->
+        <section id="view-extension" class="view-pane hidden">
+          <div class="card" style="margin-bottom:16px;">
+            <div class="card-head" style="margin-bottom:0;">
+              <div>
+                <h3 class="card-title">Current Live Extension Release</h3>
+                <p id="extLiveMeta" class="card-desc">Checking active release...</p>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                <span id="extLivePill" class="badge badge-emerald">v1.7</span>
+                <a id="extLiveDownloadBtn" href="/downloads/latest" class="btn btn-ghost btn-sm" download>Download Current ZIP</a>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid-2" style="margin-bottom:16px;">
+            <div class="card">
+              <div class="card-head">
+                <div>
+                  <h3 class="card-title">Regenerate Extension ZIP (From Repo)</h3>
+                  <p class="card-desc">Packages Chrome-ready .zip directly from <code>extension-src/</code>, updates version in manifest + popup + scripts.</p>
                 </div>
               </div>
               <div class="grid-2">
                 <div class="field">
-                  <label for="extNewVer">New Version (e.g. 1.8)</label>
-                  <input id="extNewVer" class="input" type="text" placeholder="1.8" />
+                  <label for="extNewVer">New Version (e.g. 1.9)</label>
+                  <input id="extNewVer" class="input" type="text" placeholder="1.9" />
                 </div>
                 <div class="field">
                   <label for="extMinVer">Min Required Version</label>
@@ -1135,7 +1239,7 @@
               </div>
               <div class="field">
                 <label for="extReleaseNote">Dashboard Release Banner Text (Optional)</label>
-                <input id="extReleaseNote" class="input" type="text" placeholder="Faster session sync & fixes" />
+                <input id="extReleaseNote" class="input" type="text" placeholder="Faster session sync &amp; fixes" />
               </div>
               <div class="field">
                 <label for="extPortalUrl">Custom Portal URL (Optional — leave blank for dynamic origin)</label>
@@ -1156,8 +1260,8 @@
                 <input id="uploadZipInput" class="input" type="file" accept=".zip" />
               </div>
               <div class="field">
-                <label for="uploadZipVer">Version Label (e.g. 1.8)</label>
-                <input id="uploadZipVer" class="input" type="text" placeholder="1.8" />
+                <label for="uploadZipVer">Version Label (e.g. 1.9)</label>
+                <input id="uploadZipVer" class="input" type="text" placeholder="1.9" />
               </div>
               <div class="field">
                 <label for="uploadZipNote">Release Note (Optional)</label>
@@ -1166,9 +1270,36 @@
               <button id="uploadExtBtn" type="button" class="btn btn-emerald">Upload &amp; Publish ZIP</button>
             </div>
           </div>
+
+          <div class="card">
+            <div class="card-head">
+              <div>
+                <h3 class="card-title">Extension Download Settings &amp; Trial Access</h3>
+                <p class="card-desc">Control Free Trial extension access, direct download URL, and step-by-step installation guide.</p>
+              </div>
+            </div>
+            <div class="toggle-row">
+              <div>
+                <strong>Allow Free Trial Extension Access</strong>
+                <span>When enabled, Free / Basic trial users can download and use the Google Flow extension.</span>
+              </div>
+              <input id="trialExtAccessToggle" type="checkbox" class="switch" />
+            </div>
+            <div class="grid-2" style="margin-top:12px;">
+              <div class="field">
+                <label for="extDirectUrl">Direct Download Link (Optional Override)</label>
+                <input id="extDirectUrl" class="input" type="text" placeholder="/downloads/PakFlow_v1.7.zip" />
+              </div>
+              <div class="field">
+                <label for="extInstructions">Installation Instructions</label>
+                <textarea id="extInstructions" class="textarea" style="min-height:95px;"></textarea>
+              </div>
+            </div>
+            <button id="saveExtMetaBtn" type="button" class="btn btn-primary">Save Extension Settings</button>
+          </div>
         </section>
 
-        <!-- VIEW 5: ACCESS LOCK & SECURITY -->
+        <!-- VIEW 7: ACCESS LOCK & SECURITY -->
         <section id="view-security" class="view-pane hidden">
           <div class="grid-2">
             <div class="card">
@@ -1199,18 +1330,29 @@
                 </div>
                 <input id="polExpired" type="checkbox" class="switch" checked />
               </div>
-              <div class="field" style="max-width:240px;margin-top:12px;">
+              <div class="field" style="max-width:240px;margin-top:10px;">
                 <label for="polGraceSec">Portal Close Grace Period (Seconds)</label>
                 <input id="polGraceSec" class="input" type="number" min="5" max="120" value="15" />
               </div>
-              <button id="savePolicyBtn" type="button" class="btn btn-primary">Save Access Policy</button>
+              <button id="savePolicyBtn" type="button" class="btn btn-primary" style="margin-bottom:18px;">Save Access Policy</button>
+
+              <div style="border-top:1px solid var(--border);padding-top:14px;">
+                <div class="card-title" style="margin-bottom:8px;">Public Account Registration Control</div>
+                <div class="toggle-row">
+                  <div>
+                    <strong id="pubRegStatusLabel">Public Registration is ENABLED</strong>
+                    <span>Allow visitors to self-register trial accounts from the public portal.</span>
+                  </div>
+                  <input id="pubRegToggle" type="checkbox" class="switch" />
+                </div>
+              </div>
             </div>
 
             <div class="card">
               <div class="card-head">
                 <div>
-                  <h3 class="card-title">Platform Maintenance Mode</h3>
-                  <p class="card-desc">Temporarily pause user logins during scheduled updates.</p>
+                  <h3 class="card-title">Platform Maintenance Mode &amp; Custom URL</h3>
+                  <p class="card-desc">Pause normal user logins during upgrades or redirect users to your WhatsApp/update page.</p>
                 </div>
               </div>
               <div class="toggle-row">
@@ -1221,26 +1363,43 @@
                 <input id="maintEnabled" type="checkbox" class="switch" />
               </div>
               <div class="field">
-                <label for="maintTitle">Notice Title</label>
+                <label for="maintTitle">Maintenance Headline / Title</label>
                 <input id="maintTitle" class="input" type="text" placeholder="Scheduled System Maintenance" />
               </div>
               <div class="field">
-                <label for="maintMessage">Notice Message</label>
-                <textarea id="maintMessage" class="textarea" style="min-height:90px;"></textarea>
+                <label for="maintMessage">Maintenance Notice Message</label>
+                <textarea id="maintMessage" class="textarea" style="min-height:85px;"></textarea>
+              </div>
+              <div class="grid-2">
+                <div class="field">
+                  <label for="maintCustomUrl">Custom Redirect / Support URL</label>
+                  <input id="maintCustomUrl" class="input" type="url" placeholder="https://whatsapp.com/channel/..." />
+                </div>
+                <div class="field">
+                  <label for="maintCustomUrlTitle">Custom URL Button Label</label>
+                  <input id="maintCustomUrlTitle" class="input" type="text" placeholder="Join WhatsApp Channel for Updates" />
+                </div>
+              </div>
+              <div class="toggle-row">
+                <div>
+                  <strong>Direct Auto-Redirect to Custom URL</strong>
+                  <span>Automatically forwards visitors to your custom URL when maintenance is active.</span>
+                </div>
+                <input id="maintRedirect" type="checkbox" class="switch" />
               </div>
               <button id="saveMaintBtn" type="button" class="btn btn-primary">Save Maintenance Settings</button>
             </div>
           </div>
         </section>
 
-        <!-- VIEW 6: WELCOME MESSAGE TEMPLATE -->
+        <!-- VIEW 8: WELCOME MESSAGE TEMPLATE -->
         <section id="view-template" class="view-pane hidden">
           <div class="grid-2">
             <div class="card">
               <div class="card-head">
                 <div>
                   <h3 class="card-title">Welcome Message Template</h3>
-                  <p class="card-desc">Auto-opens with 1-click Copy whenever you create a new user. Click any placeholder chip to insert it.</p>
+                  <p class="card-desc">Auto-opens with 1-click Copy whenever you create a user or click Share Login. Click any chip to insert.</p>
                 </div>
               </div>
               <div id="tplChips" class="chips"></div>
@@ -1266,23 +1425,31 @@
           </div>
         </section>
 
-        <!-- VIEW 7: SETTINGS & BROADCAST -->
+        <!-- VIEW 9: SETTINGS & BROADCAST -->
         <section id="view-settings" class="view-pane hidden">
           <div class="grid-2">
             <div class="card">
               <div class="card-head">
                 <div>
-                  <h3 class="card-title">Platform Support &amp; WhatsApp</h3>
-                  <p class="card-desc">Fallback WhatsApp button shown to direct users who were not added by a reseller.</p>
+                  <h3 class="card-title">Platform &amp; Communication Channels</h3>
+                  <p class="card-desc">Brand settings, fallback WhatsApp support for direct users, and official community channel link.</p>
                 </div>
               </div>
               <div class="field">
-                <label for="setWhatsapp">Support WhatsApp Number or URL</label>
+                <label for="setBrandName">Brand Name</label>
+                <input id="setBrandName" class="input" type="text" placeholder="Flow by Pak" />
+              </div>
+              <div class="field">
+                <label for="setWhatsapp">Direct Support WhatsApp Number or URL</label>
                 <input id="setWhatsapp" class="input" type="text" placeholder="+923001234567 or https://wa.me/..." />
               </div>
               <div class="field">
+                <label for="setChannel">Community Channel Link (WhatsApp / Telegram)</label>
+                <input id="setChannel" class="input" type="url" placeholder="https://whatsapp.com/channel/..." />
+              </div>
+              <div class="field">
                 <label for="setSupportEmail">Support Email</label>
-                <input id="setSupportEmail" class="input" type="email" placeholder="support@flowbypak.com" />
+                <input id="setSupportEmail" class="input" type="email" placeholder="flowbypak.site@gmail.com" />
               </div>
               <button id="savePlatformSettingsBtn" type="button" class="btn btn-primary">Save Platform Settings</button>
             </div>
@@ -1290,24 +1457,35 @@
             <div class="card">
               <div class="card-head">
                 <div>
-                  <h3 class="card-title">Broadcast Announcement</h3>
-                  <p class="card-desc">Publish a notice across the platform.</p>
+                  <h3 class="card-title">Global Broadcast Announcement</h3>
+                  <p class="card-desc">Publish a live banner alert across the user dashboard.</p>
                 </div>
               </div>
               <div class="toggle-row">
                 <div>
                   <strong>Show Broadcast Banner</strong>
-                  <span>Toggle announcement visibility</span>
+                  <span>Toggle announcement visibility on user portal</span>
                 </div>
                 <input id="bcEnabled" type="checkbox" class="switch" />
               </div>
-              <div class="field">
-                <label for="bcTitle">Headline</label>
-                <input id="bcTitle" class="input" type="text" placeholder="Platform Update" />
+              <div class="grid-2">
+                <div class="field">
+                  <label for="bcTitle">Banner Title</label>
+                  <input id="bcTitle" class="input" type="text" placeholder="Platform Update" />
+                </div>
+                <div class="field">
+                  <label for="bcType">Alert Style</label>
+                  <select id="bcType" class="select">
+                    <option value="info">Info (Blue)</option>
+                    <option value="success">Success (Green)</option>
+                    <option value="warning">Warning (Amber)</option>
+                    <option value="danger">Alert (Red)</option>
+                  </select>
+                </div>
               </div>
               <div class="field">
-                <label for="bcMessage">Message</label>
-                <textarea id="bcMessage" class="textarea" style="min-height:90px;"></textarea>
+                <label for="bcMessage">Message Content</label>
+                <textarea id="bcMessage" class="textarea" style="min-height:105px;"></textarea>
               </div>
               <button id="saveBroadcastBtn" type="button" class="btn btn-primary">Publish Broadcast</button>
             </div>
@@ -1352,6 +1530,7 @@
                 <option value="max">Max (30 Days)</option>
                 <option value="plus">Plus</option>
                 <option value="ultra">Ultra</option>
+                <option value="vibe">Vibe</option>
                 <option value="basic">Basic (Free)</option>
               </select>
             </div>
@@ -1373,6 +1552,14 @@
               <input id="uCredits" class="input" type="number" min="0" max="10000000" value="45000" />
             </div>
           </div>
+          <!-- Edit-only Quick Actions -->
+          <div id="uEditQuickTools" class="hidden" style="margin-top:10px;padding:12px;border-radius:10px;background:var(--bg-elevated);border:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+            <div>
+              <div style="font-size:12.5px;font-weight:700;">Instant Limit Reset &amp; Unlock</div>
+              <div style="font-size:11.5px;color:var(--text-muted);">Restores plan credits, resets quota &amp; clears device locks.</div>
+            </div>
+            <button id="uModalResetLimitBtn" type="button" class="btn btn-amber btn-sm">Reset Limit Now</button>
+          </div>
         </div>
         <div class="modal-foot">
           <button type="button" class="btn btn-ghost" data-close-modal="userModal">Cancel</button>
@@ -1382,12 +1569,12 @@
     </div>
   </div>
 
-  <!-- MODAL: COPY WELCOME MESSAGE AFTER USER CREATED -->
+  <!-- MODAL: COPY / SHARE WELCOME MESSAGE -->
   <div id="welcomeCopyModal" class="modal-backdrop hidden">
     <div class="modal" role="dialog" aria-modal="true">
       <div class="modal-head">
         <div>
-          <h3>User Created — Copy Welcome Message</h3>
+          <h3 id="welcomeModalHeading">Share Client Login</h3>
           <p id="welcomeCopySub" style="font-size:12px;color:var(--text-muted);margin-top:2px;"></p>
         </div>
         <button type="button" class="btn btn-ghost btn-icon" data-close-modal="welcomeCopyModal" aria-label="Close">&times;</button>
@@ -1406,7 +1593,7 @@
     </div>
   </div>
 
-  <!-- MODAL: EDIT SESSION COOKIES -->
+  <!-- MODAL: EDIT SESSION COOKIES (PASTE JSON/NETSCAPE OR UPLOAD FILE) -->
   <div id="slotModal" class="modal-backdrop hidden">
     <div class="modal" role="dialog" aria-modal="true">
       <div class="modal-head">
@@ -1421,13 +1608,20 @@
             <input id="slotNameInput" class="input" type="text" placeholder="Session 1" />
           </div>
           <div class="field">
-            <label for="slotCookiesInput">Cookies JSON Array</label>
+            <label for="slotFileInput">Upload Cookie File (.json / .txt — optional)</label>
+            <input id="slotFileInput" class="input" type="file" accept=".json,.txt" />
+          </div>
+          <div class="field">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <label for="slotCookiesInput">Cookies Content (JSON Array or Netscape Text)</label>
+              <button id="slotClearInputBtn" type="button" class="btn btn-ghost btn-xs">Clear Input</button>
+            </div>
             <textarea id="slotCookiesInput" class="textarea mono" placeholder='[{"name":"SID","value":"...","domain":".google.com"}]'></textarea>
           </div>
         </div>
         <div class="modal-foot">
           <button type="button" class="btn btn-ghost" data-close-modal="slotModal">Cancel</button>
-          <button id="slotSaveBtn" type="submit" class="btn btn-primary">Save Session Cookies</button>
+          <button id="slotSaveBtn" type="submit" class="btn btn-primary">Save &amp; Sync Cookies</button>
         </div>
       </form>
     </div>
@@ -1496,6 +1690,10 @@
               <input id="rDiscountPct" class="input" type="number" min="0" max="100" value="0" />
             </div>
           </div>
+          <div class="field" id="rTotalPaidWrap">
+            <label for="rTotalPaid">Recorded Paid Balance (Rs. PKR) — Adjust directly if needed</label>
+            <input id="rTotalPaid" class="input" type="number" min="0" step="1" placeholder="0" />
+          </div>
         </div>
         <div class="modal-foot">
           <button type="button" class="btn btn-ghost" data-close-modal="resellerModal">Cancel</button>
@@ -1507,7 +1705,7 @@
 
   <!-- MODAL: MANAGE RESELLER DUES & RECORD PAYMENT -->
   <div id="resellerDuesModal" class="modal-backdrop hidden">
-    <div class="modal" role="dialog" aria-modal="true" style="max-width:540px;">
+    <div class="modal" role="dialog" aria-modal="true">
       <div class="modal-head">
         <div>
           <h3 id="duesModalTitle">Manage Reseller Dues</h3>
@@ -1518,33 +1716,33 @@
       <div class="modal-body">
         <input type="hidden" id="duesResellerId" />
         <div class="grid-3" style="margin-bottom:14px;gap:10px;">
-          <div class="kpi-card" style="padding:12px;">
+          <div class="kpi-card" style="padding:11px;">
             <div class="kpi-top"><span>Total Charges</span></div>
-            <div class="kpi-val" id="duesTotalCharges" style="font-size:18px;">Rs. 0</div>
+            <div class="kpi-val is-compact" id="duesTotalCharges">Rs. 0</div>
           </div>
-          <div class="kpi-card" style="padding:12px;">
+          <div class="kpi-card" style="padding:11px;">
             <div class="kpi-top"><span>Total Paid</span></div>
-            <div class="kpi-val" id="duesTotalPaid" style="font-size:18px;color:#34d399;">Rs. 0</div>
+            <div class="kpi-val is-compact" id="duesTotalPaid" style="color:#34d399;">Rs. 0</div>
           </div>
-          <div class="kpi-card" style="padding:12px;">
+          <div class="kpi-card" style="padding:11px;">
             <div class="kpi-top"><span>Balance Due</span></div>
-            <div class="kpi-val" id="duesBalanceVal" style="font-size:18px;color:#fbbf24;">Rs. 0</div>
+            <div class="kpi-val is-compact" id="duesBalanceVal" style="color:#fbbf24;">Rs. 0</div>
           </div>
         </div>
 
-        <div id="duesUsersSummary" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;"></div>
+        <div id="duesUsersSummary" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;"></div>
 
-        <div style="padding:14px;border-radius:10px;background:var(--bg-elevated);border:1px solid var(--border);margin-bottom:14px;">
+        <div style="padding:13px;border-radius:10px;background:var(--bg-elevated);border:1px solid var(--border);margin-bottom:12px;">
           <div style="font-size:13px;font-weight:700;margin-bottom:4px;">Option 1 · Full Clearance (1-Click)</div>
-          <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">Sets reseller balance due to <strong>Rs. 0</strong>, marks all reseller users as <strong>PAID &amp; ACTIVE</strong>, and approves pending payment submissions immediately on the reseller dashboard.</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-bottom:11px;">Sets reseller balance due to <strong>Rs. 0</strong>, marks all reseller users as <strong>PAID &amp; ACTIVE</strong>, and approves pending payment receipts immediately on the reseller portal.</div>
           <button id="duesClearAllBtn" type="button" class="btn btn-emerald" style="width:100%;">Clear All Dues (Set Rs. 0)</button>
         </div>
 
-        <form id="duesPartialForm" style="padding:14px;border-radius:10px;background:var(--bg-elevated);border:1px solid var(--border);">
+        <form id="duesPartialForm" style="padding:13px;border-radius:10px;background:var(--bg-elevated);border:1px solid var(--border);">
           <div style="font-size:13px;font-weight:700;margin-bottom:4px;">Option 2 · Record Partial / Custom Payment</div>
           <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;">Add a specific PKR amount received from this reseller without clearing remaining balance.</div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
-            <input id="duesPartialAmount" class="input" type="number" min="1" step="1" placeholder="Enter amount in Rs. (e.g. 2500)" style="flex:1;min-width:160px;" required />
+            <input id="duesPartialAmount" class="input" type="number" min="1" step="1" placeholder="Enter amount in Rs. (e.g. 2500)" style="flex:1;min-width:150px;" required />
             <button id="duesRecordPartialBtn" type="submit" class="btn btn-primary">Record Payment</button>
           </div>
         </form>
@@ -1557,19 +1755,19 @@
 
   <!-- MODAL: VIEW RESELLER'S USERS -->
   <div id="resellerUsersModal" class="modal-backdrop hidden">
-    <div class="modal" role="dialog" aria-modal="true" style="max-width:880px;">
+    <div class="modal modal-lg" role="dialog" aria-modal="true">
       <div class="modal-head">
-        <div>
+        <div style="min-width:0;">
           <h3 id="rUsersModalTitle">Reseller Users</h3>
-          <div id="rUsersModalSub" style="font-size:12px;color:var(--text-muted);margin-top:2px;"></div>
+          <div id="rUsersModalSub" style="font-size:12px;color:var(--text-muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;"></div>
         </div>
-        <div style="display:flex;align-items:center;gap:8px;">
+        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
           <button id="rUsersOpenDuesBtn" type="button" class="btn btn-amber btn-sm">Manage Dues</button>
           <button type="button" class="btn btn-ghost btn-icon" data-close-modal="resellerUsersModal" aria-label="Close">&times;</button>
         </div>
       </div>
       <div class="modal-body">
-        <div id="rUsersStatsRow" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;"></div>
+        <div id="rUsersStatsRow" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;"></div>
         <div class="toolbar" style="margin-bottom:12px;">
           <div class="search-box">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
@@ -1610,6 +1808,24 @@
     </div>
   </div>
 
+  <!-- MODAL: PAYMENT PROOF LIGHTBOX -->
+  <div id="proofModal" class="modal-backdrop hidden">
+    <div class="modal modal-lg" role="dialog" aria-modal="true" style="max-width:min(94vw,680px);">
+      <div class="modal-head">
+        <h3 id="proofModalTitle">Payment Receipt Proof</h3>
+        <button type="button" class="btn btn-ghost btn-icon" data-close-modal="proofModal" aria-label="Close">&times;</button>
+      </div>
+      <div class="modal-body" style="text-align:center;">
+        <img id="proofModalImg" src="" alt="Payment Proof" style="max-width:100%;max-height:70vh;border-radius:10px;border:1px solid var(--border-strong);" />
+        <p id="proofModalMeta" style="margin-top:10px;font-size:12.5px;color:var(--text-muted);"></p>
+      </div>
+      <div class="modal-foot">
+        <a id="proofModalOpenRaw" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-ghost btn-sm">Open Full Size</a>
+        <button type="button" class="btn btn-primary btn-sm" data-close-modal="proofModal">Close</button>
+      </div>
+    </div>
+  </div>
+
   <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
   <script>
@@ -1629,14 +1845,18 @@
     const PLACEHOLDERS = ['{{site_link}}', '{{email}}', '{{password}}', '{{name}}', '{{plan}}', '{{days}}', '{{whatsapp}}'];
 
     const VIEW_META = {
-      users: ['Users & Overview', 'Manage accounts, subscriptions and device access'],
-      sessions: ['Flow Sessions (1–10)', 'Manage cookie sessions, default session & live auto-shuffle timer'],
-      resellers: ['Resellers & Payouts', 'Partner network, WhatsApp routing & payment approvals'],
-      extension: ['Extension Builder', 'Regenerate Chrome-ready .zip from repo or upload custom releases'],
-      security: ['Access Lock & Policy', 'Enforce portal-open, logout and subscription locks on Google Flow'],
-      template: ['Welcome Template', 'Customize the message copied automatically when adding users'],
-      settings: ['Settings & Broadcast', 'Platform support contact and live user announcements'],
+      users: ['Users & Approvals', 'Manage accounts, quick extend, reset limits & device locks'],
+      sessions: ['Flow Sessions (1–15)', 'Google Flow (1–10), Nano Banana Pro (11–15) & live auto-shuffle'],
+      resellers: ['Resellers & Payouts', 'Partners, daily analytics, payment receipts, bank & rates'],
+      analytics: ['Analytics & Revenue', 'Estimated MRR, plan distribution & expiring account alerts'],
+      plans: ['Plans & Pricing', 'Manage subscription tiers, PKR pricing, credits & visibility'],
+      extension: ['Extension Builder', 'Regenerate Chrome .zip from repo, upload builds & trial access'],
+      security: ['Access Lock & Policy', 'Flow locks, public registration & maintenance mode'],
+      template: ['Welcome Template', 'Customize the message copied when creating or sharing accounts'],
+      settings: ['Settings & Broadcast', 'Platform channels, support contacts & global announcements'],
     };
+
+    const PLAN_KEYS = ['vibe', 'plus', 'pro', 'max', 'ultra', 'heavy'];
 
     let state = {
       users: [],
@@ -1645,12 +1865,19 @@
       usersTotalFiltered: 0,
       usersTotalPages: 1,
       usersStats: { total: 0, active: 0, expired: 0, suspended: 0 },
+      pendingApprovals: [],
+      stats: null,
+      expiringUsers: [],
       slots: [],
+      activeSlotGroup: 'flow',
       resellers: [],
+      resellerAnalytics: null,
+      resellerConfig: null,
       payments: [],
       controls: null,
       settings: null,
       activeView: 'users',
+      activeResellerTab: 'partners',
       countdown: { enabled: false, targetMs: 0, epoch: 1, intervalMinutes: 60, lastShuffledAt: null },
       autoRefreshedTarget: 0,
     };
@@ -1668,6 +1895,32 @@
 
     function esc(s) {
       return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    // Overflow-proof PKR formatter for KPI cards (exact value preserved in tooltip)
+    function formatPKRCard(amount) {
+      const n = Math.round(Number(amount || 0));
+      const exact = 'Rs. ' + n.toLocaleString();
+      if (Math.abs(n) >= 1_000_000_000) {
+        return { text: 'Rs. ' + (n / 1_000_000_000).toFixed(2) + 'B', exact, compact: true };
+      }
+      if (Math.abs(n) >= 10_000_000) {
+        return { text: 'Rs. ' + (n / 1_000_000).toFixed(2) + 'M', exact, compact: true };
+      }
+      return { text: exact, exact, compact: exact.length >= 11 };
+    }
+
+    function setPkrKpi(elId, subId, amount, fallbackSub) {
+      const el = $(elId);
+      if (!el) return;
+      const f = formatPKRCard(amount);
+      el.textContent = f.text;
+      el.title = f.exact;
+      el.classList.toggle('is-compact', f.compact);
+      if (subId && $(subId)) {
+        $(subId).textContent = (f.text !== f.exact) ? ('Exact: ' + f.exact) : fallbackSub;
+        $(subId).title = f.exact;
+      }
     }
 
     function getToken() {
@@ -1717,7 +1970,7 @@
       const map = {
         '{{site_link}}': vars.site_link || window.location.origin,
         '{{email}}': vars.email || '',
-        '{{password}}': vars.password || '',
+        '{{password}}': vars.password || '(Existing Password)',
         '{{name}}': vars.name || vars.email || 'User',
         '{{plan}}': String(vars.plan || 'Pro').toUpperCase(),
         '{{days}}': String(vars.days ?? 30),
@@ -1725,6 +1978,25 @@
       };
       for (const [k, v] of Object.entries(map)) out = out.split(k).join(String(v));
       return out;
+    }
+
+    function openShareLoginModal(user, headingText) {
+      const tpl = (state.controls && state.controls.messageTemplate) || DEFAULT_TEMPLATE;
+      const wa = (state.settings && (state.settings.whatsappSupport || state.settings.whatsappNumber || state.settings.whatsappPhone)) || '';
+      const msg = fillTemplate(tpl, {
+        site_link: window.location.origin,
+        name: user.name || user.username || (user.email || '').split('@')[0],
+        email: user.email || '',
+        password: user.password || user.plainPasswordHint || '(Use your saved password)',
+        plan: user.plan || 'pro',
+        days: user.days ?? user.daysRemaining ?? 30,
+        whatsapp: wa,
+      });
+      $('welcomeModalHeading').textContent = headingText || 'Share Client Login';
+      $('welcomeCopySub').textContent = (user.email || '') + ' · ' + String(user.plan || 'pro').toUpperCase() + ' (' + (user.days ?? user.daysRemaining ?? 0) + ' days)';
+      $('welcomeCopyText').value = msg;
+      $('welcomeWaLink').href = 'https://wa.me/?text=' + encodeURIComponent(msg);
+      $('welcomeCopyModal').classList.remove('hidden');
     }
 
     // ── Countdown Engine ──
@@ -1785,6 +2057,9 @@
       $('topbarTitle').textContent = meta[0];
       $('topbarSub').textContent = meta[1];
       closeDrawer();
+      if (viewName === 'analytics') loadAnalyticsView();
+      if (viewName === 'resellers' && state.activeResellerTab === 'analytics') loadResellerAnalytics();
+      if (viewName === 'resellers' && state.activeResellerTab === 'config') loadResellerConfig();
     }
 
     function openDrawer() {
@@ -1803,6 +2078,28 @@
     $('closeSidebarBtn').addEventListener('click', closeDrawer);
     $('sidebarBackdrop').addEventListener('click', closeDrawer);
     $('topCountdownPill').addEventListener('click', () => setView('sessions'));
+    $('topMaintPill').addEventListener('click', () => setView('security'));
+
+    // Reseller subtabs
+    document.querySelectorAll('#resellerSubtabs .subtab-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const tab = btn.dataset.rtab;
+        state.activeResellerTab = tab;
+        document.querySelectorAll('#resellerSubtabs .subtab-btn').forEach((b) => b.classList.toggle('active', b === btn));
+        document.querySelectorAll('.rtab-pane').forEach((p) => p.classList.toggle('hidden', p.id !== 'rtab-' + tab));
+        if (tab === 'analytics') loadResellerAnalytics();
+        if (tab === 'config') loadResellerConfig();
+      });
+    });
+
+    // Slot group subtabs (Flow 1-10 vs Nano Banana 11-15)
+    document.querySelectorAll('#slotGroupTabs .subtab-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        state.activeSlotGroup = btn.dataset.slotTab;
+        document.querySelectorAll('#slotGroupTabs .subtab-btn').forEach((b) => b.classList.toggle('active', b === btn));
+        renderSessions();
+      });
+    });
 
     // Modal close helpers
     document.querySelectorAll('[data-close-modal]').forEach((b) => {
@@ -1861,9 +2158,40 @@
       }
     }
 
+    async function loadAnalyticsView() {
+      const [statsRes, expRes] = await Promise.allSettled([
+        api('/api/admin/stats'),
+        api('/api/admin/users?status=expiring&limit=100'),
+      ]);
+      if (statsRes.status === 'fulfilled') state.stats = statsRes.value;
+      if (expRes.status === 'fulfilled') state.expiringUsers = Array.isArray(expRes.value.users) ? expRes.value.users : [];
+      renderAnalytics();
+    }
+
+    async function loadResellerAnalytics() {
+      try {
+        const res = await api('/api/admin/resellers/analytics');
+        state.resellerAnalytics = res;
+        renderResellerAnalytics();
+      } catch (err) {
+        showToast(err.message, true);
+      }
+    }
+
+    async function loadResellerConfig() {
+      try {
+        const res = await api('/api/admin/settings/reseller-config');
+        state.resellerConfig = res;
+        renderResellerConfig(res);
+      } catch (err) {
+        showToast(err.message, true);
+      }
+    }
+
     async function loadAll() {
-      const [usersRes, slotsRes, cfgRes, resellersRes, paymentsRes, settingsRes] = await Promise.allSettled([
+      const [usersRes, pendingRes, slotsRes, cfgRes, resellersRes, paymentsRes, settingsRes] = await Promise.allSettled([
         api(buildUsersUrl(state.usersPage)),
+        api('/api/admin/pending-approvals'),
         api('/api/admin/slots'),
         api('/api/admin/controls/config'),
         api('/api/admin/resellers'),
@@ -1871,8 +2199,10 @@
         api('/api/admin/settings'),
       ]);
 
-      if (usersRes.status === 'fulfilled') {
-        applyUsersResponse(usersRes.value);
+      if (usersRes.status === 'fulfilled') applyUsersResponse(usersRes.value);
+      if (pendingRes.status === 'fulfilled') {
+        state.pendingApprovals = Array.isArray(pendingRes.value.pending) ? pendingRes.value.pending : [];
+        renderPendingApprovals();
       }
       if (slotsRes.status === 'fulfilled') {
         state.slots = Array.isArray(slotsRes.value.slots) ? slotsRes.value.slots : [];
@@ -1894,8 +2224,49 @@
       if (settingsRes.status === 'fulfilled') {
         state.settings = settingsRes.value.settings || {};
         renderSettings(state.settings);
+        renderPlansEditor(state.settings);
       }
+      if (state.activeView === 'analytics') loadAnalyticsView();
+      if (state.activeView === 'resellers' && state.activeResellerTab === 'analytics') loadResellerAnalytics();
+      if (state.activeView === 'resellers' && state.activeResellerTab === 'config') loadResellerConfig();
     }
+
+    // ── Render: Pending Approvals ──
+    function renderPendingApprovals() {
+      const list = state.pendingApprovals || [];
+      const card = $('pendingApprovalsCard');
+      $('pendingCountNum').textContent = String(list.length);
+      if (!list.length) {
+        card.classList.add('hidden');
+        return;
+      }
+      card.classList.remove('hidden');
+      $('pendingTableBody').innerHTML = list.map((u) => (
+        '<tr>' +
+          '<td><div class="user-cell-name">' + esc(u.name || u.username || 'User') + '</div><div class="user-cell-email">' + esc(u.email) + '</div></td>' +
+          '<td><span class="badge badge-blue">' + esc(String(u.plan || 'pro').toUpperCase()) + '</span> <span style="font-size:11.5px;color:var(--text-muted);">(' + Number(u.requestedDays || 20) + 'd)</span></td>' +
+          '<td>' + esc(u.resellerName || u.resellerEmail || 'Direct') + '</td>' +
+          '<td><div class="actions-cell">' +
+            '<button type="button" class="btn btn-emerald btn-sm" data-pend-act="approve" data-id="' + u.id + '">Approve</button>' +
+            '<button type="button" class="btn btn-danger btn-sm" data-pend-act="reject" data-id="' + u.id + '">Reject</button>' +
+          '</div></td>' +
+        '</tr>'
+      )).join('');
+    }
+
+    $('pendingTableBody').addEventListener('click', async (e) => {
+      const btn = e.target.closest('button[data-pend-act]');
+      if (!btn) return;
+      const id = Number(btn.dataset.id);
+      const act = btn.dataset.pendAct;
+      btn.disabled = true;
+      try {
+        const res = await api('/api/admin/users/' + id + '/' + act, { method: 'PUT', body: '{}' });
+        showToast(res.message || ('Request ' + act + 'd'));
+        await loadAll();
+      } catch (err) { showToast(err.message, true); }
+      finally { btn.disabled = false; }
+    });
 
     // ── Render: Users ──
     function renderUsers() {
@@ -1941,13 +2312,22 @@
           '<tr>' +
             '<td><div class="user-cell-name">' + esc(u.name || u.username || 'User') + resellerTag + '</div><div class="user-cell-email">' + esc(u.email) + '</div></td>' +
             '<td>' + planBadge + '<div style="font-size:11px;color:var(--text-muted);font-family:var(--font-mono);margin-top:3px;">' + credNum.toLocaleString() + ' cr</div></td>' +
-            '<td style="font-family:var(--font-mono);font-weight:600;">' + days + 'd</td>' +
+            '<td>' +
+              '<div style="font-family:var(--font-mono);font-weight:700;margin-bottom:4px;">' + days + 'd left</div>' +
+              '<div class="quick-ext-row">' +
+                '<button type="button" class="btn btn-ghost btn-xs" data-act="ext-days" data-days="7" data-id="' + u.id + '">+7d</button>' +
+                '<button type="button" class="btn btn-ghost btn-xs" data-act="ext-days" data-days="15" data-id="' + u.id + '">+15d</button>' +
+                '<button type="button" class="btn btn-ghost btn-xs" data-act="ext-days" data-days="30" data-id="' + u.id + '">+30d</button>' +
+              '</div>' +
+            '</td>' +
             '<td>' + statusBadge + '</td>' +
             '<td style="font-family:var(--font-mono);">' + Number(u.deviceSwitchCount || 0) + '</td>' +
             '<td><div class="actions-cell">' +
-              '<button type="button" class="btn btn-ghost btn-sm" data-act="edit-user" data-id="' + u.id + '">Edit</button>' +
-              '<button type="button" class="btn btn-ghost btn-sm" data-act="reset-dev" data-id="' + u.id + '" title="Reset Device Lock">Unlock</button>' +
-              '<button type="button" class="btn btn-danger btn-sm" data-act="del-user" data-id="' + u.id + '">Delete</button>' +
+              '<button type="button" class="btn btn-ghost btn-xs" data-act="share-user" data-id="' + u.id + '" title="Copy / Share Login">Share</button>' +
+              '<button type="button" class="btn btn-ghost btn-xs" data-act="edit-user" data-id="' + u.id + '">Edit</button>' +
+              '<button type="button" class="btn btn-ghost btn-xs" data-act="reset-limit" data-id="' + u.id + '" title="Restore credits, quota &amp; unlock">Reset</button>' +
+              '<button type="button" class="btn btn-ghost btn-xs" data-act="reset-dev" data-id="' + u.id + '" title="Reset Device Lock">Unlock</button>' +
+              '<button type="button" class="btn btn-danger btn-xs" data-act="del-user" data-id="' + u.id + '">Delete</button>' +
             '</div></td>' +
           '</tr>'
         );
@@ -1961,12 +2341,8 @@
     });
     $('userPlanFilter').addEventListener('change', () => loadUsersPage(1));
     $('userStatusFilter').addEventListener('change', () => loadUsersPage(1));
-    $('usersPrevBtn').addEventListener('click', () => {
-      if (state.usersPage > 1) loadUsersPage(state.usersPage - 1);
-    });
-    $('usersNextBtn').addEventListener('click', () => {
-      if (state.usersPage < state.usersTotalPages) loadUsersPage(state.usersPage + 1);
-    });
+    $('usersPrevBtn').addEventListener('click', () => { if (state.usersPage > 1) loadUsersPage(state.usersPage - 1); });
+    $('usersNextBtn').addEventListener('click', () => { if (state.usersPage < state.usersTotalPages) loadUsersPage(state.usersPage + 1); });
 
     $('usersTableBody').addEventListener('click', async (e) => {
       const btn = e.target.closest('button[data-act]');
@@ -1978,12 +2354,31 @@
 
       if (act === 'edit-user') {
         openUserModal(user);
+      } else if (act === 'share-user') {
+        openShareLoginModal(user, 'Share Client Login · ' + (user.name || user.email));
+      } else if (act === 'ext-days') {
+        const addDays = Number(btn.dataset.days || 30);
+        btn.disabled = true;
+        try {
+          await api('/api/admin/users/' + id, { method: 'PUT', body: JSON.stringify({ addDays }) });
+          showToast('Extended ' + user.email + ' by +' + addDays + ' days');
+          await loadUsersPage(state.usersPage);
+        } catch (err) { showToast(err.message, true); }
+        finally { btn.disabled = false; }
+      } else if (act === 'reset-limit') {
+        btn.disabled = true;
+        try {
+          const res = await api('/api/admin/users/' + id + '/reset-limit', { method: 'POST', body: '{}' });
+          showToast(res.message || 'Limit & credits reset');
+          await loadUsersPage(state.usersPage);
+        } catch (err) { showToast(err.message, true); }
+        finally { btn.disabled = false; }
       } else if (act === 'reset-dev') {
         btn.disabled = true;
         try {
           const res = await api('/api/admin/users/' + id + '/reset-device-lock', { method: 'POST', body: '{}' });
           showToast(res.message || 'Device lock reset');
-          await loadAll();
+          await loadUsersPage(state.usersPage);
         } catch (err) { showToast(err.message, true); }
         finally { btn.disabled = false; }
       } else if (act === 'del-user') {
@@ -1998,7 +2393,7 @@
       }
     });
 
-    // ── Add / Edit User Modal + Automatic Copy Welcome Modal ──
+    // ── Add / Edit User Modal ──
     function openUserModal(user) {
       $('userForm').reset();
       if (user) {
@@ -2013,6 +2408,7 @@
         $('uDays').value = user.daysRemaining ?? 30;
         $('uStatus').value = String(user.status || 'active').toLowerCase() === 'suspended' ? 'suspended' : 'active';
         $('uCredits').value = user.credits ?? 45000;
+        $('uEditQuickTools').classList.remove('hidden');
         $('userFormSubmitBtn').textContent = 'Save Changes';
       } else {
         $('userModalTitle').textContent = 'Add New User';
@@ -2023,10 +2419,25 @@
         $('uDays').value = 30;
         $('uStatus').value = 'active';
         $('uCredits').value = 45000;
+        $('uEditQuickTools').classList.add('hidden');
         $('userFormSubmitBtn').textContent = 'Create User';
       }
       $('userModal').classList.remove('hidden');
     }
+
+    $('uModalResetLimitBtn').addEventListener('click', async () => {
+      const id = Number($('uEditId').value);
+      if (!id) return;
+      const btn = $('uModalResetLimitBtn');
+      btn.disabled = true;
+      try {
+        const res = await api('/api/admin/users/' + id + '/reset-limit', { method: 'POST', body: '{}' });
+        showToast(res.message || 'Limit reset & unlocked');
+        $('userModal').classList.add('hidden');
+        await loadAll();
+      } catch (err) { showToast(err.message, true); }
+      finally { btn.disabled = false; }
+    });
 
     $('topAddUserBtn').addEventListener('click', () => openUserModal(null));
     $('genPassBtn').addEventListener('click', () => {
@@ -2059,31 +2470,20 @@
           $('userModal').classList.add('hidden');
           showToast('User updated');
         } else {
-          const res = await api('/api/admin/users', { method: 'POST', body: JSON.stringify(payload) });
+          await api('/api/admin/users', { method: 'POST', body: JSON.stringify(payload) });
           $('userModal').classList.add('hidden');
           showToast('User created');
-          const tpl = (state.controls && state.controls.messageTemplate) || DEFAULT_TEMPLATE;
-          const wa = (state.settings && (state.settings.whatsappSupport || state.settings.whatsappNumber)) || '';
-          const msg = fillTemplate(tpl, {
-            site_link: window.location.origin,
-            name: payload.name || payload.email.split('@')[0],
+          openShareLoginModal({
+            name: payload.name,
             email: payload.email,
             password: pass,
             plan: payload.plan,
             days: payload.days,
-            whatsapp: wa,
-          });
-          $('welcomeCopySub').textContent = payload.email + ' · ' + payload.plan.toUpperCase() + ' (' + payload.days + ' days)';
-          $('welcomeCopyText').value = msg;
-          $('welcomeWaLink').href = 'https://wa.me/?text=' + encodeURIComponent(msg);
-          $('welcomeCopyModal').classList.remove('hidden');
+          }, 'User Created — Copy Welcome Message');
         }
         await loadAll();
-      } catch (err) {
-        showToast(err.message, true);
-      } finally {
-        btn.disabled = false;
-      }
+      } catch (err) { showToast(err.message, true); }
+      finally { btn.disabled = false; }
     });
 
     $('welcomeCopyText').addEventListener('input', () => {
@@ -2100,51 +2500,84 @@
       setView('template');
     });
 
-    // ── Render: Sessions (1-10) & Auto-Shuffle ──
+    // ── Render: Sessions (Flow 1-10 & Nano Banana 11-15) ──
     function renderSessions() {
       const grid = $('sessionsGrid');
-      const flowSlots = [];
       const byNum = {};
       state.slots.forEach((s) => { byNum[Number(s.slotNumber)] = s; });
-      let activeCount = 0;
+
+      let flowActiveCount = 0;
+      for (let n = 1; n <= 10; n++) {
+        const s = byNum[n];
+        if (s && String(s.status || '').toUpperCase() === 'ACTIVE' && Number(s.cookieCount || 0) > 0) flowActiveCount++;
+      }
+      $('navSessionsCount').textContent = flowActiveCount + '/10';
+
       const pool = (state.controls && state.controls.serverShuffle && Array.isArray(state.controls.serverShuffle.poolSlots))
         ? state.controls.serverShuffle.poolSlots.map(Number)
         : [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
-      for (let n = 1; n <= 10; n++) {
-        const s = byNum[n] || { slotNumber: n, name: 'Session ' + n, status: 'EMPTY', cookieCount: 0 };
-        const isActive = String(s.status || '').toUpperCase() === 'ACTIVE' && Number(s.cookieCount || 0) > 0;
-        if (isActive) activeCount++;
-        flowSlots.push({ num: n, data: s, isActive, inPool: pool.includes(n) });
-      }
-      $('navSessionsCount').textContent = activeCount + '/10';
+      const isNano = state.activeSlotGroup === 'nano';
+      const startSlot = isNano ? 11 : 1;
+      const endSlot = isNano ? 15 : 10;
+      const cards = [];
 
-      grid.innerHTML = flowSlots.map(({ num, data, isActive, inPool }) => {
-        const displayName = String(data.name || ('Session ' + num)).replace(/^Server\s*/i, 'Session ');
-        const updated = data.updatedAt ? new Date(data.updatedAt).toLocaleString() : 'Not uploaded';
-        return (
+      for (let n = startSlot; n <= endSlot; n++) {
+        const defaultName = isNano ? ('Nano Banana ' + (n - 10)) : ('Session ' + n);
+        const s = byNum[n] || { slotNumber: n, name: defaultName, status: 'EMPTY', cookieCount: 0 };
+        const isActive = String(s.status || '').toUpperCase() === 'ACTIVE' && Number(s.cookieCount || 0) > 0;
+        const displayName = String(s.name || defaultName).replace(/^Server\s*/i, isNano ? 'Nano Slot ' : 'Session ');
+        const updated = s.updatedAt ? new Date(s.updatedAt).toLocaleString() : 'Not uploaded';
+        const poolHtml = isNano ? '' : (
+          '<label class="session-pool-check">' +
+            '<input type="checkbox" name="sessionPoolCb" value="' + n + '" ' + (pool.includes(n) ? 'checked' : '') + ' />' +
+            '<span>Include in Auto-Shuffle Pool</span>' +
+          '</label>'
+        );
+        cards.push(
           '<div class="session-card ' + (isActive ? 'is-active' : '') + '">' +
             '<div class="session-card-head">' +
               '<div class="session-name">' + esc(displayName) + '</div>' +
-              (isActive ? '<span class="badge badge-emerald">ACTIVE</span>' : '<span class="badge badge-muted">EMPTY</span>') +
+              (isActive ? '<span class="badge badge-emerald">ACTIVE</span>' : (Number(s.cookieCount || 0) > 0 ? '<span class="badge badge-amber">STANDBY</span>' : '<span class="badge badge-muted">EMPTY</span>')) +
             '</div>' +
             '<div class="session-meta">' +
-              '<span>' + Number(data.cookieCount || 0) + ' cookies</span>' +
-              '<span style="font-family:var(--font-sans);font-size:11.5px;">' + esc(updated) + '</span>' +
+              '<span>' + Number(s.cookieCount || 0) + ' cookies</span>' +
+              '<span style="font-family:var(--font-sans);font-size:11px;">' + esc(updated) + '</span>' +
             '</div>' +
-            '<label class="session-pool-check">' +
-              '<input type="checkbox" name="sessionPoolCb" value="' + num + '" ' + (inPool ? 'checked' : '') + ' />' +
-              '<span>Include in Auto-Shuffle Pool</span>' +
-            '</label>' +
+            poolHtml +
             '<div class="session-actions">' +
-              '<button type="button" class="btn btn-ghost btn-sm" data-slot-act="edit" data-num="' + num + '">Cookies</button>' +
-              '<button type="button" class="btn btn-ghost btn-sm" data-slot-act="toggle" data-num="' + num + '">' + (isActive ? 'Disable' : 'Activate') + '</button>' +
-              '<button type="button" class="btn btn-danger btn-sm" data-slot-act="clear" data-num="' + num + '">Clear</button>' +
+              '<button type="button" class="btn btn-ghost btn-sm" data-slot-act="edit" data-num="' + n + '">Cookies</button>' +
+              '<button type="button" class="btn btn-ghost btn-sm" data-slot-act="toggle" data-num="' + n + '">' + (isActive ? 'Standby' : 'Activate') + '</button>' +
+              '<button type="button" class="btn btn-danger btn-sm" data-slot-act="clear" data-num="' + n + '">Clear</button>' +
             '</div>' +
           '</div>'
         );
-      }).join('');
+      }
+      grid.innerHTML = cards.join('');
     }
+
+    $('bulkEnableSlotsBtn').addEventListener('click', async () => {
+      const btn = $('bulkEnableSlotsBtn');
+      btn.disabled = true;
+      try {
+        const res = await api('/api/admin/slots/bulk', { method: 'POST', body: JSON.stringify({ action: 'enable_all' }) });
+        showToast(res.message || 'All loaded slots enabled');
+        await loadAll();
+      } catch (err) { showToast(err.message, true); }
+      finally { btn.disabled = false; }
+    });
+
+    $('bulkStandbySlotsBtn').addEventListener('click', async () => {
+      if (!confirm('Set all active slots to STANDBY?')) return;
+      const btn = $('bulkStandbySlotsBtn');
+      btn.disabled = true;
+      try {
+        const res = await api('/api/admin/slots/bulk', { method: 'POST', body: JSON.stringify({ action: 'disable_all' }) });
+        showToast(res.message || 'All slots set to STANDBY');
+        await loadAll();
+      } catch (err) { showToast(err.message, true); }
+      finally { btn.disabled = false; }
+    });
 
     $('sessionsGrid').addEventListener('click', async (e) => {
       const btn = e.target.closest('button[data-slot-act]');
@@ -2154,48 +2587,58 @@
       const slot = state.slots.find((s) => Number(s.slotNumber) === num) || { slotNumber: num, name: 'Session ' + num, cookies: [] };
 
       if (act === 'edit') {
-        $('slotModalTitle').textContent = 'Update Session ' + num + ' Cookies';
+        $('slotModalTitle').textContent = 'Update Slot ' + num + ' Cookies';
         $('slotNumInput').value = num;
-        $('slotNameInput').value = String(slot.name || ('Session ' + num)).replace(/^Server\s*/i, 'Session ');
+        $('slotNameInput').value = String(slot.name || ('Session ' + num));
+        $('slotFileInput').value = '';
         $('slotCookiesInput').value = Array.isArray(slot.cookies) && slot.cookies.length ? JSON.stringify(slot.cookies, null, 2) : '';
         $('slotModal').classList.remove('hidden');
       } else if (act === 'toggle') {
         btn.disabled = true;
         try {
-          const nextStatus = String(slot.status || '').toUpperCase() === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
+          const nextStatus = String(slot.status || '').toUpperCase() === 'ACTIVE' ? 'STANDBY' : 'ACTIVE';
           await api('/api/admin/slots/' + num + '/status', { method: 'POST', body: JSON.stringify({ status: nextStatus }) });
-          showToast('Session ' + num + ' set to ' + nextStatus);
+          showToast('Slot ' + num + ' set to ' + nextStatus);
           await loadAll();
         } catch (err) { showToast(err.message, true); }
         finally { btn.disabled = false; }
       } else if (act === 'clear') {
-        if (!confirm('Clear all cookies from Session ' + num + '?')) return;
+        if (!confirm('Clear all cookies from Slot ' + num + '?')) return;
         btn.disabled = true;
         try {
           await api('/api/admin/slots/' + num, { method: 'DELETE' });
-          showToast('Session ' + num + ' cleared');
+          showToast('Slot ' + num + ' cleared');
           await loadAll();
         } catch (err) { showToast(err.message, true); }
         finally { btn.disabled = false; }
       }
     });
 
+    $('slotFileInput').addEventListener('change', (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => { $('slotCookiesInput').value = String(reader.result || ''); showToast('Loaded ' + file.name); };
+      reader.readAsText(file);
+    });
+    $('slotClearInputBtn').addEventListener('click', () => { $('slotCookiesInput').value = ''; $('slotFileInput').value = ''; });
+
     $('slotForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const num = Number($('slotNumInput').value);
       const name = $('slotNameInput').value.trim() || ('Session ' + num);
       const raw = $('slotCookiesInput').value.trim();
-      let cookies = [];
-      if (raw) {
-        try { cookies = JSON.parse(raw); }
-        catch { return showToast('Invalid JSON format for cookies', true); }
+      if (!raw) return showToast('Paste cookies JSON/Netscape or upload a file', true);
+      let payloadCookies = raw;
+      if (raw.startsWith('[') || raw.startsWith('{')) {
+        try { payloadCookies = JSON.parse(raw); } catch { payloadCookies = raw; }
       }
       const btn = $('slotSaveBtn');
       btn.disabled = true;
       try {
-        await api('/api/admin/slots/' + num, { method: 'POST', body: JSON.stringify({ name, cookies }) });
+        const res = await api('/api/admin/slots/' + num, { method: 'POST', body: JSON.stringify({ name, cookies: payloadCookies }) });
         $('slotModal').classList.add('hidden');
-        showToast('Session ' + num + ' saved');
+        showToast(res.message || ('Slot ' + num + ' saved'));
         await loadAll();
       } catch (err) { showToast(err.message, true); }
       finally { btn.disabled = false; }
@@ -2207,7 +2650,10 @@
 
     $('saveShuffleBtn').addEventListener('click', async () => {
       const btn = $('saveShuffleBtn');
-      const poolSlots = Array.from(document.querySelectorAll('input[name="sessionPoolCb"]:checked')).map((i) => Number(i.value));
+      const checked = Array.from(document.querySelectorAll('input[name="sessionPoolCb"]:checked')).map((i) => Number(i.value));
+      const poolSlots = checked.length
+        ? checked
+        : ((state.controls && state.controls.serverShuffle && state.controls.serverShuffle.poolSlots) || []);
       btn.disabled = true;
       try {
         const res = await api('/api/admin/controls/server-shuffle', {
@@ -2239,7 +2685,7 @@
       finally { btn.disabled = false; }
     });
 
-    // ── Render: Controls (Extension + Policy + Template + Shuffle) ──
+    // ── Render: Controls ──
     function renderControls(cfg) {
       if (!cfg) return;
       const sh = cfg.serverShuffle || {};
@@ -2274,11 +2720,11 @@
       updateTplPreview();
     }
 
-    // Extension Regenerate & Upload
+    // Extension Regenerate, Upload & Settings
     $('regenExtBtn').addEventListener('click', async () => {
       const btn = $('regenExtBtn');
       const version = $('extNewVer').value.trim();
-      if (!version) return showToast('Enter a version number (e.g. 1.8)', true);
+      if (!version) return showToast('Enter a version number (e.g. 1.9)', true);
       btn.disabled = true;
       btn.textContent = 'Building ZIP...';
       try {
@@ -2328,7 +2774,38 @@
       finally { btn.disabled = false; btn.textContent = 'Upload & Publish ZIP'; }
     });
 
-    // Policy & Maintenance
+    $('trialExtAccessToggle').addEventListener('change', async () => {
+      try {
+        const res = await api('/api/admin/settings/trial-extension-access', {
+          method: 'PUT',
+          body: JSON.stringify({ allowTrialExtensionAccess: $('trialExtAccessToggle').checked }),
+        });
+        showToast(res.message || 'Trial extension access updated');
+      } catch (err) { showToast(err.message, true); }
+    });
+
+    $('saveExtMetaBtn').addEventListener('click', async () => {
+      const btn = $('saveExtMetaBtn');
+      btn.disabled = true;
+      try {
+        const curFlow = (state.settings && state.settings.extensions && state.settings.extensions.flow) || {};
+        await api('/api/admin/settings', {
+          method: 'PUT',
+          body: JSON.stringify({
+            extensions: {
+              flow: Object.assign({}, curFlow, {
+                downloadUrl: $('extDirectUrl').value.trim() || curFlow.downloadUrl || '/downloads/latest',
+                instructions: $('extInstructions').value,
+              }),
+            },
+          }),
+        });
+        showToast('Extension settings saved');
+      } catch (err) { showToast(err.message, true); }
+      finally { btn.disabled = false; }
+    });
+
+    // Policy, Public Registration & Maintenance
     $('savePolicyBtn').addEventListener('click', async () => {
       const btn = $('savePolicyBtn');
       btn.disabled = true;
@@ -2347,18 +2824,32 @@
       finally { btn.disabled = false; }
     });
 
+    $('pubRegToggle').addEventListener('change', async () => {
+      const enabled = $('pubRegToggle').checked;
+      $('pubRegStatusLabel').textContent = enabled ? 'Public Registration is ENABLED (Open)' : 'Public Registration is DISABLED (Restricted)';
+      try {
+        await api('/api/admin/settings', { method: 'PUT', body: JSON.stringify({ allowPublicRegistration: enabled }) });
+        showToast(enabled ? 'Public registration enabled' : 'Public registration disabled');
+      } catch (err) { showToast(err.message, true); }
+    });
+
     $('saveMaintBtn').addEventListener('click', async () => {
       const btn = $('saveMaintBtn');
       btn.disabled = true;
       try {
+        const enabled = $('maintEnabled').checked;
         const res = await api('/api/admin/maintenance', {
           method: 'POST',
           body: JSON.stringify({
-            enabled: $('maintEnabled').checked,
+            enabled,
             title: $('maintTitle').value.trim(),
             message: $('maintMessage').value.trim(),
+            customUrl: $('maintCustomUrl').value.trim(),
+            customUrlTitle: $('maintCustomUrlTitle').value.trim(),
+            redirectToCustomUrl: $('maintRedirect').checked,
           }),
         });
+        $('topMaintPill').classList.toggle('hidden', !enabled);
         showToast(res.message || 'Maintenance settings updated');
       } catch (err) { showToast(err.message, true); }
       finally { btn.disabled = false; }
@@ -2407,7 +2898,7 @@
       finally { btn.disabled = false; }
     });
 
-    // Resellers & Payments
+    // ── Resellers, Analytics, Receipts & Config ──
     let activeResellerUsersState = { resellerId: 0, reseller: null, billing: null, users: [] };
 
     function renderResellers() {
@@ -2422,8 +2913,8 @@
       });
       $('kpiResellersTotal').textContent = all.length.toLocaleString();
       $('kpiResellerUsersTotal').textContent = totalUsers.toLocaleString();
-      $('kpiResellersDue').textContent = 'Rs. ' + Math.round(totalDue).toLocaleString();
-      $('kpiResellersPaid').textContent = 'Rs. ' + Math.round(totalPaid).toLocaleString();
+      setPkrKpi('kpiResellersDue', 'kpiResellersDueSub', totalDue, 'Pending collection');
+      setPkrKpi('kpiResellersPaid', 'kpiResellersPaidSub', totalPaid, 'Cleared payouts');
 
       const q = ($('resellerSearchInput')?.value || '').trim().toLowerCase();
       const dueF = $('resellerDueFilter')?.value || 'all';
@@ -2451,6 +2942,7 @@
         const due = Number(r.balanceDue || 0);
         const paid = Number(r.totalPaid || 0);
         const charges = Number(r.totalCharges || 0);
+        const paidDisp = formatPKRCard(paid);
         const uCount = Number(r.usersCreated || 0);
         const quota = Number(r.allowedUsers || 50);
         const st = String(r.status || 'active').toLowerCase();
@@ -2467,20 +2959,20 @@
             '<td><div class="user-cell-name">' + esc(r.name || 'Reseller') + '</div><div class="user-cell-email">' + esc(r.email) + '</div></td>' +
             '<td>' + wa + '</td>' +
             '<td>' +
-              '<button type="button" class="btn btn-ghost btn-sm" data-r-act="users" data-id="' + r.id + '" title="View all users of this reseller">' +
-                'Users (' + uCount + ' / ' + quota + ')' +
+              '<button type="button" class="btn btn-ghost btn-xs" data-r-act="users" data-id="' + r.id + '" title="View all users of this reseller">' +
+                'Users (' + uCount + '/' + quota + ')' +
               '</button>' +
             '</td>' +
             '<td>' +
               '<div style="font-family:var(--font-mono);font-weight:700;color:' + dueColor + ';">Due: Rs. ' + Math.round(due).toLocaleString() + '</div>' +
-              '<div style="font-size:11px;color:var(--text-muted);font-family:var(--font-mono);">Paid Rs. ' + Math.round(paid).toLocaleString() + ' / Rs. ' + Math.round(charges).toLocaleString() + '</div>' +
+              '<div style="font-size:11px;color:var(--text-muted);font-family:var(--font-mono);" title="Paid ' + esc(paidDisp.exact) + ' / Total Rs. ' + Math.round(charges).toLocaleString() + '">Paid ' + esc(paidDisp.text) + ' / Rs. ' + Math.round(charges).toLocaleString() + '</div>' +
             '</td>' +
             '<td>' + statusBadge + '</td>' +
             '<td><div class="actions-cell">' +
-              '<button type="button" class="btn btn-ghost btn-sm" data-r-act="users" data-id="' + r.id + '">Users</button>' +
-              '<button type="button" class="btn ' + (due > 0 ? 'btn-amber' : 'btn-ghost') + ' btn-sm" data-r-act="dues" data-id="' + r.id + '">' + (due > 0 ? 'Clear Dues' : 'Dues') + '</button>' +
-              '<button type="button" class="btn btn-ghost btn-sm" data-r-act="edit" data-id="' + r.id + '">Edit</button>' +
-              '<button type="button" class="btn btn-danger btn-sm" data-r-act="del" data-id="' + r.id + '">Delete</button>' +
+              '<button type="button" class="btn btn-ghost btn-xs" data-r-act="users" data-id="' + r.id + '">Users</button>' +
+              '<button type="button" class="btn ' + (due > 0 ? 'btn-amber' : 'btn-ghost') + ' btn-xs" data-r-act="dues" data-id="' + r.id + '">' + (due > 0 ? 'Clear Dues' : 'Dues') + '</button>' +
+              '<button type="button" class="btn btn-ghost btn-xs" data-r-act="edit" data-id="' + r.id + '">Edit</button>' +
+              '<button type="button" class="btn btn-danger btn-xs" data-r-act="del" data-id="' + r.id + '">Delete</button>' +
             '</div></td>' +
           '</tr>'
         );
@@ -2490,6 +2982,141 @@
     $('resellerSearchInput').addEventListener('input', renderResellers);
     $('resellerDueFilter').addEventListener('change', renderResellers);
 
+    function renderResellerAnalytics() {
+      const data = state.resellerAnalytics;
+      if (!data) return;
+      const sum = data.summary || {};
+      $('raTodayVal').textContent = Number(sum.totalUsersToday || 0).toLocaleString();
+      $('raWeekVal').textContent = Number(sum.totalUsersThisWeek || 0).toLocaleString();
+      $('raOverdueVal').textContent = Number(sum.totalOverdueResellers || 0).toLocaleString();
+      $('raTotalUsersVal').textContent = Number(sum.totalResellerUsers || 0).toLocaleString();
+
+      const q = ($('raSearchInput')?.value || '').trim().toLowerCase();
+      const rows = (Array.isArray(data.resellers) ? data.resellers : []).filter((r) => {
+        if (!q) return true;
+        return ((r.name || '') + ' ' + (r.email || '') + ' ' + (r.whatsapp || '')).toLowerCase().includes(q);
+      });
+      const tb = $('raTableBody');
+      if (!rows.length) {
+        tb.innerHTML = '<tr><td colspan="7" class="empty-state">No reseller analytics match your filter.</td></tr>';
+        return;
+      }
+      tb.innerHTML = rows.map((r) => {
+        const due = Math.round(Number(r.balanceDue || 0));
+        const stBadge = r.isOverdue
+          ? '<span class="badge badge-rose">Overdue (' + Number(r.overdueUsersCount || 0) + ')</span>'
+          : (due > 0 ? '<span class="badge badge-amber">Due</span>' : '<span class="badge badge-emerald">Cleared</span>');
+        return (
+          '<tr>' +
+            '<td><div class="user-cell-name">' + esc(r.name) + '</div><div class="user-cell-email">' + esc(r.email) + '</div></td>' +
+            '<td style="font-family:var(--font-mono);font-weight:700;color:#60a5fa;">' + Number(r.usersToday || 0) + '</td>' +
+            '<td style="font-family:var(--font-mono);font-weight:600;color:#34d399;">' + Number(r.usersThisWeek || 0) + '</td>' +
+            '<td style="font-family:var(--font-mono);">' + Number(r.usersCreated || 0) + ' / ' + Number(r.allowedUsers || 50) + '</td>' +
+            '<td style="font-family:var(--font-mono);font-weight:700;color:' + (due > 0 ? '#fbbf24' : '#34d399') + ';">Rs. ' + due.toLocaleString() + '</td>' +
+            '<td>' + stBadge + '</td>' +
+            '<td><div class="actions-cell">' +
+              '<button type="button" class="btn btn-ghost btn-xs" data-ra-act="users" data-id="' + r.id + '">Users</button>' +
+              '<button type="button" class="btn ' + (due > 0 ? 'btn-amber' : 'btn-ghost') + ' btn-xs" data-ra-act="dues" data-id="' + r.id + '">' + (due > 0 ? 'Clear (0)' : 'Dues') + '</button>' +
+            '</div></td>' +
+          '</tr>'
+        );
+      }).join('');
+    }
+
+    $('raSearchInput').addEventListener('input', renderResellerAnalytics);
+    $('refreshResellerAnalyticsBtn').addEventListener('click', loadResellerAnalytics);
+    $('raTableBody').addEventListener('click', (e) => {
+      const btn = e.target.closest('button[data-ra-act]');
+      if (!btn) return;
+      const id = Number(btn.dataset.id);
+      if (btn.dataset.raAct === 'users') openResellerUsersModal(id);
+      else if (btn.dataset.raAct === 'dues') {
+        const r = state.resellers.find((x) => Number(x.id) === id) || (state.resellerAnalytics?.resellers || []).find((x) => Number(x.id) === id);
+        if (r) openResellerDuesModal(r);
+      }
+    });
+
+    function renderResellerConfig(cfg) {
+      if (!cfg) return;
+      const b = cfg.bankDetails || {};
+      $('rbBankName').value = b.bankName || '';
+      $('rbAccountTitle').value = b.accountTitle || '';
+      $('rbAccountNumber').value = b.accountNumber || '';
+      $('rbIban').value = b.iban || '';
+      $('rbInstructions').value = b.instructions || '';
+
+      const rates = cfg.rates || {};
+      $('rrPro').value = rates.pro ?? 500;
+      $('rrMax').value = rates.max ?? 800;
+      $('rrPlus').value = rates.plus ?? 500;
+      $('rrUltra').value = rates.ultra ?? 800;
+
+      const bc = cfg.broadcast || {};
+      $('rbcEnabled').checked = Boolean(bc.enabled);
+      $('rbcTitle').value = bc.title || '';
+      $('rbcMessage').value = bc.message || '';
+      $('rbcPhone1').value = bc.phone1 || '';
+      $('rbcPhone2').value = bc.phone2 || '';
+    }
+
+    $('saveResellerBankBtn').addEventListener('click', async () => {
+      const btn = $('saveResellerBankBtn');
+      btn.disabled = true;
+      try {
+        const res = await api('/api/admin/settings/reseller-bank', {
+          method: 'PUT',
+          body: JSON.stringify({
+            bankName: $('rbBankName').value.trim(),
+            accountTitle: $('rbAccountTitle').value.trim(),
+            accountNumber: $('rbAccountNumber').value.trim(),
+            iban: $('rbIban').value.trim(),
+            instructions: $('rbInstructions').value.trim(),
+          }),
+        });
+        showToast(res.message || 'Reseller bank details saved');
+      } catch (err) { showToast(err.message, true); }
+      finally { btn.disabled = false; }
+    });
+
+    $('saveResellerRatesBtn').addEventListener('click', async () => {
+      const btn = $('saveResellerRatesBtn');
+      btn.disabled = true;
+      try {
+        const res = await api('/api/admin/settings/reseller-rates', {
+          method: 'PUT',
+          body: JSON.stringify({
+            pro: parseFloat($('rrPro').value) || 0,
+            max: parseFloat($('rrMax').value) || 0,
+            plus: parseFloat($('rrPlus').value) || 0,
+            ultra: parseFloat($('rrUltra').value) || 0,
+            basic: 0,
+          }),
+        });
+        showToast(res.message || 'Reseller rates updated');
+        await loadAll();
+      } catch (err) { showToast(err.message, true); }
+      finally { btn.disabled = false; }
+    });
+
+    $('saveResellerBroadcastBtn').addEventListener('click', async () => {
+      const btn = $('saveResellerBroadcastBtn');
+      btn.disabled = true;
+      try {
+        const res = await api('/api/admin/settings/reseller-broadcast', {
+          method: 'PUT',
+          body: JSON.stringify({
+            enabled: $('rbcEnabled').checked,
+            title: $('rbcTitle').value.trim(),
+            message: $('rbcMessage').value.trim(),
+            phone1: $('rbcPhone1').value.trim(),
+            phone2: $('rbcPhone2').value.trim(),
+          }),
+        });
+        showToast(res.message || 'Reseller notice board updated');
+      } catch (err) { showToast(err.message, true); }
+      finally { btn.disabled = false; }
+    });
+
     function openResellerDuesModal(r) {
       if (!r) return;
       $('duesResellerId').value = r.id;
@@ -2498,8 +3125,10 @@
       const due = Math.round(Number(r.balanceDue || 0));
       const paid = Math.round(Number(r.totalPaid || 0));
       const charges = Math.round(Number(r.totalCharges || 0));
+      const pFmt = formatPKRCard(paid);
       $('duesTotalCharges').textContent = 'Rs. ' + charges.toLocaleString();
-      $('duesTotalPaid').textContent = 'Rs. ' + paid.toLocaleString();
+      $('duesTotalPaid').textContent = pFmt.text;
+      $('duesTotalPaid').title = pFmt.exact;
       $('duesBalanceVal').textContent = 'Rs. ' + due.toLocaleString();
       $('duesBalanceVal').style.color = due > 0 ? (r.isOverdue ? '#f87171' : '#fbbf24') : '#34d399';
       $('duesUsersSummary').innerHTML =
@@ -2556,9 +3185,9 @@
             '<td>' + payBadge + '</td>' +
             '<td>' + stBadge + '</td>' +
             '<td><div class="actions-cell">' +
-              '<button type="button" class="btn btn-ghost btn-sm" data-ru-act="edit" data-id="' + u.id + '">Edit</button>' +
-              '<button type="button" class="btn btn-ghost btn-sm" data-ru-act="unlock" data-id="' + u.id + '">Unlock</button>' +
-              '<button type="button" class="btn btn-danger btn-sm" data-ru-act="del" data-id="' + u.id + '">Delete</button>' +
+              '<button type="button" class="btn btn-ghost btn-xs" data-ru-act="edit" data-id="' + u.id + '">Edit</button>' +
+              '<button type="button" class="btn btn-ghost btn-xs" data-ru-act="unlock" data-id="' + u.id + '">Unlock</button>' +
+              '<button type="button" class="btn btn-danger btn-xs" data-ru-act="del" data-id="' + u.id + '">Delete</button>' +
             '</div></td>' +
           '</tr>'
         );
@@ -2675,30 +3304,75 @@
     });
 
     function renderPayments() {
+      const list = state.payments || [];
+      const pendingCnt = list.filter((p) => String(p.status || 'pending').toLowerCase() === 'pending').length;
+      const badgeEl = $('pendingPayBadge');
+      if (badgeEl) {
+        badgeEl.textContent = String(pendingCnt);
+        badgeEl.style.display = pendingCnt > 0 ? 'inline-flex' : 'none';
+      }
       const tb = $('paymentsTableBody');
-      if (!state.payments.length) {
-        tb.innerHTML = '<tr><td colspan="5" class="empty-state">No payment submissions yet.</td></tr>';
+      if (!list.length) {
+        tb.innerHTML = '<tr><td colspan="6" class="empty-state">No reseller payment requests submitted yet.</td></tr>';
         return;
       }
-      tb.innerHTML = state.payments.slice(0, 100).map((p) => {
+      tb.innerHTML = list.slice(0, 120).map((p) => {
         const st = String(p.status || 'pending').toLowerCase();
         const badge = st === 'approved' ? '<span class="badge badge-emerald">Approved</span>'
           : (st === 'rejected' ? '<span class="badge badge-rose">Rejected</span>' : '<span class="badge badge-amber">Pending</span>');
+        const proofCell = p.proof
+          ? '<div style="display:flex;align-items:center;gap:6px;"><img src="' + esc(p.proof) + '" class="proof-thumb" data-p-proof="' + p.id + '" alt="Proof" /><button type="button" class="btn btn-ghost btn-xs" data-p-proof="' + p.id + '">View</button></div>'
+          : '<span style="font-size:11.5px;color:var(--text-muted);">No screenshot</span>';
+        const dt = p.createdAt ? new Date(p.createdAt).toLocaleString() : '';
         const actions = st === 'pending'
-          ? '<button type="button" class="btn btn-emerald btn-sm" data-p-act="approve" data-id="' + p.id + '">Approve</button>' +
-            '<button type="button" class="btn btn-danger btn-sm" data-p-act="reject" data-id="' + p.id + '">Reject</button>'
-          : '<span style="font-size:12px;color:var(--text-muted);">Processed</span>';
+          ? '<button type="button" class="btn btn-emerald btn-xs" data-p-act="approve" data-id="' + p.id + '">Approve</button>' +
+            '<button type="button" class="btn btn-danger btn-xs" data-p-act="reject" data-id="' + p.id + '">Reject</button>'
+          : '<span style="font-size:11.5px;color:var(--text-muted);">Resolved</span>';
         return (
           '<tr>' +
-            '<td>' + esc(p.resellerName || p.resellerEmail || ('#' + p.resellerId)) + '</td>' +
+            '<td><div class="user-cell-name">' + esc(p.resellerName || ('#' + p.resellerId)) + '</div><div class="user-cell-email">' + esc(p.resellerEmail || '') + '</div></td>' +
             '<td style="font-family:var(--font-mono);font-weight:700;">Rs. ' + Number(p.amount || 0).toLocaleString() + '</td>' +
+            '<td>' + proofCell + '</td>' +
             '<td>' + esc(p.note || p.method || p.reference || '-') + '</td>' +
-            '<td>' + badge + '</td>' +
+            '<td>' + badge + '<div style="font-size:10.75px;color:var(--text-muted);margin-top:3px;">' + esc(dt) + '</div></td>' +
             '<td><div class="actions-cell">' + actions + '</div></td>' +
           '</tr>'
         );
       }).join('');
     }
+
+    $('paymentsTableBody').addEventListener('click', async (e) => {
+      const proofEl = e.target.closest('[data-p-proof]');
+      if (proofEl) {
+        const pid = Number(proofEl.dataset.pProof);
+        const p = (state.payments || []).find((x) => Number(x.id) === pid);
+        if (p && p.proof) {
+          $('proofModalTitle').textContent = 'Payment Proof · ' + (p.resellerName || p.resellerEmail || ('#' + p.resellerId));
+          $('proofModalImg').src = p.proof;
+          $('proofModalOpenRaw').href = p.proof;
+          $('proofModalMeta').textContent = 'Amount: Rs. ' + Number(p.amount || 0).toLocaleString() + (p.note ? (' · Note: ' + p.note) : '');
+          $('proofModal').classList.remove('hidden');
+        }
+        return;
+      }
+      const btn = e.target.closest('button[data-p-act]');
+      if (!btn) return;
+      const id = Number(btn.dataset.id);
+      const act = btn.dataset.pAct;
+      let body = '{}';
+      if (act === 'reject') {
+        const reason = prompt('Optional rejection reason:', 'Invalid or unclear proof');
+        if (reason === null) return;
+        body = JSON.stringify({ reason });
+      }
+      btn.disabled = true;
+      try {
+        await api('/api/admin/reseller-payments/' + id + '/' + act, { method: 'PUT', body });
+        showToast('Payment ' + act + 'd');
+        await loadAll();
+      } catch (err) { showToast(err.message, true); }
+      finally { btn.disabled = false; }
+    });
 
     $('openAddResellerBtn').addEventListener('click', () => {
       $('resellerForm').reset();
@@ -2711,6 +3385,7 @@
       $('rMaxRate').value = '';
       $('rDiscount').value = 0;
       $('rDiscountPct').value = 0;
+      $('rTotalPaidWrap').classList.add('hidden');
       $('resellerModal').classList.remove('hidden');
     });
 
@@ -2740,6 +3415,8 @@
         $('rMaxRate').value = r.maxRate != null ? r.maxRate : '';
         $('rDiscount').value = r.discount ?? 0;
         $('rDiscountPct').value = r.discountPercent ?? 0;
+        $('rTotalPaid').value = Math.round(Number(r.totalPaid || 0));
+        $('rTotalPaidWrap').classList.remove('hidden');
         $('resellerModal').classList.remove('hidden');
       } else if (act === 'del') {
         if (!confirm('Delete reseller ' + r.email + '?')) return;
@@ -2765,6 +3442,9 @@
         discount: Math.max(0, parseFloat($('rDiscount').value) || 0),
         discountPercent: Math.max(0, Math.min(100, parseFloat($('rDiscountPct').value) || 0)),
       };
+      if (editId && $('rTotalPaid').value.trim() !== '') {
+        payload.totalPaid = Math.max(0, parseFloat($('rTotalPaid').value) || 0);
+      }
       if ($('rPassword').value.trim()) payload.password = $('rPassword').value.trim();
       const btn = $('resellerSubmitBtn');
       btn.disabled = true;
@@ -2782,31 +3462,174 @@
       finally { btn.disabled = false; }
     });
 
-    $('paymentsTableBody').addEventListener('click', async (e) => {
-      const btn = e.target.closest('button[data-p-act]');
+    // ── Render: Analytics & Revenue ──
+    function renderAnalytics() {
+      const st = state.stats || {};
+      const plansCfg = (state.settings && state.settings.plans) || {};
+      const bd = st.planBreakdown || {};
+      const total = Number(st.totalUsers || state.usersStats.total || 0);
+      const active = Number(st.activeSubscribers || state.usersStats.active || 0);
+
+      let estMrr = 0;
+      const defaultPrices = { vibe: 1500, plus: 2500, pro: 3500, max: 5000, ultra: 8000, heavy: 5999 };
+      Object.entries(bd).forEach(([k, count]) => {
+        const key = k.toLowerCase();
+        if (key === 'basic' || key === 'free' || key === 'starter') return;
+        const price = Number((plansCfg[key] && plansCfg[key].price) ?? defaultPrices[key] ?? 0);
+        estMrr += price * Number(count || 0);
+      });
+      // Scale MRR proportionally by active ratio
+      const paidTotal = Object.entries(bd).reduce((acc, [k, c]) => (['basic', 'free', 'starter'].includes(k) ? acc : acc + Number(c || 0)), 0);
+      const activeRatio = paidTotal > 0 ? Math.min(1, active / paidTotal) : 0;
+      const mrrVal = Math.round(estMrr * activeRatio);
+      const retention = total > 0 ? Math.round((active / total) * 100) : 0;
+
+      setPkrKpi('anMrrVal', null, mrrVal, 'Based on active subscriptions');
+      $('anRetentionVal').textContent = retention + '%';
+      $('anExpiringVal').textContent = String((state.expiringUsers || []).length);
+      $('anPaidActiveVal').textContent = active.toLocaleString();
+
+      // Distribution Bars
+      const distRows = ['pro', 'max', 'plus', 'ultra', 'vibe', 'basic', 'free']
+        .map((k) => ({ key: k, count: Number(bd[k] || 0) }))
+        .filter((r) => r.count > 0 || ['pro', 'max', 'plus', 'basic'].includes(r.key));
+      const maxC = Math.max(1, ...distRows.map((r) => r.count));
+      $('planDistContainer').innerHTML = distRows.map((r) => {
+        const pct = Math.round((r.count / Math.max(1, total)) * 100);
+        const w = Math.round((r.count / maxC) * 100);
+        return (
+          '<div class="bar-row">' +
+            '<div class="bar-meta"><span>' + esc(r.key.toUpperCase()) + '</span><span style="font-family:var(--font-mono);color:var(--text-secondary);">' + r.count.toLocaleString() + ' (' + pct + '%)</span></div>' +
+            '<div class="bar-track"><div class="bar-fill" style="width:' + w + '%;"></div></div>' +
+          '</div>'
+        );
+      }).join('');
+
+      // Expiring Soon Table
+      const exp = state.expiringUsers || [];
+      const tb = $('expiringUsersBody');
+      if (!exp.length) {
+        tb.innerHTML = '<tr><td colspan="4" class="empty-state">No paid accounts expiring in the next 7 days.</td></tr>';
+        return;
+      }
+      tb.innerHTML = exp.map((u) => {
+        const days = Number(u.daysRemaining || 0);
+        const msg = 'Hi ' + (u.name || u.email) + ', your PakFlow ' + String(u.plan || 'Pro').toUpperCase() + ' plan expires in ' + days + ' day(s). Reply here to renew smoothly!';
+        return (
+          '<tr>' +
+            '<td><div class="user-cell-name">' + esc(u.name || 'User') + '</div><div class="user-cell-email">' + esc(u.email) + '</div></td>' +
+            '<td><span class="badge badge-blue">' + esc(String(u.plan || 'pro').toUpperCase()) + '</span></td>' +
+            '<td><span class="badge badge-amber">' + days + 'd left</span></td>' +
+            '<td><div class="actions-cell">' +
+              '<button type="button" class="btn btn-emerald btn-xs" data-exp-ext="' + u.id + '">+30d</button>' +
+              '<a href="https://wa.me/?text=' + encodeURIComponent(msg) + '" target="_blank" rel="noopener noreferrer" class="btn btn-ghost btn-xs">Remind</a>' +
+            '</div></td>' +
+          '</tr>'
+        );
+      }).join('');
+    }
+
+    $('expiringUsersBody').addEventListener('click', async (e) => {
+      const btn = e.target.closest('button[data-exp-ext]');
       if (!btn) return;
-      const id = Number(btn.dataset.id);
-      const act = btn.dataset.pAct;
+      const uid = Number(btn.dataset.expExt);
       btn.disabled = true;
       try {
-        await api('/api/admin/reseller-payments/' + id + '/' + act, { method: 'PUT', body: '{}' });
-        showToast('Payment ' + act + 'd');
-        await loadAll();
+        await api('/api/admin/users/' + uid, { method: 'PUT', body: JSON.stringify({ addDays: 30 }) });
+        showToast('Extended user by +30 days');
+        await loadAnalyticsView();
       } catch (err) { showToast(err.message, true); }
       finally { btn.disabled = false; }
     });
 
-    // Platform Settings & Broadcast
+    $('runExpiryEmailsBtn').addEventListener('click', async () => {
+      const btn = $('runExpiryEmailsBtn');
+      btn.disabled = true;
+      try {
+        const res = await api('/api/admin/run-expiry-emails', { method: 'POST', body: '{}' });
+        showToast('Expiry reminder run complete');
+      } catch (err) { showToast(err.message, true); }
+      finally { btn.disabled = false; }
+    });
+
+    // ── Render & Save: Subscription Plans & Pricing ──
+    function renderPlansEditor(st) {
+      const plans = (st && st.plans) || {};
+      const grid = $('plansEditorGrid');
+      grid.innerHTML = PLAN_KEYS.map((key) => {
+        const p = plans[key] || { name: key.toUpperCase(), price: 0, credits: 25000, visible: true, description: '' };
+        return (
+          '<div class="plan-card" data-plan-key="' + key + '">' +
+            '<div class="plan-card-head">' +
+              '<span class="badge badge-blue">' + esc(key.toUpperCase()) + '</span>' +
+              '<label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--text-secondary);cursor:pointer;">' +
+                '<span>Visible</span>' +
+                '<input type="checkbox" class="switch" data-pf="visible" ' + (p.visible !== false ? 'checked' : '') + ' />' +
+              '</label>' +
+            '</div>' +
+            '<div class="field"><label>Plan Display Name</label><input class="input" type="text" data-pf="name" value="' + esc(p.name || key.toUpperCase()) + '" /></div>' +
+            '<div class="grid-2">' +
+              '<div class="field"><label>Price (PKR)</label><input class="input" type="number" min="0" data-pf="price" value="' + Number(p.price || 0) + '" /></div>' +
+              '<div class="field"><label>Credits</label><input class="input" type="number" min="0" data-pf="credits" value="' + Number(p.credits || 0) + '" /></div>' +
+            '</div>' +
+            '<div class="field"><label>Description / Perks</label><textarea class="textarea" style="min-height:68px;" data-pf="description">' + esc(p.description || '') + '</textarea></div>' +
+          '</div>'
+        );
+      }).join('');
+    }
+
+    $('savePlansBtn').addEventListener('click', async () => {
+      const btn = $('savePlansBtn');
+      const existingPlans = (state.settings && state.settings.plans) || {};
+      const updated = Object.assign({}, existingPlans);
+      document.querySelectorAll('#plansEditorGrid .plan-card').forEach((card) => {
+        const key = card.dataset.planKey;
+        updated[key] = Object.assign({}, existingPlans[key] || {}, {
+          visible: card.querySelector('[data-pf="visible"]').checked,
+          name: card.querySelector('[data-pf="name"]').value.trim() || key.toUpperCase(),
+          price: parseInt(card.querySelector('[data-pf="price"]').value, 10) || 0,
+          credits: parseInt(card.querySelector('[data-pf="credits"]').value, 10) || 0,
+          description: card.querySelector('[data-pf="description"]').value.trim(),
+        });
+      });
+      btn.disabled = true;
+      try {
+        await api('/api/admin/settings', { method: 'PUT', body: JSON.stringify({ plans: updated }) });
+        if (state.settings) state.settings.plans = updated;
+        showToast('All subscription plans saved');
+      } catch (err) { showToast(err.message, true); }
+      finally { btn.disabled = false; }
+    });
+
+    // ── Platform Settings & Broadcast ──
     function renderSettings(st) {
-      $('setWhatsapp').value = st.whatsappSupport || st.whatsappNumber || '';
-      $('setSupportEmail').value = st.supportEmail || 'support@flowbypak.com';
+      $('setBrandName').value = st.brandName || 'Flow by Pak';
+      $('setWhatsapp').value = st.whatsappSupport || st.whatsappNumber || st.whatsappPhone || '';
+      $('setChannel').value = st.whatsappChannel || '';
+      $('setSupportEmail').value = st.supportEmail || 'flowbypak.site@gmail.com';
+
       const m = st.maintenance || {};
       $('maintEnabled').checked = Boolean(m.enabled);
       $('maintTitle').value = m.title || 'Scheduled System Maintenance';
       $('maintMessage').value = m.message || '';
+      $('maintCustomUrl').value = m.customUrl || '';
+      $('maintCustomUrlTitle').value = m.customUrlTitle || 'Join WhatsApp Channel for Updates';
+      $('maintRedirect').checked = Boolean(m.redirectToCustomUrl);
+      $('topMaintPill').classList.toggle('hidden', !m.enabled);
+
+      const pubReg = st.allowPublicRegistration !== false;
+      $('pubRegToggle').checked = pubReg;
+      $('pubRegStatusLabel').textContent = pubReg ? 'Public Registration is ENABLED (Open)' : 'Public Registration is DISABLED (Restricted)';
+
+      $('trialExtAccessToggle').checked = Boolean(st.allowTrialExtensionAccess);
+      const flowExt = (st.extensions && st.extensions.flow) || {};
+      $('extDirectUrl').value = flowExt.downloadUrl || '';
+      $('extInstructions').value = flowExt.instructions || '';
+
       const bc = st.broadcast || {};
       $('bcEnabled').checked = Boolean(bc.enabled);
       $('bcTitle').value = bc.title || '';
+      $('bcType').value = bc.type || 'info';
       $('bcMessage').value = bc.message || '';
     }
 
@@ -2814,11 +3637,15 @@
       const btn = $('savePlatformSettingsBtn');
       btn.disabled = true;
       try {
+        const wa = $('setWhatsapp').value.trim();
         await api('/api/admin/settings', {
           method: 'PUT',
           body: JSON.stringify({
-            whatsappSupport: $('setWhatsapp').value.trim(),
-            whatsappNumber: $('setWhatsapp').value.trim(),
+            brandName: $('setBrandName').value.trim() || 'Flow by Pak',
+            whatsappSupport: wa,
+            whatsappNumber: wa,
+            whatsappPhone: wa,
+            whatsappChannel: $('setChannel').value.trim(),
             supportEmail: $('setSupportEmail').value.trim(),
           }),
         });
@@ -2836,6 +3663,7 @@
           body: JSON.stringify({
             enabled: $('bcEnabled').checked,
             title: $('bcTitle').value.trim(),
+            type: $('bcType').value || 'info',
             message: $('bcMessage').value.trim(),
           }),
         });

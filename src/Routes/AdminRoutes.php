@@ -60,8 +60,31 @@ final class AdminRoutes
         }
         if ($method === 'GET' && $path === '/admin/pending-approvals') {
             Helpers::requireAdmin();
-            $users = Db::readUsers();
             $pending = [];
+            if (\App\Database::isEnabled()) {
+                $rows = \App\Database::pdo()->query("SELECT * FROM users WHERE status IN ('pending', 'pending_approval') ORDER BY id DESC")->fetchAll();
+                foreach ($rows as $row) {
+                    $extra = !empty($row['extra_json']) ? json_decode((string)$row['extra_json'], true) : [];
+                    if (!is_array($extra)) $extra = [];
+                    $plan = (string)($row['plan'] ?? 'pro');
+                    $pending[] = [
+                        'id' => (int)$row['id'],
+                        'name' => (string)($row['name'] ?? ''),
+                        'username' => (string)($row['username'] ?? ''),
+                        'email' => (string)($row['email'] ?? ''),
+                        'plainPasswordHint' => $row['plain_password_hint'] ?? null,
+                        'plan' => $plan,
+                        'requestedDays' => (int)($extra['requestedDays'] ?? $row['days_remaining'] ?? ($plan === 'max' ? 30 : 20)),
+                        'resellerId' => $row['reseller_id'] !== null ? (int)$row['reseller_id'] : null,
+                        'resellerName' => $extra['resellerName'] ?? null,
+                        'resellerEmail' => $extra['resellerEmail'] ?? null,
+                        'createdAt' => $row['created_at'] ?? null,
+                        'status' => (string)($row['status'] ?? 'pending'),
+                    ];
+                }
+                Http::json(['success' => true, 'pending' => $pending, 'total' => count($pending)]);
+            }
+            $users = Db::readUsers();
             foreach ($users as $u) {
                 $st = $u['status'] ?? '';
                 if ($st === 'pending' || $st === 'pending_approval') {
@@ -86,6 +109,27 @@ final class AdminRoutes
         if ($method === 'PUT' && preg_match('#^/admin/users/(\d+)/approve$#', $path, $m)) {
             Helpers::requireAdmin();
             $userId = (int)$m[1];
+            if (\App\Database::isEnabled()) {
+                $u = Db::findUserByIdMysql($userId);
+                if (!$u) {
+                    Http::json(['error' => 'NotFound', 'message' => 'User not found'], 404);
+                }
+                $days = (int)($u['requestedDays'] ?? $u['daysRemaining'] ?? (($u['plan'] ?? '') === 'max' ? 30 : 20));
+                $u['status'] = 'active';
+                $u['planExpiresAt'] = Db::isoNow($days * 86400);
+                $u['daysRemaining'] = $days;
+                $u['approvedAt'] = Db::isoNow();
+                $u['updatedAt'] = Db::isoNow();
+                Db::upsertSingleUser($u);
+                $safe = $u;
+                unset($safe['passwordHash']);
+                $planUpper = strtoupper((string)($safe['plan'] ?? 'pro'));
+                Http::json([
+                    'success' => true,
+                    'message' => "User {$safe['email']} ($planUpper) has been APPROVED and is now ACTIVE for $days days!",
+                    'user' => $safe,
+                ]);
+            }
             $users = Db::readUsers();
             foreach ($users as $i => $u) {
                 if ((int)($u['id'] ?? 0) === $userId) {
@@ -110,6 +154,20 @@ final class AdminRoutes
         if ($method === 'PUT' && preg_match('#^/admin/users/(\d+)/reject$#', $path, $m)) {
             Helpers::requireAdmin();
             $userId = (int)$m[1];
+            if (\App\Database::isEnabled()) {
+                $u = Db::findUserByIdMysql($userId);
+                if (!$u) {
+                    Http::json(['error' => 'NotFound', 'message' => 'User not found'], 404);
+                }
+                if (!empty($u['resellerId'])) {
+                    \App\Database::pdo()->prepare('UPDATE resellers SET users_created = GREATEST(0, COALESCE(users_created, 0) - 1) WHERE id = ?')
+                        ->execute([(int)$u['resellerId']]);
+                }
+                Db::markUserDeleted($u['id'], (string)($u['email'] ?? ''));
+                Db::deleteSingleUserMysql($userId);
+                Db::clearCaches();
+                Http::json(['success' => true, 'message' => "User registration request for {$u['email']} has been rejected."]);
+            }
             $users = Db::readUsers();
             foreach ($users as $i => $u) {
                 if ((int)($u['id'] ?? 0) === $userId) {
@@ -539,6 +597,11 @@ final class AdminRoutes
                 } elseif ($stLower === 'expired') {
                     $where[] = "(LOWER(status) <> 'suspended' AND COALESCE(is_locked, 0) = 0 AND (plan_expires_at IS NULL OR plan_expires_at <= ?))";
                     $params[] = $nowIso;
+                } elseif ($stLower === 'expiring') {
+                    $sevenDaysIso = Db::isoNow(7 * 86400);
+                    $where[] = "(LOWER(status) <> 'suspended' AND COALESCE(is_locked, 0) = 0 AND LOWER(plan) NOT IN ('basic', 'free') AND plan_expires_at IS NOT NULL AND plan_expires_at > ? AND plan_expires_at <= ?)";
+                    $params[] = $nowIso;
+                    $params[] = $sevenDaysIso;
                 } elseif ($stLower === 'active') {
                     $where[] = "(LOWER(status) <> 'suspended' AND COALESCE(is_locked, 0) = 0 AND plan_expires_at IS NOT NULL AND plan_expires_at > ?)";
                     $params[] = $nowIso;
@@ -692,6 +755,10 @@ final class AdminRoutes
                 }
                 if ($statusLower === 'expired') {
                     return $st !== 'suspended' && empty($u['isLocked']) && $days <= 0;
+                }
+                if ($statusLower === 'expiring') {
+                    $pl = strtolower((string)($u['plan'] ?? 'basic'));
+                    return $st !== 'suspended' && empty($u['isLocked']) && !in_array($pl, ['basic', 'free'], true) && $days > 0 && $days <= 7;
                 }
                 if ($statusLower === 'active') {
                     return $st !== 'suspended' && empty($u['isLocked']) && $days > 0;
