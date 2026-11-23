@@ -16,8 +16,10 @@ final class ApiRouter
         $isExtOrigin = str_starts_with($origin, 'chrome-extension://');
         $isExtPath = $apiPath === '/user/login' || $apiPath === '/user/me';
         $isLogoutPath = $apiPath === '/auth/logout' || $apiPath === '/user/logout';
+        $isAdminPath = str_starts_with($apiPath, '/admin/') || $apiPath === '/admin';
 
-        if (($isExtOrigin || $isExtPath) && !$isLogoutPath) {
+        // Admin Cookie Uploader (/api/admin/*) is already JWT-protected and must NOT be blocked by User Extension minExtVersion bumps
+        if (($isExtOrigin || $isExtPath) && !$isLogoutPath && !$isAdminPath) {
             $minVer = Helpers::normalizeExtVersionString(Helpers::MIN_PAKFLOW_EXT_VERSION, '1.5');
             try {
                 $cfgMin = Db::readSettings()['minExtVersion'] ?? null;
