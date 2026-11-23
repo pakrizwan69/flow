@@ -162,9 +162,17 @@
             cache: "no-store",
             signal: authAc ? authAc.signal : undefined,
           })
-            .then(function (r) { return r.json(); })
-            .then(function (me) {
+            .then(function (r) { return r.json().then(function (body) { return { status: r.status, body: body }; }); })
+            .then(function (resObj) {
               if (authTid) clearTimeout(authTid);
+              var me = resObj && resObj.body;
+              if (me && me.outdatedExtension) {
+                showOutdatedExtensionBanner(
+                  me.message || ("Download latest PakFlow Extension" + (me.latestVersion ? (" (v" + me.latestVersion + ")") : "") + " from your dashboard."),
+                  origin.replace(/\/+$/, "")
+                );
+                return;
+              }
               var u = me && (me.user || me);
               if (u && creditsEl) {
                 var pLow2 = String(u.plan || "basic").toLowerCase();
@@ -182,11 +190,35 @@
                   daysValEl2.dataset.fromApi = "1";
                   chrome.storage.local.set({ pakflow_days_cache: dClean });
                 }
-                chrome.storage.local.set({ credits: cVal, fakeBalance: isBasic2 ? 0 : Math.round(liveCredNum), pf_last_synced_fb: isBasic2 ? 0 : Math.round(liveCredNum) });
+                chrome.storage.local.set({ credits: cVal, fakeBalance: isBasic2 ? 0 : Math.round(liveCredNum), pf_last_synced_fb: isBasic2 ? 0 : Math.round(liveCredNum), pf_outdated_ext_notice: null });
               }
             })
             .catch(function () { if (authTid) clearTimeout(authTid); });
         }
+
+        function showOutdatedExtensionBanner(messageText, portalOrigin) {
+          var existing = document.getElementById("pfOutdatedBanner");
+          if (existing) existing.remove();
+          var base = String(portalOrigin || "https://flowbypak.com").replace(/\/+$/, "");
+          var box = document.createElement("div");
+          box.id = "pfOutdatedBanner";
+          box.style.cssText = "margin:10px 0;padding:14px;border-radius:12px;background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.42);color:#fef3c7;text-align:center;";
+          box.innerHTML =
+            '<div style="font-size:13px;font-weight:800;color:#fcd34d;margin-bottom:5px;">Extension Update Required</div>' +
+            '<div style="font-size:11.8px;line-height:1.45;color:#fde68a;margin-bottom:10px;">' + String(messageText || "Please download the latest extension from your dashboard.").replace(/</g, "&lt;") + '</div>' +
+            '<a href="' + base + '/downloads/latest" target="_blank" rel="noopener noreferrer" style="display:block;width:100%;padding:9px 12px;border-radius:8px;background:#2563eb;color:#fff;font-size:12.5px;font-weight:700;text-decoration:none;margin-bottom:6px;">Download Latest Extension ↗</a>' +
+            '<a href="' + base + '/dashboard" target="_blank" rel="noopener noreferrer" style="display:block;width:100%;padding:7px 12px;border-radius:8px;background:rgba(255,255,255,0.06);border:1px solid rgba(148,163,184,0.28);color:#e2e8f0;font-size:11.5px;font-weight:600;text-decoration:none;">Open Dashboard ↗</a>';
+          var host = document.querySelector("#loginView .auth-card") || document.getElementById("mainView") || document.querySelector(".app-container");
+          if (host) host.prepend(box);
+        }
+
+        try {
+          chrome.storage.local.get(["pf_outdated_ext_notice"], function (od) {
+            if (od && od.pf_outdated_ext_notice && od.pf_outdated_ext_notice.message) {
+              showOutdatedExtensionBanner(od.pf_outdated_ext_notice.message, origin);
+            }
+          });
+        } catch (_e) {}
 
         if (chrome.storage && chrome.storage.onChanged) {
           chrome.storage.onChanged.addListener(function (changes, area) {

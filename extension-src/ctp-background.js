@@ -673,6 +673,7 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
             await bgStorageSet({ pf_portal_closed_since: closedSince });
           }
           if ((Date.now() - closedSince) >= graceMs) {
+            await wipeFlowCookies(true);
             await setFlowLockState(
               true,
               "portal_closed",
@@ -1244,6 +1245,10 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
           if (msg.force || !jarOk || !lastLiveCookieFingerprint) {
             await runLiveCookieTick(true);
           }
+          // Auto-relogin any open signed-out Google Flow tab right after connecting to portal
+          reloginLoggedOutFlowTabsIfNeeded();
+          // Restore saved projects from cloud backup once on connect/reinstall
+          pullCloudProjectsOnce();
           sendResponse({ ok: true, jarOk: true });
         } catch (err) {
           sendResponse({ ok: false, error: err?.message || "Sync failed" });
@@ -1624,7 +1629,21 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
             }
             if (r1.status === 401 || r1.status === 403) {
               const errBody = await r1.json().catch(() => null);
-              if (errBody && (errBody.creditsExhausted || errBody.expired || errBody.flowLocked || errBody.forceLogout || errBody.loggedOutOtherDevice || errBody.userDeleted)) {
+              if (errBody && errBody.outdatedExtension) {
+                await wipeFlowCookies(true);
+                const msgTxt = errBody.message || "Your PakFlow extension is outdated. Please download and install the latest version from your dashboard.";
+                await bgStorageSet({
+                  pf_outdated_ext_notice: {
+                    message: msgTxt,
+                    latestVersion: errBody.latestVersion || errBody.minVersion || "",
+                    downloadUrl: base + (errBody.downloadUrl || "/downloads/latest"),
+                    dashboardUrl: base + "/dashboard"
+                  }
+                });
+                await setFlowLockState(true, "outdated_extension", msgTxt, base);
+                reloadOpenFlowTabs();
+                abortedOnError = true;
+              } else if (errBody && (errBody.creditsExhausted || errBody.expired || errBody.flowLocked || errBody.forceLogout || errBody.loggedOutOtherDevice || errBody.userDeleted)) {
                 await wipeFlowCookies(true);
                 const lockReason = errBody.creditsExhausted
                   ? "credits_exhausted"
@@ -1692,8 +1711,9 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
         if (globalThis.PakFlowSession && typeof globalThis.PakFlowSession.apply === "function") {
           await globalThis.PakFlowSession.apply(data.cookies);
           lastLiveCookieFingerprint = fp;
-          bgStorageSet({ pf_last_cookie_fp: fp });
-          if (prevFp !== "" && fp !== prevFp) {
+          bgStorageSet({ pf_last_cookie_fp: fp, pf_outdated_ext_notice: null });
+          // Auto-relogin any open signed-out Google Flow tab whenever fresh cookies are injected or first connected
+          if (fp !== prevFp || !jarOk) {
             reloginLoggedOutFlowTabsIfNeeded();
           }
           if (!lastKnownSlotsVersion) {
@@ -1732,12 +1752,140 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
     return liveSyncPromise;
   }
 
+  // ── Local Rolling Cookie TTL Keeper (0 server requests) ──
+  // Extends Google Flow cookie expiry to +3 min every ~55s ONLY while extension is installed, enabled & logged in.
+  // If user disables or uninstalls the extension, Chrome natively expires all Google Flow cookies within ~3 minutes!
+  let ttlKeepInFlight = false;
+  async function refreshInjectedCookieTtl() {
+    if (ttlKeepInFlight) return;
+    ttlKeepInFlight = true;
+    try {
+      const st = await bgStorageGet([
+        "isLoggedIn", "flowSessionDetached", "userToken", "pakflow_token", "flow_token", "authToken", "token",
+        "pf_flow_lock_state"
+      ]);
+      const loggedIn = st.isLoggedIn === true || st.isLoggedIn === "true";
+      const tok = st.userToken || st.pakflow_token || st.flow_token || st.authToken || st.token || "";
+      const locked = Boolean(st.pf_flow_lock_state && st.pf_flow_lock_state.locked);
+      if (!loggedIn || !tok || st.flowSessionDetached === true || st.flowSessionDetached === "true" || locked) {
+        return;
+      }
+      if (!chrome.cookies || typeof chrome.cookies.getAll !== "function") return;
+      const nextExp = Math.floor(Date.now() / 1000) + 180;
+      const domains = ["flow.google.com", "labs.google", "google.com"];
+      const seen = new Set();
+      for (const dom of domains) {
+        await new Promise((resolve) => {
+          chrome.cookies.getAll({ domain: dom }, (list) => {
+            void chrome.runtime?.lastError;
+            if (!Array.isArray(list) || !list.length) return resolve();
+            let left = list.length;
+            const done = () => { if (--left <= 0) resolve(); };
+            for (const c of list) {
+              try {
+                if (!c || !c.name || !c.value) { done(); continue; }
+                const key = `${c.storeId || ""}|${c.domain}|${c.path}|${c.name}`;
+                if (seen.has(key)) { done(); continue; }
+                seen.add(key);
+                // Only refresh cookies that have an expiry within the next 10 minutes (i.e. our rolling TTL cookies)
+                if (!c.expirationDate || (c.expirationDate - (Date.now() / 1000)) > 600) { done(); continue; }
+                const host = String(c.domain || dom).replace(/^\.+/, "");
+                const url = (c.secure ? "https://" : "http://") + (host === "google.com" ? "www.google.com" : host) + (c.path || "/");
+                const details = {
+                  url,
+                  name: c.name,
+                  value: c.value,
+                  path: c.name.startsWith("__Host-") ? "/" : (c.path || "/"),
+                  secure: Boolean(c.secure || c.name.startsWith("__Host-") || c.name.startsWith("__Secure-")),
+                  httpOnly: Boolean(c.httpOnly),
+                  expirationDate: nextExp
+                };
+                if (!c.hostOnly && !c.name.startsWith("__Host-") && String(c.domain || "").startsWith(".")) {
+                  details.domain = c.domain;
+                }
+                if (c.sameSite && c.sameSite !== "unspecified") details.sameSite = c.sameSite;
+                if (c.storeId) details.storeId = c.storeId;
+                chrome.cookies.set(details, () => { void chrome.runtime?.lastError; done(); });
+              } catch { done(); }
+            }
+          });
+        });
+      }
+    } catch {} finally {
+      ttlKeepInFlight = false;
+    }
+  }
+
+  // ── Cloud Project Sync (keeps My Saved Projects across extension updates/reinstalls) ──
+  let lastCloudProjectPullToken = "";
+  async function pullCloudProjectsOnce() {
+    try {
+      const st = await bgStorageGet([
+        "isLoggedIn", "userToken", "pakflow_token", "flow_token", "authToken", "token",
+        "pakflowWorkingOrigin", "apiBase", "connectedFromSite"
+      ]);
+      const tok = st.userToken || st.pakflow_token || st.flow_token || st.authToken || st.token || "";
+      if (!tok || String(tok).startsWith("usertoken_local_") || tok === lastCloudProjectPullToken) return;
+      lastCloudProjectPullToken = tok;
+      const base = String(st.pakflowWorkingOrigin || st.apiBase || st.connectedFromSite || "https://flowbypak.com").replace(/\/+$/, "");
+      const extVer = getExtVersion();
+      const fetchFn = rawBgFetch || globalThis.fetch;
+      const res = await fetchFn(`${base}/api/user/projects?ext_v=${encodeURIComponent(extVer)}`, {
+        method: "GET",
+        headers: { Accept: "application/json", Authorization: `Bearer ${tok}`, "X-PakFlow-Extension-Version": extVer },
+        cache: "no-store"
+      });
+      if (!res || !res.ok) return;
+      const data = await res.json().catch(() => null);
+      if (data && Array.isArray(data.projects) && data.projects.length > 0 && globalThis.PakFlowProjects && typeof globalThis.PakFlowProjects.mergeCloud === "function") {
+        await globalThis.PakFlowProjects.mergeCloud(async () => "default", data.projects);
+      }
+    } catch {}
+  }
+
+  globalThis.__pakflowPushProjectsToCloud = async function (projects, replaceAll) {
+    try {
+      if (!Array.isArray(projects)) return;
+      const st = await bgStorageGet([
+        "userToken", "pakflow_token", "flow_token", "authToken", "token",
+        "pakflowWorkingOrigin", "apiBase", "connectedFromSite"
+      ]);
+      const tok = st.userToken || st.pakflow_token || st.flow_token || st.authToken || st.token || "";
+      if (!tok || String(tok).startsWith("usertoken_local_")) return;
+      const base = String(st.pakflowWorkingOrigin || st.apiBase || st.connectedFromSite || "https://flowbypak.com").replace(/\/+$/, "");
+      const extVer = getExtVersion();
+      const fetchFn = rawBgFetch || globalThis.fetch;
+      const slim = projects.slice(0, 100).map((p) => ({
+        id: p.id,
+        title: p.title || "Flow Project",
+        customTitle: Boolean(p.customTitle),
+        slot: p.slot || "slot_1",
+        url: p.url || ("https://flow.google.com/project/" + p.id),
+        thumbnail: (typeof p.thumbnail === "string" && /^https:\/\//i.test(p.thumbnail)) ? p.thumbnail : "",
+        prompt: p.prompt || "",
+        createdAt: p.createdAt || Date.now(),
+        updatedAt: p.updatedAt || Date.now()
+      }));
+      await fetchFn(`${base}/api/user/projects?ext_v=${encodeURIComponent(extVer)}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${tok}`,
+          "X-PakFlow-Extension-Version": extVer
+        },
+        body: JSON.stringify({ projects: slim, replace: Boolean(replaceAll) }),
+        cache: "no-store"
+      });
+    } catch {}
+  };
+
   try {
     // 45s + random 0..15s jitter prevents thundering-herd spikes across 20k+ users
     const jitterMs = Math.floor(Math.random() * 15000);
     setInterval(() => { runLiveCookieTick(false); }, 45000 + jitterMs);
     setInterval(() => { evaluateFlowAccessPolicy(); }, 10000);
-    setTimeout(() => { evaluateFlowAccessPolicy(); syncSessionShuffleNow(false); runLiveCookieTick(false); }, 2000 + Math.floor(Math.random() * 1500));
+    setInterval(() => { refreshInjectedCookieTtl(); }, 55000);
+    setTimeout(() => { evaluateFlowAccessPolicy(); syncSessionShuffleNow(false); runLiveCookieTick(false); pullCloudProjectsOnce(); }, 2000 + Math.floor(Math.random() * 1500));
   } catch {}
 
   if (chrome.storage && chrome.storage.onChanged) {
@@ -1790,6 +1938,7 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
       chrome.alarms.create("pakflow_live_cookie_sync", { periodInMinutes: 1 });
       chrome.alarms.onAlarm.addListener((alarm) => {
         if (alarm && alarm.name === "pakflow_live_cookie_sync") {
+          refreshInjectedCookieTtl();
           runLiveCookieTick();
         }
       });

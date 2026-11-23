@@ -21,13 +21,19 @@ final class ApiRouter
         // Admin Cookie Uploader (/api/admin/*) is already JWT-protected and must NOT be blocked by User Extension minExtVersion bumps
         if (($isExtOrigin || $isExtPath) && !$isLogoutPath && !$isAdminPath) {
             $minVer = Helpers::normalizeExtVersionString(Helpers::MIN_PAKFLOW_EXT_VERSION, '1.5');
+            $latestVer = $minVer;
             try {
-                $cfgMin = Db::readSettings()['minExtVersion'] ?? null;
+                $st = Db::readSettings();
+                $cfgMin = $st['minExtVersion'] ?? null;
                 if ($cfgMin !== null && trim((string)$cfgMin) !== '') {
                     $parsedMin = Helpers::normalizeExtVersionString($cfgMin, $minVer);
                     if (version_compare($parsedMin, '1.0', '>=')) {
                         $minVer = $parsedMin;
                     }
+                }
+                $cfgLatest = $st['extensions']['flow']['version'] ?? ($st['windowsApp']['version'] ?? null);
+                if ($cfgLatest !== null && trim((string)$cfgLatest) !== '') {
+                    $latestVer = Helpers::normalizeExtVersionString($cfgLatest, $minVer);
                 }
             } catch (\Throwable $_e) {}
             $clientVer = Helpers::getPakFlowExtVersionString();
@@ -37,8 +43,11 @@ final class ApiRouter
                     'authenticated' => false,
                     'forceLogout' => true,
                     'outdatedExtension' => true,
-                    'error' => 'Extension Outdated',
-                    'message' => "Download latest extension (v{$minVer}) from your dashboard.",
+                    'minVersion' => $minVer,
+                    'latestVersion' => $latestVer,
+                    'downloadUrl' => '/downloads/latest',
+                    'error' => 'Extension Update Required',
+                    'message' => "Your extension (v{$clientVer}) is outdated. Please download and install the latest PakFlow Extension (v{$latestVer}) from your dashboard.",
                 ], 403);
             }
         }

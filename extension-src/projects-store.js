@@ -120,7 +120,20 @@ globalThis.PakFlowProjects = (() => {
     };
   }
 
-  async function persist(ctx) {
+  let cloudPushTimer = null;
+  function scheduleCloudBackup(projects, replaceAll) {
+    try {
+      if (cloudPushTimer) clearTimeout(cloudPushTimer);
+      cloudPushTimer = setTimeout(() => {
+        cloudPushTimer = null;
+        if (typeof globalThis.__pakflowPushProjectsToCloud === 'function') {
+          globalThis.__pakflowPushProjectsToCloud(projects, Boolean(replaceAll));
+        }
+      }, 1500);
+    } catch {}
+  }
+
+  async function persist(ctx, opts = {}) {
     ctx.byIp[ctx.ip] = ctx.all;
     const latest = await chrome.storage.local.get(['activeSlot', 'sessionLoopIndex']);
     const cacheSlot = selected(latest);
@@ -131,6 +144,9 @@ globalThis.PakFlowProjects = (() => {
       myProjectsCurrentIp: ctx.ip,
       myProjectsOwnedIds: response({ ...ctx, slot: cacheSlot }).ownedIds
     });
+    if (!opts.skipCloud) {
+      scheduleCloudBackup(ctx.all, Boolean(opts.replaceCloud));
+    }
     return response(ctx);
   }
 
@@ -214,7 +230,15 @@ globalThis.PakFlowProjects = (() => {
           }
         }
         delete ctx.owners[id];
-        return persist(ctx);
+        return persist(ctx, { replaceCloud: true });
+      });
+    },
+    mergeCloud(resolveIp, cloudProjects = []) {
+      return run(async () => {
+        if (!Array.isArray(cloudProjects) || cloudProjects.length === 0) return null;
+        const ctx = await context(resolveIp);
+        ctx.all = mergeAllProjects([...cloudProjects, ...ctx.all], ctx.byIp);
+        return persist(ctx, { skipCloud: true });
       });
     }
   };

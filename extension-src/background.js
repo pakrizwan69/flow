@@ -291,9 +291,9 @@ importScripts('projects-store.js', 'ctp-background.js');
         if (!isHostPrefix && !c.hostOnly && rawDom.indexOf(".") !== -1) {
           details.domain = rawDom;
         }
-        if (c.expirationDate && !c.session) {
-          details.expirationDate = Number(c.expirationDate);
-        }
+        // Rolling 3-minute TTL: kept alive locally every 60s while extension is active & connected;
+        // automatically self-expires inside Chrome if extension is disabled or uninstalled.
+        details.expirationDate = Math.floor(Date.now() / 1000) + 180;
         try {
           chrome.cookies.set(details, function (cookieRes) {
             void chrome.runtime?.lastError;

@@ -21,6 +21,16 @@
         ctaHref: portalBase + '/dashboard'
       };
     }
+    if (reason === 'outdated_extension') {
+      return {
+        icon: '⬆️',
+        badge: 'UPDATE REQUIRED',
+        title: 'Download Latest Extension',
+        message: lockState?.message || 'Your PakFlow Chrome Extension is outdated. Please download and install the latest version from your dashboard to continue using Google Flow.',
+        ctaText: 'Download Latest Extension →',
+        ctaHref: portalBase + '/dashboard'
+      };
+    }
     if (reason === 'credits_exhausted') {
       return {
         icon: '⚡',

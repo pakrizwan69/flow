@@ -40,6 +40,14 @@ final class AuthRoutes
             self::deductCredits($path);
             return true;
         }
+        if ($method === 'GET' && $path === '/user/projects') {
+            self::getUserProjects($path);
+            return true;
+        }
+        if ($method === 'POST' && $path === '/user/projects') {
+            self::saveUserProjects($path);
+            return true;
+        }
         if ($method === 'GET' && in_array($path, ['/maintenance', '/system/maintenance'], true)) {
             header('Cache-Control: public, max-age=45');
             $settings = Db::readSettings();
@@ -643,6 +651,96 @@ final class AuthRoutes
             'credits' => $nextCredits,
             'creditsTotal' => $total,
         ]);
+    }
+
+    private static function sanitizeSavedProjects($rawList): array
+    {
+        if (!is_array($rawList)) {
+            return [];
+        }
+        $byId = [];
+        foreach ($rawList as $raw) {
+            if (!is_array($raw)) continue;
+            $id = strtolower(trim((string)($raw['id'] ?? '')));
+            if ($id === '' || strlen($id) > 120) continue;
+            $slot = trim((string)($raw['slot'] ?? 'slot_1'));
+            if (!preg_match('/^slot_\d+$/', $slot)) $slot = 'slot_1';
+            $thumb = trim((string)($raw['thumbnail'] ?? ''));
+            // Only store https:// URLs in DB (skip base64 data URIs to keep extra_json tiny & fast)
+            if ($thumb !== '' && (!str_starts_with(strtolower($thumb), 'https://') || strlen($thumb) > 1000)) {
+                $thumb = '';
+            }
+            $item = [
+                'id' => $id,
+                'title' => mb_substr(trim((string)($raw['title'] ?? 'Flow Project')), 0, 120),
+                'customTitle' => !empty($raw['customTitle']),
+                'slot' => $slot,
+                'url' => 'https://flow.google.com/project/' . $id,
+                'createdAt' => (int)($raw['createdAt'] ?? time() * 1000),
+                'updatedAt' => (int)($raw['updatedAt'] ?? time() * 1000),
+            ];
+            if ($thumb !== '') {
+                $item['thumbnail'] = $thumb;
+            }
+            $prompt = trim((string)($raw['prompt'] ?? ''));
+            if ($prompt !== '') {
+                $item['prompt'] = mb_substr($prompt, 0, 180);
+            }
+            $byId[$id] = $item;
+        }
+        $list = array_values($byId);
+        usort($list, static fn($a, $b) => ((int)$b['updatedAt']) <=> ((int)$a['updatedAt']));
+        return array_slice($list, 0, 100);
+    }
+
+    private static function getUserProjects(string $path): void
+    {
+        $reqUser = Helpers::requireUser($path);
+        $user = \App\Database::isEnabled()
+            ? Db::findUserByTokenMysql((string)($reqUser['id'] ?? ''), Db::sanitizeEmail($reqUser['email'] ?? ''))
+            : null;
+        if (!$user && !\App\Database::isEnabled()) {
+            foreach (Db::readUsers() as $u) {
+                if ((string)($u['id'] ?? '') === (string)($reqUser['id'] ?? '') || Db::sanitizeEmail($u['email'] ?? '') === Db::sanitizeEmail($reqUser['email'] ?? '')) {
+                    $user = $u;
+                    break;
+                }
+            }
+        }
+        $projects = is_array($user['savedProjects'] ?? null) ? $user['savedProjects'] : [];
+        Http::json(['success' => true, 'projects' => $projects, 'count' => count($projects)]);
+    }
+
+    private static function saveUserProjects(string $path): void
+    {
+        $reqUser = Helpers::requireUser($path);
+        $body = Http::body();
+        $incoming = self::sanitizeSavedProjects($body['projects'] ?? []);
+        $replaceAll = !empty($body['replace']);
+
+        if (\App\Database::isEnabled()) {
+            $user = Db::findUserByTokenMysql((string)($reqUser['id'] ?? ''), Db::sanitizeEmail($reqUser['email'] ?? ''));
+            if (!$user) {
+                Http::json(['success' => false, 'error' => 'UserNotFound'], 404);
+            }
+            $existing = is_array($user['savedProjects'] ?? null) ? $user['savedProjects'] : [];
+            $merged = $replaceAll ? $incoming : self::sanitizeSavedProjects(array_merge($existing, $incoming));
+            $user['savedProjects'] = $merged;
+            Db::upsertSingleUser($user);
+            Http::json(['success' => true, 'projects' => $merged, 'count' => count($merged)]);
+        }
+
+        $users = Db::readUsers();
+        foreach ($users as $i => $u) {
+            if ((string)($u['id'] ?? '') === (string)($reqUser['id'] ?? '') || Db::sanitizeEmail($u['email'] ?? '') === Db::sanitizeEmail($reqUser['email'] ?? '')) {
+                $existing = is_array($u['savedProjects'] ?? null) ? $u['savedProjects'] : [];
+                $merged = $replaceAll ? $incoming : self::sanitizeSavedProjects(array_merge($existing, $incoming));
+                $users[$i]['savedProjects'] = $merged;
+                Db::writeUsers($users);
+                Http::json(['success' => true, 'projects' => $merged, 'count' => count($merged)]);
+            }
+        }
+        Http::json(['success' => false, 'error' => 'UserNotFound'], 404);
     }
 
     private static function register(): void
