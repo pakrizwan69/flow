@@ -1533,29 +1533,28 @@ final class AdminRoutes
         ]);
     }
 
-    private static function regenerateExtensionZip(): void
+    /**
+     * Builds PakFlow_v{rawVer}.zip cleanly from extension-src/ into dist/downloads & public/downloads.
+     * Used both by Admin Regenerate and by index.php auto-heal if a deployed/regenerated ZIP is missing on disk.
+     */
+    public static function buildExtensionZipToDisk(string $rawVer, string $portalUrl = ''): ?array
     {
         if (!class_exists(\ZipArchive::class)) {
-            Http::json(['success' => false, 'message' => 'PHP ZipArchive extension is not enabled on this server.'], 500);
+            return null;
         }
-        $body = Http::body();
-        $rawVer = trim((string)($body['version'] ?? ''));
-        $rawVer = ltrim($rawVer, 'vV');
+        $rawVer = ltrim(trim($rawVer), 'vV');
         if ($rawVer === '' || !preg_match('/^\d+(?:\.\d+){0,3}$/', $rawVer)) {
-            Http::json(['success' => false, 'message' => 'Please enter a valid version number (e.g. 1.8 or 2.0)'], 400);
+            return null;
         }
-        $releaseNote = trim((string)($body['releaseNote'] ?? ''));
-        $portalUrl = trim((string)($body['portalUrl'] ?? ''));
-        $portalUrl = $portalUrl !== '' ? rtrim($portalUrl, '/') : '';
+        $portalUrl = trim($portalUrl) !== '' ? rtrim(trim($portalUrl), '/') : '';
         if ($portalUrl !== '' && !preg_match('#^https?://#i', $portalUrl)) {
             $portalUrl = 'https://' . $portalUrl;
         }
-        $minVerRaw = $body['minExtVersion'] ?? null;
 
         $root = dirname(__DIR__, 2);
         $extSrcDir = $root . '/extension-src';
         if (!is_dir($extSrcDir) || !is_file($extSrcDir . '/manifest.json')) {
-            Http::json(['success' => false, 'message' => 'extension-src/ folder not found on server. Deploy latest Git repo first.'], 404);
+            return null;
         }
 
         $targetName = "PakFlow_v{$rawVer}.zip";
@@ -1567,7 +1566,7 @@ final class AdminRoutes
         $tmpZip = $distDestDir . '/' . $targetName . '.tmp.' . bin2hex(random_bytes(4));
         $za = new \ZipArchive();
         if ($za->open($tmpZip, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== true) {
-            Http::json(['success' => false, 'message' => 'Unable to create ZIP archive in dist/downloads'], 500);
+            return null;
         }
 
         $shortVer = preg_match('/^(\d+\.\d+)/', $rawVer, $vm) ? $vm[1] : $rawVer;
@@ -1615,15 +1614,59 @@ final class AdminRoutes
         }
         $za->close();
 
+        clearstatcache(true, $tmpZip);
+        $len = @filesize($tmpZip) ?: 0;
+        if ($len < 50000) {
+            @unlink($tmpZip);
+            return null;
+        }
+
         $finalDist = $distDestDir . '/' . $targetName;
         if (!@rename($tmpZip, $finalDist)) {
             @copy($tmpZip, $finalDist);
             @unlink($tmpZip);
         }
         @copy($finalDist, $publicDestDir . '/' . $targetName);
+        clearstatcache(true, $finalDist);
+        $finalLen = @filesize($finalDist) ?: $len;
+        $sizeLabel = $finalLen > 1024 * 1024 ? number_format($finalLen / (1024 * 1024), 1) . ' MB' : round($finalLen / 1024) . ' KB';
 
-        $len = @filesize($finalDist) ?: 0;
-        $sizeLabel = $len > 1024 * 1024 ? number_format($len / (1024 * 1024), 1) . ' MB' : round($len / 1024) . ' KB';
+        return [
+            'path' => $finalDist,
+            'fileName' => $targetName,
+            'version' => $rawVer,
+            'sizeBytes' => $finalLen,
+            'sizeLabel' => $sizeLabel,
+        ];
+    }
+
+    private static function regenerateExtensionZip(): void
+    {
+        if (!class_exists(\ZipArchive::class)) {
+            Http::json(['success' => false, 'message' => 'PHP ZipArchive extension is not enabled on this server.'], 500);
+        }
+        $body = Http::body();
+        $rawVer = trim((string)($body['version'] ?? ''));
+        $rawVer = ltrim($rawVer, 'vV');
+        if ($rawVer === '' || !preg_match('/^\d+(?:\.\d+){0,3}$/', $rawVer)) {
+            Http::json(['success' => false, 'message' => 'Please enter a valid version number (e.g. 1.8 or 2.0)'], 400);
+        }
+        $releaseNote = trim((string)($body['releaseNote'] ?? ''));
+        $portalUrl = trim((string)($body['portalUrl'] ?? ''));
+        $minVerRaw = $body['minExtVersion'] ?? null;
+
+        $root = dirname(__DIR__, 2);
+        if (!is_dir($root . '/extension-src') || !is_file($root . '/extension-src/manifest.json')) {
+            Http::json(['success' => false, 'message' => 'extension-src/ folder not found on server. Deploy latest Git repo first.'], 404);
+        }
+
+        $built = self::buildExtensionZipToDisk($rawVer, $portalUrl);
+        if (!$built) {
+            Http::json(['success' => false, 'message' => 'Unable to create valid ZIP archive in dist/downloads'], 500);
+        }
+
+        $targetName = $built['fileName'];
+        $sizeLabel = $built['sizeLabel'];
         $nowIso = Db::isoNow();
 
         $settings = Db::readSettings();
@@ -1840,13 +1883,32 @@ final class AdminRoutes
             : array_unique([$configuredName, 'Social_Pak_Extension.zip', 'PakFlow_AI_Tools_Extension.zip', 'PakFlow_Extension_v1.0.2.zip']);
 
         $root = dirname(__DIR__, 2);
+        $isValidZip = static function (string $path): bool {
+            clearstatcache(true, $path);
+            if (!is_file($path) || !is_readable($path) || (@filesize($path) ?: 0) < 50000) {
+                return false;
+            }
+            $fh = @fopen($path, 'rb');
+            if (!$fh) return false;
+            $sig = fread($fh, 4);
+            fclose($fh);
+            return $sig === "PK\x03\x04";
+        };
         foreach ($candidates as $name) {
-            foreach (["$root/public/downloads/$name", "$root/dist/downloads/$name"] as $f) {
-                if (is_file($f)) {
-                    header('Pragma: no-cache');
-                    header('Expires: 0');
+            foreach (["$root/dist/downloads/$name", "$root/public/downloads/$name"] as $f) {
+                if ($isValidZip($f)) {
                     Http::sendFile($f, 'application/zip', $configuredName, 'no-store, no-cache, must-revalidate');
                 }
+            }
+        }
+        if ($extKey === 'flow') {
+            $verToBuild = ltrim(trim((string)($extInfo['version'] ?? '1.7')), 'vV');
+            if ($verToBuild === '' || !preg_match('/^\d+(?:\.\d+){0,3}$/', $verToBuild)) {
+                $verToBuild = '1.7';
+            }
+            $rebuilt = self::buildExtensionZipToDisk($verToBuild);
+            if ($rebuilt && $isValidZip($rebuilt['path'])) {
+                Http::sendFile($rebuilt['path'], 'application/zip', $rebuilt['fileName'], 'no-store, no-cache, must-revalidate');
             }
         }
         Http::json(['success' => false, 'error' => ($extKey === 'flow' ? 'Google Flow' : 'AI Chatbots') . ' Extension package not found.'], 404);

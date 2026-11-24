@@ -99,51 +99,7 @@ if ($method === 'GET' || $method === 'HEAD') {
     }
 }
 
-// /downloads/* routes (supports dynamic regenerated versions + legacy aliases)
-if ($method === 'GET' && ($reqPath === '/downloads/latest' || $reqPath === '/downloads/PakFlow_latest.zip')) {
-    require_once __DIR__ . '/src/Env.php';
-    require_once __DIR__ . '/src/Database.php';
-    require_once __DIR__ . '/src/Db.php';
-    \App\Env::load(__DIR__);
-    try {
-        $extFlow = \App\Db::readSettings()['extensions']['flow'] ?? [];
-        $dynName = basename((string)($extFlow['fileName'] ?? 'PakFlow_v1.7.zip'));
-        foreach (["$distDir/downloads/$dynName", "$publicDir/downloads/$dynName"] as $f) {
-            if (is_file($f)) {
-                Http::sendFile($f, 'application/zip', $dynName, 'no-cache, no-store, must-revalidate');
-            }
-        }
-    } catch (\Throwable $_e) {}
-}
-
-$flowAliases = [
-    '/downloads/PakFlow_v1.7.zip', '/downloads/pakflowv1.7.zip', '/downloads/Pakflow1.7.zip',
-    '/downloads/PakFlow_v1.6.zip', '/downloads/pakflowv1.6.zip', '/downloads/Pakflow1.6.zip',
-    '/downloads/PakFlow_v1.5.zip', '/downloads/pakflowv1.5.zip', '/downloads/Pakflow1.5.zip',
-    '/downloads/PakFlow_v1.4.zip', '/downloads/pakflowv1.4.zip', '/downloads/Pakflow1.4.zip',
-    '/downloads/PakFlow_v1.3.zip', '/downloads/pakflowv1.3.zip', '/downloads/Pakflow1.3.zip',
-    '/downloads/PakFlow_v1.2.zip', '/downloads/pakflowv1.2.zip',
-    '/downloads/PakFlow_v1.1.zip', '/downloads/pakflowv1.1.zip',
-    '/downloads/FlowByPak_Extension_Final.zip',
-];
-if ($method === 'GET' && in_array($reqPath, $flowAliases, true)) {
-    // First check if a newer regenerated zip exists in dist/public downloads
-    $exactBase = basename($reqPath);
-    foreach (["$distDir/downloads/$exactBase", "$publicDir/downloads/$exactBase"] as $exactF) {
-        if (is_file($exactF)) {
-            Http::sendFile($exactF, 'application/zip', $exactBase, 'no-cache, no-store, must-revalidate');
-        }
-    }
-    $names = ['PakFlow_v1.7.zip', 'Pakflow1.7.zip', 'PakFlow_v1.6.zip', 'Pakflow1.6.zip', 'PakFlow_v1.5.zip', 'Pakflow1.5.zip', 'PakFlow_v1.4.zip', 'Pakflow1.4.zip', 'PakFlow_v1.3.zip', 'Pakflow1.3.zip', 'PakFlow_v1.2.zip', 'PakFlow_v1.1.zip'];
-    foreach ($names as $n) {
-        foreach (["$distDir/downloads/$n", "$publicDir/downloads/$n"] as $f) {
-            if (is_file($f)) {
-                Http::sendFile($f, 'application/zip', $n, 'no-cache, no-store, must-revalidate');
-            }
-        }
-    }
-}
-
+// /downloads/* routes — ALWAYS serve a verified real ZIP (auto-rebuilds from extension-src if wiped by Git deploy; NEVER falls through to index.html!)
 $chatAliases = [
     '/downloads/Social_Pak_Extension.zip',
     '/downloads/PakFlow_AI_Tools_Extension.zip',
@@ -153,18 +109,113 @@ if ($method === 'GET' && in_array($reqPath, $chatAliases, true)) {
     Http::json(['success' => false, 'disabled' => true, 'error' => 'ToolDisabled', 'message' => 'This extension has been removed. Only Google Flow is active.'], 410);
 }
 
-if (str_starts_with($reqPath, '/downloads/')) {
+if (($method === 'GET' || $method === 'HEAD') && str_starts_with($reqPath, '/downloads/')) {
+    $isValidZipFile = static function (string $path): bool {
+        clearstatcache(true, $path);
+        if (!is_file($path) || !is_readable($path)) {
+            return false;
+        }
+        $sz = @filesize($path);
+        if ($sz === false || $sz < 50000) {
+            return false;
+        }
+        $fh = @fopen($path, 'rb');
+        if (!$fh) {
+            return false;
+        }
+        $sig = fread($fh, 4);
+        fclose($fh);
+        return $sig === "PK\x03\x04";
+    };
+
     $rel = substr($reqPath, strlen('/downloads/'));
-    foreach ([$publicDir . DIRECTORY_SEPARATOR . 'downloads', $distDir . DIRECTORY_SEPARATOR . 'downloads'] as $dir) {
-        $file = $safeResolve($dir, $rel);
-        if ($file !== null) {
-            $baseName = basename($file);
-            if (str_ends_with(strtolower($baseName), '.zip')) {
-                Http::sendFile($file, 'application/zip', $baseName, 'no-cache, no-store, must-revalidate');
+    $exactBase = basename($rel);
+    $isLatestReq = ($reqPath === '/downloads/latest' || $reqPath === '/downloads/PakFlow_latest.zip');
+    $isZipReq = $isLatestReq || str_ends_with(strtolower($exactBase), '.zip');
+
+    if (!$isZipReq) {
+        foreach ([$publicDir . DIRECTORY_SEPARATOR . 'downloads', $distDir . DIRECTORY_SEPARATOR . 'downloads'] as $dir) {
+            $file = $safeResolve($dir, $rel);
+            if ($file !== null) {
+                Http::sendFile($file, Http::mimeType($file), null, 'public, max-age=7200');
             }
-            Http::sendFile($file, Http::mimeType($file), null, 'public, max-age=7200');
+        }
+        Http::json(['success' => false, 'error' => 'DownloadNotFound', 'message' => 'Requested file not found.'], 404);
+    }
+
+    // 1) If an exact versioned ZIP was requested and exists validly on disk, serve it immediately (0 DB overhead)
+    if (!$isLatestReq && $exactBase !== '') {
+        foreach (["$distDir/downloads/$exactBase", "$publicDir/downloads/$exactBase"] as $exactF) {
+            if ($isValidZipFile($exactF)) {
+                Http::sendFile($exactF, 'application/zip', $exactBase, 'no-cache, no-store, must-revalidate');
+            }
         }
     }
+
+    // 2) Resolve active configured version & filename from app settings (MySQL/JSON)
+    $dynName = 'PakFlow_v1.7.zip';
+    $dynVer = '1.7';
+    try {
+        require_once __DIR__ . '/src/Env.php';
+        require_once __DIR__ . '/src/Database.php';
+        require_once __DIR__ . '/src/Db.php';
+        \App\Env::load(__DIR__);
+        $extFlow = \App\Db::readSettings()['extensions']['flow'] ?? [];
+        if (!empty($extFlow['fileName'])) {
+            $dynName = basename((string)$extFlow['fileName']);
+        }
+        if (!empty($extFlow['version'])) {
+            $vClean = ltrim(trim((string)$extFlow['version']), 'vV');
+            if (preg_match('/^\d+(?:\.\d+){0,3}$/', $vClean)) {
+                $dynVer = $vClean;
+            }
+        }
+    } catch (\Throwable $_e) {}
+
+    foreach (["$distDir/downloads/$dynName", "$publicDir/downloads/$dynName"] as $f) {
+        if ($isValidZipFile($f)) {
+            Http::sendFile($f, 'application/zip', $dynName, 'no-cache, no-store, must-revalidate');
+        }
+    }
+
+    // 3) Auto-heal: if configured or requested versioned ZIP is missing on disk (e.g. after Git deploy), rebuild it on the fly from extension-src/
+    $buildVer = $dynVer;
+    if (!$isLatestReq && preg_match('/v?(\d+(?:\.\d+){1,3})\.zip$/i', $exactBase, $reqVm)) {
+        $buildVer = $reqVm[1];
+    }
+    try {
+        require_once __DIR__ . '/src/Helpers.php';
+        require_once __DIR__ . '/src/Routes/AdminRoutes.php';
+        $rebuilt = \App\Routes\AdminRoutes::buildExtensionZipToDisk($buildVer);
+        if ($rebuilt && !empty($rebuilt['path']) && $isValidZipFile($rebuilt['path'])) {
+            Http::sendFile($rebuilt['path'], 'application/zip', $rebuilt['fileName'], 'no-cache, no-store, must-revalidate');
+        }
+    } catch (\Throwable $_rebuildErr) {
+        error_log('[Downloads Auto-Rebuild Error] ' . $_rebuildErr->getMessage());
+    }
+
+    // 4) Fallback to the newest valid PakFlow*.zip present on disk (NEVER serve HTML as a ZIP!)
+    $candidates = [];
+    foreach (["$distDir/downloads", "$publicDir/downloads"] as $scanDir) {
+        if (is_dir($scanDir)) {
+            foreach (glob($scanDir . '/*.zip') ?: [] as $zf) {
+                $bn = basename($zf);
+                if (stripos($bn, 'Social_Pak') !== false || stripos($bn, 'AI_Tools') !== false) {
+                    continue;
+                }
+                if ($isValidZipFile($zf)) {
+                    $candidates[$zf] = @filemtime($zf) ?: 0;
+                }
+            }
+        }
+    }
+    if (!empty($candidates)) {
+        arsort($candidates);
+        $bestZip = (string)array_key_first($candidates);
+        Http::sendFile($bestZip, 'application/zip', basename($bestZip), 'no-cache, no-store, must-revalidate');
+    }
+
+    Http::json(['success' => false, 'error' => 'ExtensionZipUnavailable', 'message' => 'Extension package is temporarily unavailable. Please retry in a moment.'], 404);
 }
 
 // Redirect removed extra tool pages directly to the Google Flow dashboard

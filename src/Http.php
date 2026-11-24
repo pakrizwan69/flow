@@ -197,6 +197,7 @@ final class Http
 
     public static function sendFile(string $filePath, string $contentType = 'application/octet-stream', ?string $downloadName = null, ?string $cacheControl = null): void
     {
+        clearstatcache(true, $filePath);
         if (!is_file($filePath) || !is_readable($filePath)) {
             http_response_code(404);
             exit;
@@ -205,21 +206,36 @@ final class Http
         $mtime = filemtime($filePath) ?: time();
         $etag = 'W/"' . dechex((int)$size) . '-' . dechex((int)$mtime) . '"';
         $lastModified = gmdate('D, d M Y H:i:s', (int)$mtime) . ' GMT';
+        $isNoStore = $cacheControl !== null && stripos($cacheControl, 'no-store') !== false;
 
-        header('ETag: ' . $etag);
-        header('Last-Modified: ' . $lastModified);
-        if ($cacheControl !== null) {
-            header('Cache-Control: ' . $cacheControl);
-        }
-        $ifNoneMatch = self::header('if-none-match');
-        $ifModifiedSince = self::header('if-modified-since');
-        if (($ifNoneMatch !== '' && $ifNoneMatch === $etag)
-            || ($ifModifiedSince !== '' && strtotime($ifModifiedSince) >= (int)$mtime)) {
-            http_response_code(304);
-            exit;
+        if ($contentType === 'application/zip' || $downloadName !== null) {
+            @ini_set('zlib.output_compression', '0');
+            if (function_exists('apache_setenv')) {
+                @apache_setenv('no-gzip', '1');
+            }
+            header('X-LiteSpeed-Cache-Control: no-cache');
+            header('Content-Transfer-Encoding: binary');
         }
 
         header('Content-Type: ' . $contentType);
+        if ($cacheControl !== null) {
+            header('Cache-Control: ' . $cacheControl);
+        }
+        if (!$isNoStore) {
+            header('ETag: ' . $etag);
+            header('Last-Modified: ' . $lastModified);
+            $ifNoneMatch = self::header('if-none-match');
+            $ifModifiedSince = self::header('if-modified-since');
+            if (($ifNoneMatch !== '' && $ifNoneMatch === $etag)
+                || ($ifModifiedSince !== '' && strtotime($ifModifiedSince) >= (int)$mtime)) {
+                http_response_code(304);
+                exit;
+            }
+        } else {
+            header('Pragma: no-cache');
+            header('Expires: 0');
+        }
+
         if ($downloadName !== null) {
             header('Content-Disposition: attachment; filename="' . str_replace('"', '', $downloadName) . '"');
         }
@@ -228,7 +244,7 @@ final class Http
             header('Content-Length: ' . $size);
         }
 
-        // Clear output buffers before streaming
+        // Clear output buffers before streaming binary bytes
         while (ob_get_level() > 0) {
             ob_end_clean();
         }
