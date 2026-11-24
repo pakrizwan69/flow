@@ -427,6 +427,62 @@
       gap: 12px;
       flex-wrap: wrap;
     }
+    .about-dev-box {
+      margin: 26px auto 0;
+      padding: 14px 20px;
+      max-width: 520px;
+      border-radius: 16px;
+      background: rgba(139, 92, 246, 0.08);
+      border: 1px solid rgba(139, 92, 246, 0.24);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      flex-wrap: wrap;
+      text-align: left;
+    }
+    .about-dev-info {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .about-dev-label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #a78bfa;
+    }
+    .about-dev-name {
+      font-size: 15px;
+      font-weight: 800;
+      color: #ffffff;
+      letter-spacing: -0.01em;
+    }
+    .about-dev-wa {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 8px 14px;
+      border-radius: 999px;
+      background: rgba(34, 197, 94, 0.14);
+      border: 1px solid rgba(34, 197, 94, 0.35);
+      color: #86efac;
+      font-size: 12.5px;
+      font-weight: 700;
+      text-decoration: none;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+    .about-dev-wa:hover {
+      background: rgba(34, 197, 94, 0.24);
+      border-color: rgba(74, 222, 128, 0.65);
+      color: #ffffff;
+      transform: translateY(-1px);
+    }
+    @media (max-width: 560px) {
+      .about-dev-box { justify-content: center; text-align: center; }
+    }
 
     /* ── Home Sections: Ready in 4 steps, Clients, Questions Answered ── */
     .home-sec {
@@ -762,6 +818,29 @@
     .landing-footer.centered-footer span {
       font-size: 11.5px;
       color: #52525b;
+    }
+    .landing-footer.centered-footer a.footer-dev-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: #c4b5fd;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 4px 12px;
+      border-radius: 999px;
+      background: rgba(139, 92, 246, 0.10);
+      border: 1px solid rgba(139, 92, 246, 0.24);
+      transition: all 0.2s ease;
+      margin-top: 2px;
+    }
+    .landing-footer.centered-footer a.footer-dev-link:hover {
+      color: #ffffff;
+      background: rgba(34, 197, 94, 0.16);
+      border-color: rgba(74, 222, 128, 0.48);
+    }
+    .landing-footer.centered-footer a.footer-dev-link svg {
+      color: #4ade80;
+      flex-shrink: 0;
     }
     @media (max-width: 780px) {
       .steps4-grid, .clients-grid { grid-template-columns: 1fr; }
@@ -2475,6 +2554,10 @@
         <a href="mailto:support@flowbypak.com">Support</a>
       </div>
       <span>&copy; 2026 PakFlow Studio &middot; All rights reserved.</span>
+      <a class="footer-dev-link" href="https://wa.me/923430641457?text=I%20want%20a%20website%20for%20my%20business" target="_blank" rel="noopener noreferrer" title="Contact Aivrasol Softwares on WhatsApp">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.52 3.48A11.86 11.86 0 0 0 12.06 0C5.49 0 .14 5.35.14 11.92c0 2.1.55 4.15 1.6 5.96L0 24l6.29-1.65a11.87 11.87 0 0 0 5.77 1.47h.01c6.57 0 11.92-5.35 11.92-11.92 0-3.18-1.24-6.17-3.47-8.42zM12.07 21.8h-.01a9.87 9.87 0 0 1-5.04-1.38l-.36-.21-3.73.98 1-3.64-.24-.37a9.84 9.84 0 0 1-1.52-5.26c0-5.45 4.44-9.89 9.9-9.89 2.64 0 5.13 1.03 7 2.9a9.82 9.82 0 0 1 2.9 7c0 5.45-4.44 9.87-9.9 9.87zm5.42-7.4c-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.94 1.17-.17.2-.35.22-.65.07-.3-.15-1.26-.46-2.4-1.48-.89-.79-1.49-1.77-1.66-2.07-.17-.3-.02-.46.13-.61.13-.13.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.02-.52-.08-.15-.67-1.61-.92-2.2-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.79.37-.27.3-1.04 1.02-1.04 2.48 0 1.46 1.06 2.88 1.21 3.08.15.2 2.09 3.19 5.06 4.47.71.3 1.26.49 1.69.62.71.23 1.36.2 1.87.12.57-.08 1.76-.72 2.01-1.41.25-.7.25-1.29.17-1.41-.07-.12-.27-.2-.57-.35z"/></svg>
+        <span>Built by Aivrasol Softwares</span>
+      </a>
     </footer>
   </section>
 
@@ -2503,7 +2586,7 @@
         <div class="about-badge">✦ About PakFlow</div>
         <h2>What is <span>PakFlow?</span></h2>
         <p>
-          PakFlow is a Pakistan-based platform that gives creators direct access to <strong>Google Flow (Veo 3.1)</strong> with our <strong>1-Click Extension</strong> — without the complicated billing setup, expensive per-video costs, or technical hassle.
+          PakFlow, developed by <strong>Aivrasol Softwares</strong>, is a Pakistan-based platform that gives creators direct access to <strong>Google Flow (Veo 3.1)</strong> with our <strong>1-Click Extension</strong> — without the complicated billing setup, expensive per-video costs, or technical hassle.
         </p>
         <p style="margin-top:-12px;margin-bottom:26px;font-size:14px;">
           Need help? Contact Support: <a href="mailto:support@flowbypak.com" style="color:#c4b5fd;font-weight:600;text-decoration:none;">support@flowbypak.com</a>
@@ -2511,6 +2594,16 @@
         <div class="about-btns">
           <a href="/signup" class="btn-veo-start" style="text-decoration:none;">Try For Free &rarr;</a>
           <a href="/pricing" class="btn-flow-sec" style="text-decoration:none;">View Pricing</a>
+        </div>
+        <div class="about-dev-box">
+          <div class="about-dev-info">
+            <span class="about-dev-label">Designed &amp; Engineered By</span>
+            <span class="about-dev-name">Aivrasol Softwares</span>
+          </div>
+          <a class="about-dev-wa" href="https://wa.me/923430641457?text=I%20want%20a%20website%20for%20my%20business" target="_blank" rel="noopener noreferrer">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.52 3.48A11.86 11.86 0 0 0 12.06 0C5.49 0 .14 5.35.14 11.92c0 2.1.55 4.15 1.6 5.96L0 24l6.29-1.65a11.87 11.87 0 0 0 5.77 1.47h.01c6.57 0 11.92-5.35 11.92-11.92 0-3.18-1.24-6.17-3.47-8.42zM12.07 21.8h-.01a9.87 9.87 0 0 1-5.04-1.38l-.36-.21-3.73.98 1-3.64-.24-.37a9.84 9.84 0 0 1-1.52-5.26c0-5.45 4.44-9.89 9.9-9.89 2.64 0 5.13 1.03 7 2.9a9.82 9.82 0 0 1 2.9 7c0 5.45-4.44 9.87-9.9 9.87zm5.42-7.4c-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.94 1.17-.17.2-.35.22-.65.07-.3-.15-1.26-.46-2.4-1.48-.89-.79-1.49-1.77-1.66-2.07-.17-.3-.02-.46.13-.61.13-.13.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.02-.52-.08-.15-.67-1.61-.92-2.2-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.79.37-.27.3-1.04 1.02-1.04 2.48 0 1.46 1.06 2.88 1.21 3.08.15.2 2.09 3.19 5.06 4.47.71.3 1.26.49 1.69.62.71.23 1.36.2 1.87.12.57-.08 1.76-.72 2.01-1.41.25-.7.25-1.29.17-1.41-.07-.12-.27-.2-.57-.35z"/></svg>
+            <span>WhatsApp: +92 343 0641457</span>
+          </a>
         </div>
       </div>
     </div>
@@ -2538,6 +2631,10 @@
         <a href="mailto:support@flowbypak.com">Support</a>
       </div>
       <span>&copy; 2026 PakFlow Studio &middot; All rights reserved.</span>
+      <a class="footer-dev-link" href="https://wa.me/923430641457?text=I%20want%20a%20website%20for%20my%20business" target="_blank" rel="noopener noreferrer" title="Contact Aivrasol Softwares on WhatsApp">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.52 3.48A11.86 11.86 0 0 0 12.06 0C5.49 0 .14 5.35.14 11.92c0 2.1.55 4.15 1.6 5.96L0 24l6.29-1.65a11.87 11.87 0 0 0 5.77 1.47h.01c6.57 0 11.92-5.35 11.92-11.92 0-3.18-1.24-6.17-3.47-8.42zM12.07 21.8h-.01a9.87 9.87 0 0 1-5.04-1.38l-.36-.21-3.73.98 1-3.64-.24-.37a9.84 9.84 0 0 1-1.52-5.26c0-5.45 4.44-9.89 9.9-9.89 2.64 0 5.13 1.03 7 2.9a9.82 9.82 0 0 1 2.9 7c0 5.45-4.44 9.87-9.9 9.87zm5.42-7.4c-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.94 1.17-.17.2-.35.22-.65.07-.3-.15-1.26-.46-2.4-1.48-.89-.79-1.49-1.77-1.66-2.07-.17-.3-.02-.46.13-.61.13-.13.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.02-.52-.08-.15-.67-1.61-.92-2.2-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.79.37-.27.3-1.04 1.02-1.04 2.48 0 1.46 1.06 2.88 1.21 3.08.15.2 2.09 3.19 5.06 4.47.71.3 1.26.49 1.69.62.71.23 1.36.2 1.87.12.57-.08 1.76-.72 2.01-1.41.25-.7.25-1.29.17-1.41-.07-.12-.27-.2-.57-.35z"/></svg>
+        <span>Built by Aivrasol Softwares</span>
+      </a>
     </footer>
   </section>
 
