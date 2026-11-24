@@ -21,8 +21,15 @@
 globalThis.PakFlowProjects = (() => {
   let pending = Promise.resolve();
   const normalize = value => typeof value === 'string' && value.trim() && value !== 'active' ? value.trim() : 'slot_1';
-  const selected = state => typeof state.activeSlot === 'string' && state.activeSlot.trim() && state.activeSlot !== 'active'
-    ? normalize(state.activeSlot) : 'slot_' + ((Number.isInteger(state.sessionLoopIndex) && state.sessionLoopIndex >= 0 ? state.sessionLoopIndex : 0) + 1);
+  const selected = state => {
+    // Prefer lastInjectedSlot (actual cookies active in Chrome) over stale UI activeSlot so projects NEVER save under the wrong server
+    const actual = typeof state.lastInjectedSlot === 'string' && state.lastInjectedSlot.trim() && state.lastInjectedSlot !== 'active'
+      ? state.lastInjectedSlot
+      : state.activeSlot;
+    return typeof actual === 'string' && actual.trim() && actual !== 'active'
+      ? normalize(actual)
+      : 'slot_' + ((Number.isInteger(state.sessionLoopIndex) && state.sessionLoopIndex >= 0 ? state.sessionLoopIndex : 0) + 1);
+  };
   const sorted = list => [...list].sort((a, b) => (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0));
   function run(action) {
     const result = pending.then(action);
@@ -62,6 +69,7 @@ globalThis.PakFlowProjects = (() => {
             ...older,
             ...newer,
             ownerEmail: cleanOwner || newer.ownerEmail || older.ownerEmail || undefined,
+            accountHash: newer.accountHash || older.accountHash || undefined,
             thumbnail: newer.thumbnail || older.thumbnail || newer.thumbnailUrl || older.thumbnailUrl || '',
             title: prev.customTitle ? prev.title : (item.customTitle ? item.title : (newer.title || older.title)),
             customTitle: Boolean(prev.customTitle || item.customTitle),
@@ -86,6 +94,8 @@ globalThis.PakFlowProjects = (() => {
       'myProjectsByIp',
       'myProjectServerOwnersByIp',
       'activeSlot',
+      'lastInjectedSlot',
+      'pf_active_account_hash',
       'sessionLoopIndex',
       'userEmail',
       'user',
@@ -93,6 +103,7 @@ globalThis.PakFlowProjects = (() => {
       'pf_projects_owner_email'
     ]);
     const ownerEmail = String(state.userEmail || state.user?.email || state.pakflow_user?.email || state.pf_projects_owner_email || '').trim().toLowerCase();
+    const accountHash = String(state.pf_active_account_hash || '').trim();
     const byIp = state.myProjectsByIp && typeof state.myProjectsByIp === 'object' ? { ...state.myProjectsByIp } : {};
     const all = mergeAllProjects(state.myProjectsUnified, byIp, ownerEmail);
     const ownersByIp = state.myProjectServerOwnersByIp && typeof state.myProjectServerOwnersByIp === 'object'
@@ -103,20 +114,23 @@ globalThis.PakFlowProjects = (() => {
       if (id && !Object.hasOwn(owners, id)) owners[id] = normalize(project.slot);
     }
     ownersByIp[ip] = owners;
-    return { ip, byIp, all, ownersByIp, owners, ownerEmail, slot: selected(state) };
+    return { ip, byIp, all, ownersByIp, owners, ownerEmail, accountHash, slot: selected(state) };
   }
 
   function response(ctx) {
     const ordered = sorted(ctx.all);
-    // Strictly show ONLY this user's projects belonging to the currently active server/session
-    // so clicking any project opens cleanly without cross-server "Project not found" errors.
+    // 3-Key Lock: match user (ownerEmail) + active Google Account hash (or active slot if hash not yet recorded)
     const activeSlotList = [];
     const seen = new Set();
     for (const p of ordered) {
       const id = String(p.id || '').toLowerCase();
       if (!id || seen.has(id)) continue;
       seen.add(id);
-      if (normalize(p.slot) === ctx.slot) activeSlotList.push(p);
+      if (ctx.accountHash && p.accountHash) {
+        if (p.accountHash === ctx.accountHash) activeSlotList.push(p);
+      } else if (normalize(p.slot) === ctx.slot) {
+        activeSlotList.push(p);
+      }
     }
     return {
       ip: ctx.ip,
@@ -197,8 +211,9 @@ globalThis.PakFlowProjects = (() => {
           ...previous,
           id,
           ownerEmail: ctx.ownerEmail || previous?.ownerEmail || undefined,
+          accountHash: ctx.accountHash || previous?.accountHash || undefined,
           url: 'https://flow.google.com/project/' + id,
-          slot: target,
+          slot: ctx.slot || target,
           ip: ctx.ip,
           createdAt: previous?.createdAt || now,
           updatedAt: now

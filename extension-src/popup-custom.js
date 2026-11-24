@@ -135,8 +135,13 @@
 
         var slot = data.activeSlot || data.selectedSlot || data.currentSlot || data.currentServerNumber;
         if (slot) {
+          var sNum = String(slot).replace(/\D+/g, "") || "1";
           var cookieValEl = document.getElementById("customSessionCookieVal");
-          if (cookieValEl) cookieValEl.textContent = String(slot).replace(/\D+/g, "") || "1";
+          if (cookieValEl) cookieValEl.textContent = sNum;
+          var cleanStatusInit = document.getElementById("pfCleanSessionStatus");
+          if (cleanStatusInit && !activeSwitchBusy) {
+            cleanStatusInit.textContent = "Session " + sNum + " Active — Flow Ready";
+          }
         }
 
         var extVer = "1.7";
@@ -553,8 +558,8 @@
     }
     var cookieValEl = document.getElementById("customSessionCookieVal");
     if (cookieValEl) cookieValEl.textContent = String(slotNum);
-    var descEl = document.getElementById("readyDescText");
-    if (descEl) descEl.textContent = "Session " + slotNum + " Active — Flow Ready";
+    var cleanStatus = document.getElementById("pfCleanSessionStatus");
+    if (cleanStatus) cleanStatus.textContent = "Session " + slotNum + " Active — Flow Ready";
   }
 
   function initSessionButtons() {

@@ -1,3 +1,33 @@
+<?php
+$__pfExtVer = '1.7';
+try {
+    $__pfRoot = dirname(__DIR__);
+    $__pfVerCache = $__pfRoot . DIRECTORY_SEPARATOR . 'data' . DIRECTORY_SEPARATOR . 'version_cache.json';
+    $__pfResolved = '';
+    if (is_file($__pfVerCache) && is_readable($__pfVerCache)) {
+        $__pfVc = json_decode((string)@file_get_contents($__pfVerCache), true);
+        if (is_array($__pfVc) && !empty($__pfVc['latestExtVersion'])) {
+            $__pfResolved = trim((string)$__pfVc['latestExtVersion']);
+        }
+    }
+    if ($__pfResolved === '') {
+        require_once $__pfRoot . '/src/Env.php';
+        require_once $__pfRoot . '/src/Database.php';
+        require_once $__pfRoot . '/src/Db.php';
+        \App\Env::load($__pfRoot);
+        $__pfSettings = \App\Db::readSettings();
+        $__pfResolved = trim((string)($__pfSettings['latestExtVersion'] ?? ($__pfSettings['extensions']['flow']['version'] ?? '1.7')));
+    }
+    $__pfClean = ltrim($__pfResolved, 'vV');
+    if ($__pfClean !== '' && preg_match('/^\d+(?:\.\d+){0,3}$/', $__pfClean)) {
+        $__pfExtVer = $__pfClean;
+    }
+} catch (\Throwable $_) {
+    $__pfExtVer = '1.7';
+}
+$__pfExtSafeVer = htmlspecialchars($__pfExtVer, ENT_QUOTES, 'UTF-8');
+$__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2767,9 +2797,9 @@
         <span>PakFlow Studio</span>
       </a>
       <div class="topbar-right">
-        <a class="topbar-notice" id="extReleaseLink" href="/downloads/latest" download="PakFlow_v1.7.zip">
+        <a class="topbar-notice" id="extReleaseLink" href="/downloads/latest" download="<?= $__pfExtZipName ?>">
           <span class="topbar-notice-dot" aria-hidden="true"></span>
-          <span id="extReleaseLabel">PakFlow v1.7 is live now</span>
+          <span id="extReleaseLabel">PakFlow v<?= $__pfExtSafeVer ?> is live now</span>
           <span class="topbar-notice-cta">Download &rarr;</span>
         </a>
         <div class="plan-pill" id="planPill">Flow Ultra</div>
@@ -2802,9 +2832,9 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
             <span>My Devices</span>
           </button>
-          <a class="dd-item" id="ddExtLink" href="/downloads/latest" download="PakFlow_v1.7.zip">
+          <a class="dd-item" id="ddExtLink" href="/downloads/latest" download="<?= $__pfExtZipName ?>">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            <span id="ddExtText">Get Extension (v1.7)</span>
+            <span id="ddExtText">Get Extension (v<?= $__pfExtSafeVer ?>)</span>
           </a>
           <button type="button" class="dd-item signout" id="signOutBtn">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
@@ -2854,9 +2884,9 @@
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="6 4 20 12 6 20 6 4"/></svg>
               <span>Launch Google Flow</span>
             </a>
-            <a href="/downloads/latest" download="PakFlow_v1.7.zip" class="btn-ext-sec" id="heroExtDownloadBtn">
+            <a href="/downloads/latest" download="<?= $__pfExtZipName ?>" class="btn-ext-sec" id="heroExtDownloadBtn">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-              <span id="heroExtBtnText">Download Extension (v1.7)</span>
+              <span id="heroExtBtnText">Download Extension (v<?= $__pfExtSafeVer ?>)</span>
             </a>
           </div>
         </div>

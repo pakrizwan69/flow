@@ -109,7 +109,36 @@ importScripts('projects-store.js', 'ctp-background.js');
       } catch (_e) { resolve(); }
     });
   }
+  function computeBgAccountHash(cookies) {
+    if (!Array.isArray(cookies) || !cookies.length) return "";
+    var seed = "";
+    var prio = ["SAPISID", "__Secure-1PAPISID", "__Secure-3PAPISID", "SID", "__Secure-1PSID", "__Secure-3PSID"];
+    for (var p = 0; p < prio.length; p++) {
+      var key = prio[p];
+      for (var i = 0; i < cookies.length; i++) {
+        if (cookies[i] && String(cookies[i].name || "").trim() === key && cookies[i].value) {
+          seed = key + ":" + String(cookies[i].value).trim();
+          break;
+        }
+      }
+      if (seed) break;
+    }
+    if (!seed) return "";
+    var h = 0x811c9dc5;
+    for (var j = 0; j < seed.length; j++) {
+      h ^= seed.charCodeAt(j);
+      h = Math.imul(h, 0x01000193) >>> 0;
+    }
+    var hex = h.toString(16);
+    while (hex.length < 8) hex = "0" + hex;
+    return "acc_" + hex;
+  }
   function deduplicateBgCookies(rawList) {
+    var blockedRot = {
+      "__Secure-1PSIDRTS": 1, "__Secure-3PSIDRTS": 1, SIDRTS: 1, "__Secure-STRP": 1,
+      LSID: 1, "__Host-1PLSID": 1, "__Host-3PLSID": 1, "__Host-GAPS": 1,
+      ACCOUNT_CHOOSER: 1, SMSV: 1, OTZ: 1
+    };
     var authNames = {
       SID: 1, HSID: 1, SSID: 1, APISID: 1, SAPISID: 1, SIDCC: 1,
       "__Secure-1PSID": 1, "__Secure-3PSID": 1, "__Secure-1PAPISID": 1, "__Secure-3PAPISID": 1,
@@ -120,6 +149,7 @@ importScripts('projects-store.js', 'ctp-background.js');
       var c = rawList[i];
       if (!c || !c.name) continue;
       var nm = String(c.name).trim();
+      if (blockedRot[nm]) continue;
       var clean = String(c.domain || ".google.com").trim().toLowerCase().replace(/^\.+/, "") || "google.com";
       if (authNames[nm] && clean === "google.com") googleWideAuth[nm] = 1;
     }
@@ -129,7 +159,9 @@ importScripts('projects-store.js', 'ctp-background.js');
       var ck = rawList[j];
       if (!ck || !ck.name) continue;
       var name = String(ck.name).trim();
+      if (blockedRot[name]) continue;
       var cleanHost = String(ck.domain || ".google.com").trim().toLowerCase().replace(/^\.+/, "") || "google.com";
+      if (cleanHost === "accounts.google.com" || cleanHost.slice(-20) === ".accounts.google.com") continue;
       if (authNames[name] && googleWideAuth[name] && cleanHost !== "google.com" && cleanHost.endsWith(".google.com")) {
         continue;
       }
@@ -348,9 +380,9 @@ importScripts('projects-store.js', 'ctp-background.js');
         if (!isHostPrefix && !c.hostOnly && rawDom.indexOf(".") !== -1) {
           details.domain = rawDom.charAt(0) === "." ? rawDom : ("." + cleanDom);
         }
-        // Rolling 10-minute (600s) TTL: kept alive locally every ~1 min by alarm while extension is active & connected;
+        // Rolling 30-minute (1800s) TTL: kept alive locally every ~1 min by alarm while extension is active & connected;
         // prevents mid-video-generation expiry at 100%, yet Chrome auto-expires cookies if extension is disabled/uninstalled.
-        details.expirationDate = Math.floor(Date.now() / 1000) + 600;
+        details.expirationDate = Math.floor(Date.now() / 1000) + 1800;
         try {
           chrome.cookies.set(details, function (cookieRes) {
             void chrome.runtime?.lastError;
@@ -363,6 +395,36 @@ importScripts('projects-store.js', 'ctp-background.js');
 
     await Promise.all(tasks);
 
+    // Also install DNR RotateCookies/Logout guard via PakFlowSession if available
+    try {
+      if (chrome.declarativeNetRequest && typeof chrome.declarativeNetRequest.updateSessionRules === "function") {
+        await chrome.declarativeNetRequest.updateSessionRules({
+          removeRuleIds: [78106, 78107],
+          addRules: [
+            {
+              id: 78106,
+              priority: 3,
+              action: { type: "block" },
+              condition: {
+                urlFilter: "||accounts.google.com/*RotateCookies*",
+                resourceTypes: ["xmlhttprequest", "ping", "sub_frame", "script", "image", "other"]
+              }
+            },
+            {
+              id: 78107,
+              priority: 3,
+              action: { type: "block" },
+              condition: {
+                urlFilter: "||accounts.google.com/*Logout*",
+                initiatorDomains: ["flow.google.com", "labs.google", "ogs.google.com"],
+                resourceTypes: ["main_frame", "sub_frame", "xmlhttprequest", "ping", "other"]
+              }
+            }
+          ]
+        });
+      }
+    } catch (_e) {}
+
     if (mySeq !== __pakflowReinjectSeq) {
       try { sendResponse({ ok: false, superseded: true }); } catch (_e) {}
       return;
@@ -372,6 +434,7 @@ importScripts('projects-store.js', 'ctp-background.js');
       return;
     }
 
+    var accHash = computeBgAccountHash(cleanCookies);
     try {
       chrome.storage.local.set({
         lastInjectedTime: Date.now(),
@@ -379,6 +442,8 @@ importScripts('projects-store.js', 'ctp-background.js');
         lastSyncCount: setCount,
         lastInjectedCount: setCount,
         activeSlot: "slot_" + targetSlot,
+        lastInjectedSlot: "slot_" + targetSlot,
+        pf_active_account_hash: accHash,
         lastSyncError: ""
       });
     } catch (_e) {}

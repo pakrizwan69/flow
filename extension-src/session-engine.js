@@ -12,7 +12,7 @@
     updatedAt: 'pakflowSessionUpdatedAt'
   };
 
-  const RULE_IDS = [78101, 78102, 78103, 78104, 78105];
+  const RULE_IDS = [78101, 78102, 78103, 78104, 78105, 78106, 78107];
   const DESKTOP_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
   const ALL_RESOURCE_TYPES = [
     'main_frame', 'sub_frame', 'stylesheet', 'script', 'image', 'font',
@@ -26,6 +26,29 @@
     '__Secure-1PSIDCC', '__Secure-3PSIDCC', 'SIDCC',
     '__Secure-next-auth.session-token', 'next-auth.session-token'
   ]);
+  // Strip Google credential-rotation cookies so shared users' browsers cannot rotate/invalidate the master Google session
+  const BLOCKED_ROTATION_COOKIE_NAMES = new Set([
+    '__Secure-1PSIDRTS', '__Secure-3PSIDRTS', 'SIDRTS', '__Secure-STRP',
+    'LSID', '__Host-1PLSID', '__Host-3PLSID', '__Host-GAPS',
+    'ACCOUNT_CHOOSER', 'SMSV', 'OTZ'
+  ]);
+
+  function computeAccountHash(cookies) {
+    if (!Array.isArray(cookies) || !cookies.length) return '';
+    let seed = '';
+    const priority = ['SAPISID', '__Secure-1PAPISID', '__Secure-3PAPISID', 'SID', '__Secure-1PSID', '__Secure-3PSID'];
+    for (const key of priority) {
+      const found = cookies.find(c => c && String(c.name || '').trim() === key && c.value);
+      if (found) { seed = key + ':' + String(found.value).trim(); break; }
+    }
+    if (!seed) return '';
+    let h = 0x811c9dc5;
+    for (let i = 0; i < seed.length; i++) {
+      h ^= seed.charCodeAt(i);
+      h = Math.imul(h, 0x01000193) >>> 0;
+    }
+    return 'acc_' + h.toString(16).padStart(8, '0');
+  }
 
   function storageGet(keys) {
     return new Promise(resolve => {
@@ -200,6 +223,7 @@
     for (const ck of rawList) {
       if (!ck || !ck.name) continue;
       const name = String(ck.name).trim();
+      if (BLOCKED_ROTATION_COOKIE_NAMES.has(name)) continue;
       const rawDomain = String(ck.domain || '.google.com').trim().toLowerCase();
       const cleanHost = rawDomain.replace(/^\.+/, '') || 'google.com';
       if (AUTH_COOKIE_NAMES.has(name) && cleanHost === 'google.com') {
@@ -209,8 +233,10 @@
     for (const ck of rawList) {
       if (!ck || !ck.name) continue;
       const name = String(ck.name).trim();
+      if (BLOCKED_ROTATION_COOKIE_NAMES.has(name)) continue;
       const rawDomain = String(ck.domain || '.google.com').trim().toLowerCase();
       const cleanHost = rawDomain.replace(/^\.+/, '') || 'google.com';
+      if (cleanHost === 'accounts.google.com' || cleanHost.endsWith('.accounts.google.com')) continue;
       const path = String(ck.path || '/');
       // Drop redundant subdomain/host-only copy of a .google.com auth cookie when a .google.com entry exists
       if (AUTH_COOKIE_NAMES.has(name) && googleWideAuth.has(name) && cleanHost !== 'google.com' && cleanHost.endsWith('.google.com')) {
@@ -242,11 +268,11 @@
     const secure = Boolean(isSecurePrefix || sameSite === 'no_restriction' || rawCookie.secure !== false);
     const httpOnly = Boolean(rawCookie.httpOnly);
 
-    // Rolling 10-minute (600s) TTL: kept alive locally every ~1 min by alarm while extension is active & connected.
-    // Long enough that MV3 service-worker sleep or 2-minute video generations NEVER expire cookies at 100%,
+    // Rolling 30-minute (1800s) TTL: kept alive locally every ~1 min by alarm while extension is active & connected.
+    // Long enough that MV3 service-worker sleep or long video queues NEVER expire cookies at 100%,
     // yet Chrome still auto-expires cookies if the extension is disabled or uninstalled.
     const nowSec = Math.floor(Date.now() / 1000);
-    const expirationDate = nowSec + 600;
+    const expirationDate = nowSec + 1800;
 
     const baseUrl = buildCookieUrl(cleanHost, path, secure);
     const baseDetails = {
@@ -372,18 +398,41 @@
       }
     }
 
+    // Protect shared Master Google Account sessions from background RotateCookies / accidental Logout calls
+    addRules.push(
+      {
+        id: 78106,
+        priority: 3,
+        action: { type: 'block' },
+        condition: {
+          urlFilter: '||accounts.google.com/*RotateCookies*',
+          resourceTypes: ['xmlhttprequest', 'ping', 'sub_frame', 'script', 'image', 'other']
+        }
+      },
+      {
+        id: 78107,
+        priority: 3,
+        action: { type: 'block' },
+        condition: {
+          urlFilter: '||accounts.google.com/*Logout*',
+          initiatorDomains: ['flow.google.com', 'labs.google', 'ogs.google.com'],
+          resourceTypes: ['main_frame', 'sub_frame', 'xmlhttprequest', 'ping', 'other']
+        }
+      }
+    );
+
     if (!addRules.length) return;
 
     let installed = false;
-    if (typeof chrome.declarativeNetRequest.updateDynamicRules === 'function') {
+    if (typeof chrome.declarativeNetRequest.updateSessionRules === 'function') {
       try {
-        await chrome.declarativeNetRequest.updateDynamicRules({ removeRuleIds: RULE_IDS, addRules });
+        await chrome.declarativeNetRequest.updateSessionRules({ removeRuleIds: RULE_IDS, addRules });
         installed = true;
       } catch {}
     }
-    if (!installed && typeof chrome.declarativeNetRequest.updateSessionRules === 'function') {
+    if (!installed && typeof chrome.declarativeNetRequest.updateDynamicRules === 'function') {
       try {
-        await chrome.declarativeNetRequest.updateSessionRules({ removeRuleIds: RULE_IDS, addRules });
+        await chrome.declarativeNetRequest.updateDynamicRules({ removeRuleIds: RULE_IDS, addRules });
       } catch {}
     }
   }
@@ -398,6 +447,7 @@
       throw new Error('Session disconnected.');
     }
 
+    const accountHash = computeAccountHash(list);
     const prev = await storageGet([STORAGE_KEYS.cookieKeys]);
     const storeIds = await getCookieStoreIds();
 
@@ -429,7 +479,8 @@
     await storageSet({
       [STORAGE_KEYS.active]: true,
       [STORAGE_KEYS.cookieKeys]: savedKeys,
-      [STORAGE_KEYS.updatedAt]: Date.now()
+      [STORAGE_KEYS.updatedAt]: Date.now(),
+      pf_active_account_hash: accountHash
     });
 
     if (typeof isAllowedCheck === 'function' && !(await isAllowedCheck())) {

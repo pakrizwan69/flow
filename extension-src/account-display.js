@@ -145,10 +145,13 @@
     if (/^ogs\.google\.com$/i.test(location.hostname)) return true;
     for (let node = element, depth = 0; node && depth < 10; node = node.parentElement || node.getRootNode?.()?.host, depth++) {
       if (node.tagName === 'BODY' || node.tagName === 'HTML') break;
-      if (node.querySelector && node.querySelector('a[href*="flow_ai_credits_page"],a.upsell-link,[data-fake-total-credits]')) return true;
+      if (node.querySelector && node.querySelector('a[href*="flow_ai_credits_page"],a.upsell-link,[data-fake-total-credits],a[href*="myaccount.google.com"],a[href*="accounts.google.com/Logout"]')) return true;
       const text = node.textContent || '';
-      if (text.length < 3000 && /Google Flow credits|Google Ultra Plan|manage your google account|manage subscription|create avatar|visible watermarking|sign out/i.test(text)) return true;
-      if (node.matches && node.matches('[role="dialog"],[role="menu"],.cdk-overlay-pane') && /\b(Google|credits)\b/i.test(text)) return true;
+      if (text.length < 3000 && /Google Flow credits|Google Ultra Plan|manage your google account|manage subscription|create avatar|visible watermarking|sign out|tài khoản google|đăng xuất/i.test(text)) return true;
+      if (node.matches && node.matches('[role="dialog"],[role="menu"],.cdk-overlay-pane') && (/\b(Google|credits|ULTRA)\b/i.test(text) || emailPattern.test(text))) {
+        emailPattern.lastIndex = 0;
+        return true;
+      }
     }
     return false;
   }
@@ -271,17 +274,27 @@
         if ((node.nodeValue || '').includes('@') && inAccountMenu(parent)) updateText(node);
       }
     }
-    const candidates = new Set([...document.querySelectorAll('[aria-label*="Google Account" i],[title*="Google Account" i],[data-email]'), ...attributes.keys()]);
+    // Multi-language safe: replace any email inside aria-label / title / data-email on account/avatar controls (works on Vietnam "Tài khoản Google" too)
+    const candidates = new Set([
+      ...document.querySelectorAll('[aria-label*="@"],[title*="@"],[data-email],[aria-label*="Google Account" i],[title*="Google Account" i]'),
+      ...attributes.keys()
+    ]);
     for (const element of candidates) {
       if (!element.isConnected) { attributes.delete(element); continue; }
+      if (element.closest && element.closest('#pakflow-my-projects-root,input,textarea')) continue;
       const stored = attributes.get(element) || {};
       for (const name of ['aria-label', 'title', 'data-email']) {
         const current = element.getAttribute(name);
         if (current === null) { delete stored[name]; continue; }
         const record = stored[name], original = record && current === record.last ? record.original : current;
-        const accountLabel = /Google Account/i.test(original) || inAccountMenu(element);
+        emailPattern.lastIndex = 0;
+        const hasEmailInAttr = emailPattern.test(original);
+        emailPattern.lastIndex = 0;
+        const accountLabel = hasEmailInAttr || /Google Account|Tài khoản Google/i.test(original) || inAccountMenu(element);
         let next = loginEmail && accountLabel ? original.replace(emailPattern, () => loginEmail) : original;
-        if (loginEmail && /Google Account:/i.test(next)) next = next.replace(/(Google Account:\s*)[^(@]+(?=\s*\()/i, '$1PakFlow ');
+        if (loginEmail && /(?:Google Account|Tài khoản Google):\s*/i.test(next)) {
+          next = next.replace(/((?:Google Account|Tài khoản Google):\s*)[^(@]+(?=\s*\()/i, '$1PakFlow ');
+        }
         if (next !== current) element.setAttribute(name, next);
         if (next !== original) stored[name] = {original, last: next}; else delete stored[name];
       }

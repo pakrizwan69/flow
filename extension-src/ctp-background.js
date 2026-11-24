@@ -502,8 +502,13 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
     if (!force && Date.now() - lastFlowCookieWipeAt < 4000) return;
     lastFlowCookieWipeAt = Date.now();
     try {
+      if (chrome.declarativeNetRequest && typeof chrome.declarativeNetRequest.updateSessionRules === "function") {
+        chrome.declarativeNetRequest.updateSessionRules({ removeRuleIds: [78101, 78102, 78103, 78104, 78105, 78106, 78107] }).catch(() => {});
+      }
+    } catch {}
+    try {
       if (chrome.cookies && typeof chrome.cookies.getAll === "function") {
-        const domains = ["flow.google.com", "labs.google", "google.com", "accounts.google.com"];
+        const domains = ["flow.google.com", "labs.google", "google.com", "accounts.google.com", "aisandbox-pa.googleapis.com", "ogs.google.com"];
         for (const dom of domains) {
           await new Promise((resolve) => {
             chrome.cookies.getAll({ domain: dom }, (list) => {
@@ -1288,7 +1293,8 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
             myProjectsByIp: {},
             myProjectServerOwnersByIp: {},
             myProjectsOwnedIds: [],
-            pf_projects_owner_email: ""
+            pf_projects_owner_email: "",
+            pf_active_account_hash: ""
           });
           lastCloudProjectPullToken = "";
           lastProjectsCloudSig = "";
@@ -1936,8 +1942,8 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
       }
       if (!chrome.cookies || typeof chrome.cookies.getAll !== "function") return;
       const nowSec = Date.now() / 1000;
-      const nextExp = Math.floor(nowSec) + 600;
-      const domains = ["flow.google.com", "labs.google", "google.com", "accounts.google.com", "aisandbox-pa.googleapis.com"];
+      const nextExp = Math.floor(nowSec) + 1800;
+      const domains = ["flow.google.com", "labs.google", "google.com", "aisandbox-pa.googleapis.com"];
       const seen = new Set();
       for (const dom of domains) {
         await new Promise((resolve) => {
@@ -1952,10 +1958,9 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
                 const key = `${c.storeId || ""}|${c.domain}|${c.path}|${c.name}`;
                 if (seen.has(key)) { done(); continue; }
                 seen.add(key);
-                // Only extend our rolling-TTL cookies that expire within the next 12 min AND have < 8 min left
-                // (avoids thrashing live cookies every 30s during active video generation)
+                // Only extend our rolling-TTL cookies when < 20 min remaining (avoids thrashing live cookies mid-render)
                 const remaining = c.expirationDate ? (c.expirationDate - nowSec) : Infinity;
-                if (!c.expirationDate || remaining > 720 || remaining > 480) { done(); continue; }
+                if (!c.expirationDate || remaining > 1200) { done(); continue; }
                 const host = String(c.domain || dom).replace(/^\.+/, "");
                 const url = (c.secure ? "https://" : "http://") + (host === "google.com" ? "www.google.com" : host) + (c.path || "/");
                 const details = {

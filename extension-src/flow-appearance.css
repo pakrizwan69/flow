@@ -1,5 +1,8 @@
-/* Solid black privacy cover on Google Flow homepage (hides all other shared users' projects)
-   while keeping Google Flow's 100% genuine native "+ New project" button untouched, smooth, and fast. */
+/* Solid black privacy cover on Google Flow homepage (hides all shared users' projects)
+   while keeping:
+   1) Google Flow's genuine "+ New project" button (.new-project-button) in ALL languages (English, Vietnam, etc.)
+   2) Top-right User Profile / ULTRA pill + Account Menu popup
+   3) Bottom-left PakFlow My Projects button & drawer */
 html[data-pakflow-flow-home="true"],
 html[data-pakflow-flow-home="true"] body {
   background: #050608 !important;
@@ -8,25 +11,47 @@ html[data-pakflow-flow-home="true"] body {
   overflow: hidden !important;
 }
 
-/* Hide every shared project card, thumbnail, header, and grid item on the Flow homepage.
-   Does NOT touch #pakflow-my-projects-root or #pakflow-access-lock-overlay. */
-html[data-pakflow-flow-home="true"] body > *:not(#pakflow-my-projects-root):not(#pakflow-access-lock-overlay):not([data-pakflow-real-new-btn="true"]),
-html[data-pakflow-flow-home="true"] body > *:not(#pakflow-my-projects-root):not(#pakflow-access-lock-overlay):not([data-pakflow-real-new-btn="true"]) * {
+/* Hide shared project grid, cards, headers, and banners on Flow homepage.
+   Never touches #pakflow-my-projects-root or #pakflow-access-lock-overlay. */
+html[data-pakflow-flow-home="true"] body > *:not(#pakflow-my-projects-root):not(#pakflow-access-lock-overlay):not(.cdk-overlay-container),
+html[data-pakflow-flow-home="true"] body > *:not(#pakflow-my-projects-root):not(#pakflow-access-lock-overlay):not(.cdk-overlay-container) * {
   visibility: hidden !important;
   pointer-events: none !important;
 }
 
-/* Reveal ONLY Google Flow's genuine native "+ New project" button and its icon/label.
-   Position, size, transform, hover, and ripple stay 100% native Google Flow. */
-html[data-pakflow-flow-home="true"] body > [data-pakflow-real-new-btn="true"],
-html[data-pakflow-flow-home="true"] body > [data-pakflow-real-new-btn="true"] *,
-html[data-pakflow-flow-home="true"] body > *:not(#pakflow-my-projects-root):not(#pakflow-access-lock-overlay):not([data-pakflow-real-new-btn="true"]) [data-pakflow-real-new-btn="true"],
-html[data-pakflow-flow-home="true"] body > *:not(#pakflow-my-projects-root):not(#pakflow-access-lock-overlay):not([data-pakflow-real-new-btn="true"]) [data-pakflow-real-new-btn="true"] * {
+/* 1) Reveal Google Flow's genuine native "+ New project" button in ALL languages (0ms pure CSS via .new-project-button). */
+html[data-pakflow-flow-home="true"] body > *:not(#pakflow-my-projects-root):not(#pakflow-access-lock-overlay) button.new-project-button,
+html[data-pakflow-flow-home="true"] body > *:not(#pakflow-my-projects-root):not(#pakflow-access-lock-overlay) button.new-project-button *,
+html[data-pakflow-flow-home="true"] body > *:not(#pakflow-my-projects-root):not(#pakflow-access-lock-overlay) .new-project-button,
+html[data-pakflow-flow-home="true"] body > *:not(#pakflow-my-projects-root):not(#pakflow-access-lock-overlay) .new-project-button *,
+html[data-pakflow-flow-home="true"] body > *:not(#pakflow-my-projects-root):not(#pakflow-access-lock-overlay) [data-pakflow-real-new-btn="true"],
+html[data-pakflow-flow-home="true"] body > *:not(#pakflow-my-projects-root):not(#pakflow-access-lock-overlay) [data-pakflow-real-new-btn="true"] * {
   visibility: visible !important;
   pointer-events: auto !important;
 }
 
-/* Suppress legacy #ct-blur-overlay from core_module.js so it never covers or dims Google's native button. */
+/* 2) Reveal Top-Right User Profile / ULTRA pill + open Account Menu / dialogs on the black homepage. */
+html[data-pakflow-flow-home="true"] body > *:not(#pakflow-my-projects-root):not(#pakflow-access-lock-overlay) [data-pakflow-top-profile="true"],
+html[data-pakflow-flow-home="true"] body > *:not(#pakflow-my-projects-root):not(#pakflow-access-lock-overlay) [data-pakflow-top-profile="true"] *,
+html[data-pakflow-flow-home="true"] body > .cdk-overlay-container,
+html[data-pakflow-flow-home="true"] body > .cdk-overlay-container *,
+html[data-pakflow-flow-home="true"] body > *:not(#pakflow-my-projects-root):not(#pakflow-access-lock-overlay) [role="menu"],
+html[data-pakflow-flow-home="true"] body > *:not(#pakflow-my-projects-root):not(#pakflow-access-lock-overlay) [role="menu"] *,
+html[data-pakflow-flow-home="true"] body > *:not(#pakflow-my-projects-root):not(#pakflow-access-lock-overlay) [role="dialog"],
+html[data-pakflow-flow-home="true"] body > *:not(#pakflow-my-projects-root):not(#pakflow-access-lock-overlay) [role="dialog"] *,
+html[data-pakflow-flow-home="true"] body > *:not(#pakflow-my-projects-root):not(#pakflow-access-lock-overlay) iframe[src*="ogs.google.com"] {
+  visibility: visible !important;
+  pointer-events: auto !important;
+}
+
+/* Keep 3-dots near ULTRA unclickable even when inside [data-pakflow-top-profile="true"] */
+[data-pakflow-unclickable-dots="true"],
+[data-pakflow-unclickable-dots="true"] * {
+  pointer-events: none !important;
+  cursor: default !important;
+}
+
+/* Suppress legacy #ct-blur-overlay from core_module.js so it never covers or dims Google's native UI. */
 #ct-blur-overlay {
   display: none !important;
   visibility: hidden !important;
@@ -44,10 +69,4 @@ html[data-pakflow-flow-home="true"] body > *:not(#pakflow-my-projects-root):not(
   overflow: hidden !important;
   opacity: 0 !important;
   pointer-events: none !important;
-}
-
-[data-pakflow-unclickable-dots="true"],
-[data-pakflow-unclickable-dots="true"] * {
-  pointer-events: none !important;
-  cursor: default !important;
 }

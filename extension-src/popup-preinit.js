@@ -115,9 +115,9 @@
     var slotNum = Number(snap.activeSlot) || 1;
     var cycleTitle = document.getElementById("injectCycleTitle");
     if (cycleTitle) cycleTitle.textContent = "Session " + slotNum + " Selected";
-    var readyDesc = document.getElementById("readyDescText");
-    if (readyDesc && (!readyDesc.textContent || readyDesc.textContent.indexOf("On Google Flow") === 0)) {
-      readyDesc.textContent = "Session " + slotNum + " Selected";
+    var cleanStatus = document.getElementById("pfCleanSessionStatus");
+    if (cleanStatus) {
+      cleanStatus.textContent = "Session " + slotNum + " Active — Flow Ready";
     }
 
     // Pre-populate session slot buttons synchronously before first paint to stop window height jumping

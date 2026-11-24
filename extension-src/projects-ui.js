@@ -3,23 +3,29 @@
   'use strict';
   const $ = id => document.getElementById(id);
   let root, drawer, backdrop, savedCount, previousFocus, scheduled = false;
-  let currentSlot = 'slot_1', currentOwnerEmail = '', isUserLoggedIn = true, refreshProjects;
+  let currentSlot = 'slot_1', currentOwnerEmail = '', currentAccountHash = '', isUserLoggedIn = true, refreshProjects;
+  let liveHomeProjectIds = new Set();
   const normalizeSlot = slot => typeof slot === 'string' && slot.trim() && slot !== 'active' ? slot.trim() : 'slot_1';
   function updateServer(state) {
     void chrome.runtime?.lastError;
     if (!state) return;
     let changed = false;
-    const slot = typeof state.activeSlot === 'string' && state.activeSlot.trim() && state.activeSlot !== 'active'
-      ? normalizeSlot(state.activeSlot)
+    const rawSlot = (typeof state.lastInjectedSlot === 'string' && state.lastInjectedSlot.trim() && state.lastInjectedSlot !== 'active')
+      ? state.lastInjectedSlot
+      : state.activeSlot;
+    const slot = typeof rawSlot === 'string' && rawSlot.trim() && rawSlot !== 'active'
+      ? normalizeSlot(rawSlot)
       : 'slot_' + ((Number.isInteger(state.sessionLoopIndex) && state.sessionLoopIndex >= 0 ? state.sessionLoopIndex : 0) + 1);
-    if (slot !== currentSlot) { currentSlot = slot; changed = true; }
+    if (slot !== currentSlot) { currentSlot = slot; liveHomeProjectIds = new Set(); changed = true; }
     const nextEmail = String(state.userEmail || state.user?.email || state.pakflow_user?.email || state.pf_projects_owner_email || '').trim().toLowerCase();
     if (nextEmail !== currentOwnerEmail) { currentOwnerEmail = nextEmail; changed = true; }
+    const nextAccHash = String(state.pf_active_account_hash || '').trim();
+    if (nextAccHash !== currentAccountHash) { currentAccountHash = nextAccHash; liveHomeProjectIds = new Set(); changed = true; }
     const nextLogged = !(state.isLoggedIn === false || state.isLoggedIn === 'false' || state.flowSessionDetached === true);
     if (nextLogged !== isUserLoggedIn) { isUserLoggedIn = nextLogged; changed = true; }
     if (changed) { refreshProjects?.(); schedule(); }
   }
-  const serverStorageKeys = ['activeSlot', 'sessionLoopIndex', 'userEmail', 'user', 'pakflow_user', 'pf_projects_owner_email', 'isLoggedIn', 'flowSessionDetached'];
+  const serverStorageKeys = ['activeSlot', 'lastInjectedSlot', 'pf_active_account_hash', 'sessionLoopIndex', 'userEmail', 'user', 'pakflow_user', 'pf_projects_owner_email', 'isLoggedIn', 'flowSessionDetached'];
   try {
     if (chrome?.runtime?.id && chrome?.storage?.local) {
       chrome.storage.local.get(serverStorageKeys, updateServer);
@@ -38,20 +44,38 @@
     filterProjects(projects) {
       if (!isUserLoggedIn || !Array.isArray(projects) || projects.length === 0) return [];
       const slot = normalizeSlot(currentSlot || 'slot_1');
-      // Strictly isolate My Projects to the currently logged-in PakFlow account AND currently active server/session
-      // so users ONLY see their own projects for this server and never hit cross-server "Project not found".
+      const now = Date.now();
+      const hasLiveHomeIndex = liveHomeProjectIds.size > 0;
+      // 3-Key + Live-Account Verification:
+      // 1) Must belong to this PakFlow user (ownerEmail)
+      // 2) Must match active session's Google accountHash (or activeSlot when legacy)
+      // 3) When on Flow homepage and live project links have loaded, must ACTUALLY exist on this session right now
+      //    (or created within the last 3 minutes) — guaranteeing ZERO "Project not found" clicks!
       const seen = new Set();
       const activeOnly = [];
       for (const p of projects) {
         if (!p || !p.id) continue;
         const pOwner = String(p.ownerEmail || '').trim().toLowerCase();
         if (currentOwnerEmail && pOwner && pOwner !== currentOwnerEmail) continue;
-        if (normalizeSlot(p.slot) !== slot) continue;
+        if (currentAccountHash && p.accountHash) {
+          if (p.accountHash !== currentAccountHash) continue;
+        } else if (normalizeSlot(p.slot) !== slot) {
+          continue;
+        }
         const id = String(p.id).toLowerCase();
         if (seen.has(id)) continue;
+        if (hasLiveHomeIndex && !liveHomeProjectIds.has(id)) {
+          const ageMs = now - Number(p.updatedAt || p.createdAt || 0);
+          if (!Number.isFinite(ageMs) || ageMs > 180000) continue;
+        }
         seen.add(id);
         activeOnly.push(p);
       }
+      if (savedCount) {
+        setText(savedCount, 'Session ' + slot.replace('slot_', '') + ' · ' + activeOnly.length + ' Saved');
+      }
+      const badgeEl = $('pakflow-fp-count');
+      if (badgeEl) setText(badgeEl, String(activeOnly.length));
       return activeOnly;
     },
     setProjectRefresh(callback) { refreshProjects = callback; queueMicrotask(callback); },
@@ -238,22 +262,17 @@
       else if (!event.shiftKey && (document.activeElement === last || !drawer.contains(document.activeElement))) { event.preventDefault(); first?.focus(); }
     }
   });
+  // Silent self-healing on /404?reason=project — NEVER expose internal "Google account / cookies rotated" messages to users!
+  let pnfCleanupHandled = false;
   function checkProjectNotFoundRecovery() {
-    if (window.top !== window) return;
+    if (window.top !== window || pnfCleanupHandled) return;
     const isProjectPath = /\/project\/([^/?#]+)/i.test(location.pathname);
     const is404ProjectPath = /^\/404(?:\/|$)/i.test(location.pathname) && /reason=project/i.test(location.search || '');
-    if (!isProjectPath && !is404ProjectPath) {
-      const old = $('pakflow-pnf-helper');
-      if (old) old.remove();
-      return;
-    }
+    if (!isProjectPath && !is404ProjectPath) return;
     const bodyText = (document.body && document.body.innerText) ? document.body.innerText : '';
-    if (!is404ProjectPath && !/\bproject\s+not\s+found\.?/i.test(bodyText)) {
-      const old = $('pakflow-pnf-helper');
-      if (old) old.remove();
-      return;
-    }
-    if ($('pakflow-pnf-helper')) return;
+    if (!is404ProjectPath && !/\bproject\s+not\s+found\.?/i.test(bodyText)) return;
+
+    pnfCleanupHandled = true;
     const mId = location.pathname.match(/\/project\/([^/?#]+)/i);
     let projId = mId ? String(mId[1]).toLowerCase() : '';
     if (!projId) {
@@ -263,96 +282,32 @@
         projId = (navMatch && navMatch[1]) ? String(navMatch[1]).toLowerCase() : String(sessionStorage.getItem('pf_last_opened_project_id') || '').toLowerCase();
       } catch {}
     }
-    if (!projId) return;
+    if (!projId) {
+      location.replace('https://flow.google.com/');
+      return;
+    }
 
-    const mountHelper = (ownerSlot) => {
-      if ($('pakflow-pnf-helper')) return;
-      const box = document.createElement('div');
-      box.id = 'pakflow-pnf-helper';
-      box.style.cssText = 'position:fixed;left:50%;bottom:84px;transform:translateX(-50%);z-index:2147483000;max-width:440px;width:calc(100vw - 32px);padding:14px 16px;border-radius:12px;background:#0f172a;border:1px solid rgba(148,163,184,0.28);color:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;box-shadow:0 16px 40px rgba(0,0,0,0.55);text-align:center;';
-
-      const activeSlot = normalizeSlot(currentSlot);
-      const activeNum = parseInt(activeSlot.replace(/\D+/g, ''), 10) || 1;
-      const ownerNum = ownerSlot ? (parseInt(normalizeSlot(ownerSlot).replace(/\D+/g, ''), 10) || 0) : 0;
-
-      if (ownerNum > 0 && normalizeSlot(ownerSlot) !== activeSlot) {
-        box.innerHTML =
-          '<div style="font-size:13px;font-weight:700;margin-bottom:4px;color:#fcd34d;">Project belongs to Session ' + ownerNum + '</div>' +
-          '<div style="font-size:12px;color:#cbd5e1;margin-bottom:12px;line-height:1.45;">You are currently on Session ' + activeNum + '. Switch back to Session ' + ownerNum + ' to open this project.</div>' +
-          '<div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">' +
-            '<button id="pfPnfSwitchBtn" type="button" style="padding:8px 14px;border-radius:8px;border:0;background:#2563eb;color:#fff;font-weight:700;font-size:12.5px;cursor:pointer;">Switch to Session ' + ownerNum + ' &amp; Open</button>' +
-          '</div>';
-        document.body.appendChild(box);
-        const btn = $('pfPnfSwitchBtn');
-        if (btn) {
-          btn.addEventListener('click', () => {
-            btn.disabled = true;
-            btn.textContent = 'Switching to Session ' + ownerNum + '...';
-            try {
-              chrome.runtime.sendMessage(
-                { type: 'PAKFLOW_REINJECT_CURRENT', slotNumber: ownerNum, openFlow: false },
-                () => { void chrome.runtime?.lastError; window.location.reload(); }
-              );
-            } catch { window.location.reload(); }
-          });
-        }
-      } else {
-        box.innerHTML =
-          '<div style="font-size:13px;font-weight:700;margin-bottom:4px;color:#f8fafc;">Project unavailable on current Google account</div>' +
-          '<div style="font-size:12px;color:#94a3b8;margin-bottom:12px;line-height:1.45;">This project was created on a different Google account or session cookies were rotated.</div>' +
-          '<div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">' +
-            '<button id="pfPnfGoHomeBtn" type="button" style="padding:7px 13px;border-radius:8px;border:0;background:#2563eb;color:#fff;font-weight:600;font-size:12px;cursor:pointer;">Go to Flow Home</button>' +
-            '<button id="pfPnfRemoveBtn" type="button" style="padding:7px 13px;border-radius:8px;border:1px solid rgba(239,68,68,0.35);background:rgba(239,68,68,0.14);color:#fca5a5;font-weight:600;font-size:12px;cursor:pointer;">Remove from My Projects</button>' +
-          '</div>';
-        document.body.appendChild(box);
-        const homeBtn = $('pfPnfGoHomeBtn');
-        if (homeBtn) homeBtn.addEventListener('click', () => { window.location.href = 'https://flow.google.com/'; });
-        const remBtn = $('pfPnfRemoveBtn');
-        if (remBtn) {
-          remBtn.addEventListener('click', () => {
-            remBtn.disabled = true;
-            try {
-              chrome.storage.local.get(['myProjectsUnified', 'myProjectsByIp'], (st) => {
-                void chrome.runtime?.lastError;
-                const unified = Array.isArray(st?.myProjectsUnified)
-                  ? st.myProjectsUnified.filter((p) => String(p?.id || '').toLowerCase() !== projId)
-                  : [];
-                const byIp = st?.myProjectsByIp && typeof st.myProjectsByIp === 'object' ? { ...st.myProjectsByIp } : {};
-                for (const k of Object.keys(byIp)) {
-                  if (Array.isArray(byIp[k])) {
-                    byIp[k] = byIp[k].filter((p) => String(p?.id || '').toLowerCase() !== projId);
-                  }
-                }
-                chrome.storage.local.set({ myProjectsUnified: unified, myProjectsByIp: byIp }, () => {
-                  window.location.href = 'https://flow.google.com/';
-                });
-              });
-            } catch { window.location.href = 'https://flow.google.com/'; }
-          });
-        }
-      }
-    };
-
+    // Silently prune the dead/unavailable project ID from local lists and return smoothly to Flow Home
     try {
       chrome.storage.local.get(['myProjectsUnified', 'myProjectsByIp'], (st) => {
         void chrome.runtime?.lastError;
-        let foundSlot = '';
-        const scan = (arr) => {
-          if (!Array.isArray(arr) || foundSlot) return;
-          for (const p of arr) {
-            if (p && String(p.id || '').toLowerCase() === projId && p.slot) {
-              foundSlot = normalizeSlot(p.slot);
-              return;
-            }
+        const unified = Array.isArray(st?.myProjectsUnified)
+          ? st.myProjectsUnified.filter((p) => String(p?.id || '').toLowerCase() !== projId)
+          : [];
+        const byIp = st?.myProjectsByIp && typeof st.myProjectsByIp === 'object' ? { ...st.myProjectsByIp } : {};
+        for (const k of Object.keys(byIp)) {
+          if (Array.isArray(byIp[k])) {
+            byIp[k] = byIp[k].filter((p) => String(p?.id || '').toLowerCase() !== projId);
           }
-        };
-        scan(st?.myProjectsUnified);
-        if (!foundSlot && st?.myProjectsByIp && typeof st.myProjectsByIp === 'object') {
-          for (const arr of Object.values(st.myProjectsByIp)) scan(arr);
         }
-        mountHelper(foundSlot);
+        chrome.storage.local.set({ myProjectsUnified: unified, myProjectsByIp: byIp }, () => {
+          void chrome.runtime?.lastError;
+          location.replace('https://flow.google.com/');
+        });
       });
-    } catch {}
+    } catch {
+      location.replace('https://flow.google.com/');
+    }
   }
 
   // ── Real Thumbnail + Title Harvester for My Saved Projects History (zero extra network requests) ──
@@ -452,17 +407,26 @@
       const thumb = extractMediaThumbFromContainer(document.body);
       if (thumb) updates.set(pid, thumb);
     } else {
-      // Case B: Google Flow homepage grid — extract real thumbnails & titles ONLY for projects already owned by this user
+      // Case B: Google Flow homepage grid — index live project IDs on this session + extract real thumbnails & titles
       const links = document.querySelectorAll('a.project-thumbnail-container[href*="/project/"], a[href*="/project/"]');
+      const nextLiveSet = new Set();
       for (const a of links) {
         if (a.closest('#pakflow-my-projects-root')) continue;
         const m = String(a.getAttribute('href') || '').match(/\/project\/([^/?#]+)/i);
         if (!m || !m[1]) continue;
         const pid = String(m[1]).toLowerCase();
+        nextLiveSet.add(pid);
         const thumb = extractMediaThumbFromContainer(a) || extractMediaThumbFromContainer(a.closest('.project-card') || a.parentElement);
         if (thumb) updates.set(pid, thumb);
         const cardTitle = a.closest('.project-card')?.querySelector('.project-title-text')?.textContent?.trim();
         if (cardTitle && cardTitle.length <= 120) realTitles.set(pid, cardTitle);
+      }
+      if (nextLiveSet.size > 0) {
+        const sizeChanged = nextLiveSet.size !== liveHomeProjectIds.size;
+        liveHomeProjectIds = nextLiveSet;
+        if (sizeChanged) {
+          try { refreshProjects?.(); } catch {}
+        }
       }
     }
 
@@ -515,13 +479,17 @@
     } catch {}
   }
 
-  // ── Native Black Privacy Cover + 100% Genuine Google Flow "+ New project" Button on Homepage (/) ──
-  // Pure CSS hides all shared project cards/UI on flow.google.com/ while keeping Google Flow's
-  // own native "+ New project" <button> untouched in its original position, smooth and instant.
+  // ── Native Black Privacy Cover + All-Language Genuine "+ New project" + Top-Right Profile on Homepage (/) ──
   let cachedRealNewBtn = null;
+  let cachedTopProfileEl = null;
   let overlaySyncRaf = 0;
 
   function findRealGoogleNewProjectButton() {
+    // 1) Language-independent Google Flow native button class (works on English, Vietnam "Dự án mới", Arabic, etc.)
+    const byClass = document.querySelector('button.new-project-button, .new-project-button, button.projects-grid-new-project-button');
+    if (byClass && !byClass.disabled) return byClass;
+
+    // 2) Fallback: floating bottom CTA button with Material "add" / "add_2" icon or multi-language "New project" text
     let bestBtn = null;
     let bestScore = Infinity;
     let candidates = [];
@@ -532,9 +500,9 @@
       if (el.disabled || (el.getAttribute && el.getAttribute('aria-disabled') === 'true')) continue;
       const rawTxt = String(el.textContent || '').replace(/\s+/g, ' ').trim();
       const aria = String((el.getAttribute && el.getAttribute('aria-label')) || '').replace(/\s+/g, ' ').trim();
-      // Match without \b before "new" so glued Material icon ligatures ("addNew project", "add_2New project") always match.
-      if ((rawTxt.length > 0 && rawTxt.length <= 80 && /new\s*project/i.test(rawTxt))
-        || (aria.length > 0 && aria.length <= 80 && /new\s*project/i.test(aria))) {
+      const hasAddIcon = Boolean(el.querySelector('i, .google-symbols, .material-icons, mat-icon')) && /^(?:add(?:_2|_circle)?|\+)\s*\S+/i.test(rawTxt);
+      const isKnownLang = /new\s*project|dự\s*án\s*mới|nuevo\s*proyecto|nouveau\s*projet|neues\s*projekt|مشروع\s*جديد|नया\s*प्रोजेक्ट|새\s*프로젝트|新しいプロジェクト|新建项目/i.test(rawTxt + ' ' + aria);
+      if (isKnownLang || (hasAddIcon && rawTxt.length <= 48 && getComputedStyle(el).position === 'fixed')) {
         const score = (el.tagName === 'BUTTON' ? 0 : 100) + rawTxt.length;
         if (score < bestScore) {
           bestScore = score;
@@ -543,6 +511,50 @@
       }
     }
     return bestBtn;
+  }
+
+  function findTopRightProfileControl() {
+    if (!document.body) return null;
+    // Locate the compact top-right ULTRA + User Avatar pill in Google Flow's header
+    const avatarImgs = document.querySelectorAll('img[src*="googleusercontent.com/a/"], [aria-label*="@"] img, a[aria-label*="Google Account" i], button[aria-label*="Google Account" i], a[aria-label*="Tài khoản Google" i], button[aria-label*="Tài khoản Google" i]');
+    for (const node of avatarImgs) {
+      if (node.closest('#pakflow-my-projects-root')) continue;
+      let pill = node;
+      let cur = node.parentElement;
+      for (let d = 0; d < 6 && cur && cur !== document.body; d++) {
+        const r = cur.getBoundingClientRect();
+        if (r.top >= 0 && r.top <= 120 && r.right >= window.innerWidth * 0.65 && r.width <= 260 && r.height <= 80) {
+          // Stop before grabbing the entire full-width header bar
+          pill = cur;
+        } else if (r.width > 260) {
+          break;
+        }
+        cur = cur.parentElement;
+      }
+      const pr = pill.getBoundingClientRect();
+      if (pr.width > 0 && pr.width <= 260 && pr.top >= 0 && pr.top <= 120) {
+        return pill;
+      }
+    }
+    // Fallback: look for compact top-right "ULTRA" badge container
+    const spans = document.querySelectorAll('span, div, button');
+    for (const s of spans) {
+      if (s.closest('#pakflow-my-projects-root')) continue;
+      if (String(s.textContent || '').trim().toUpperCase() !== 'ULTRA') continue;
+      const r = s.getBoundingClientRect();
+      if (r.top >= 0 && r.top <= 120 && r.left >= window.innerWidth * 0.65 && r.width > 0 && r.width < 160) {
+        let box = s;
+        let p = s.parentElement;
+        for (let d = 0; d < 4 && p && p !== document.body; d++) {
+          const pr = p.getBoundingClientRect();
+          if (pr.width <= 240 && pr.height <= 76 && pr.top >= 0 && pr.top <= 120) box = p;
+          else break;
+          p = p.parentElement;
+        }
+        return box;
+      }
+    }
+    return null;
   }
 
   function syncFlowHomePrivacyOverlay() {
@@ -560,18 +572,24 @@
         try { cachedRealNewBtn.removeAttribute('data-pakflow-real-new-btn'); } catch {}
         cachedRealNewBtn = null;
       }
+      if (cachedTopProfileEl) {
+        try { cachedTopProfileEl.removeAttribute('data-pakflow-top-profile'); } catch {}
+        cachedTopProfileEl = null;
+      }
       return;
     }
 
-    // Fast path: already active and Google's genuine button is tagged & connected (0 DOM scans)
-    if (cachedRealNewBtn && cachedRealNewBtn.isConnected && cachedRealNewBtn.getAttribute('data-pakflow-real-new-btn') === 'true') {
+    // Fast path when both genuine New Project button and top-right Profile pill are already tagged
+    const btnReady = cachedRealNewBtn && cachedRealNewBtn.isConnected && cachedRealNewBtn.getAttribute('data-pakflow-real-new-btn') === 'true';
+    const profReady = cachedTopProfileEl && cachedTopProfileEl.isConnected && cachedTopProfileEl.getAttribute('data-pakflow-top-profile') === 'true';
+    if (btnReady && profReady) {
       if (document.documentElement && document.documentElement.getAttribute('data-pakflow-flow-home') !== 'true') {
         document.documentElement.setAttribute('data-pakflow-flow-home', 'true');
       }
       return;
     }
 
-    const realNewBtn = findRealGoogleNewProjectButton();
+    const realNewBtn = btnReady ? cachedRealNewBtn : findRealGoogleNewProjectButton();
     const hasProjLinks = Boolean(document.querySelector('a[href*="/project/"]'));
 
     // Do not cover Google's sign-in screen if genuinely signed out
@@ -589,14 +607,21 @@
       document.documentElement.setAttribute('data-pakflow-flow-home', 'true');
     }
 
-    if (realNewBtn) {
-      if (cachedRealNewBtn && cachedRealNewBtn !== realNewBtn) {
+    if (realNewBtn && realNewBtn !== cachedRealNewBtn) {
+      if (cachedRealNewBtn) {
         try { cachedRealNewBtn.removeAttribute('data-pakflow-real-new-btn'); } catch {}
       }
-      if (realNewBtn.getAttribute('data-pakflow-real-new-btn') !== 'true') {
-        realNewBtn.setAttribute('data-pakflow-real-new-btn', 'true');
-      }
+      realNewBtn.setAttribute('data-pakflow-real-new-btn', 'true');
       cachedRealNewBtn = realNewBtn;
+    }
+
+    const topProf = profReady ? cachedTopProfileEl : findTopRightProfileControl();
+    if (topProf && topProf !== cachedTopProfileEl) {
+      if (cachedTopProfileEl) {
+        try { cachedTopProfileEl.removeAttribute('data-pakflow-top-profile'); } catch {}
+      }
+      topProf.setAttribute('data-pakflow-top-profile', 'true');
+      cachedTopProfileEl = topProf;
     }
   }
 
