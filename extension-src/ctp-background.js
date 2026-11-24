@@ -861,10 +861,18 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
                   try {
                     const href = String(location.href || "");
                     if (document.readyState === "loading") return false;
-                    const bodyTxt = String(document.body?.innerText || "").slice(0, 4000);
+                    // Inspect Google Flow's real DOM (ignore PakFlow overlays)
+                    const ownRoots = [document.getElementById("pakflow-private-home"), document.getElementById("pakflow-access-lock-overlay"), document.getElementById("pakflow-my-projects-root")].filter(Boolean);
+                    const inOwn = (el) => ownRoots.some((r) => r.contains(el));
+                    let bodyTxt = "";
+                    for (const child of Array.from(document.body?.children || [])) {
+                      if (!ownRoots.includes(child)) bodyTxt += " " + String(child.innerText || "");
+                    }
+                    bodyTxt = bodyTxt.slice(0, 4000);
                     // If ANY logged-in studio UI is already visible, NEVER reload!
+                    const hasLoggedInNode = Array.from(document.querySelectorAll('textarea, [contenteditable="true"], a[href*="/project/"], img[src*="googleusercontent.com"]')).some((el) => !inOwn(el));
                     const isClearlyLoggedIn = Boolean(
-                      document.querySelector('textarea, [contenteditable="true"], a[href*="/project/"], img[src*="googleusercontent.com"]') ||
+                      hasLoggedInNode ||
                       /\b(?:new project|all media|what do you want to create|last modified|flow tv|flow music)\b/i.test(bodyTxt)
                     );
                     if (isClearlyLoggedIn) return false;
