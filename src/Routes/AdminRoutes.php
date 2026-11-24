@@ -1091,6 +1091,11 @@ final class AdminRoutes
             Db::markUserDeleted($userId, (string)($target['email'] ?? ''));
             Helpers::purgeActiveClientSessionsForUser($userId, (string)($target['email'] ?? ''));
             Db::deleteSingleUserMysql($userId);
+            if (!empty($target['resellerId'])) {
+                $rid = (int)$target['resellerId'];
+                $rem = Db::countUsersByResellerMysql($rid);
+                \App\Database::pdo()->prepare('UPDATE resellers SET users_created = ? WHERE id = ?')->execute([$rem, $rid]);
+            }
             Http::json(['success' => true, 'message' => 'User deleted successfully']);
         }
         $users = Db::readUsers();
@@ -1109,6 +1114,18 @@ final class AdminRoutes
         Db::markUserDeleted($userId, (string)($target['email'] ?? ''));
         Helpers::purgeActiveClientSessionsForUser($userId, (string)($target['email'] ?? ''));
         Db::writeUsers($filtered, ['immediate' => true]);
+        if (!empty($target['resellerId'])) {
+            $rid = (int)$target['resellerId'];
+            $rem = count(array_filter($filtered, static fn($u) => (int)($u['resellerId'] ?? 0) === $rid));
+            $resellers = Db::readResellers();
+            foreach ($resellers as $ri => $r) {
+                if ((int)($r['id'] ?? 0) === $rid) {
+                    $resellers[$ri]['usersCreated'] = $rem;
+                    Db::writeResellers($resellers);
+                    break;
+                }
+            }
+        }
         Http::json(['success' => true, 'message' => 'User deleted successfully']);
     }
 

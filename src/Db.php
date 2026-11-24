@@ -636,7 +636,7 @@ final class Db
         if (!Database::isEnabled() || $resellerId <= 0) {
             return [];
         }
-        $stmt = Database::pdo()->prepare('SELECT * FROM users WHERE reseller_id = ? ORDER BY id ASC');
+        $stmt = Database::pdo()->prepare('SELECT * FROM users WHERE reseller_id = ? ORDER BY created_at DESC, id DESC');
         $stmt->execute([$resellerId]);
         $out = [];
         foreach ($stmt->fetchAll() as $r) {

@@ -1783,7 +1783,7 @@
             </select>
           </div>
         </div>
-        <div class="table-wrap" style="max-height:420px;overflow-y:auto;">
+        <div class="table-wrap" style="max-height:55vh;overflow-y:auto;">
           <table>
             <thead>
               <tr>

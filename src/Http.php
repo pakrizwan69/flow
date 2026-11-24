@@ -176,8 +176,13 @@ final class Http
             header('Expires: 0');
             header('X-LiteSpeed-Cache-Control: no-cache');
         }
-        $json = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        $flags = JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES;
+        if (defined('JSON_INVALID_UTF8_SUBSTITUTE')) {
+            $flags |= JSON_INVALID_UTF8_SUBSTITUTE;
+        }
+        $json = json_encode($data, $flags);
         if ($json === false) {
+            error_log('[Http::json] json_encode failed: ' . json_last_error_msg());
             http_response_code(500);
             echo '{"success":false,"error":"JsonEncodeError"}';
             exit;

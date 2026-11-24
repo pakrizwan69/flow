@@ -234,6 +234,9 @@ final class ResellerRoutes
             'role' => 'reseller',
             'name' => $reseller['name'],
         ]);
+        $liveUsersCount = \App\Database::isEnabled()
+            ? Db::countUsersByResellerMysql((int)$reseller['id'])
+            : count(Db::getUserIndexes(Db::readUsers())['byResellerId'][(string)$reseller['id']] ?? []);
         Http::json([
             'success' => true,
             'token' => $token,
@@ -242,7 +245,7 @@ final class ResellerRoutes
                 'name' => $reseller['name'],
                 'email' => $reseller['email'],
                 'allowedUsers' => $reseller['allowedUsers'] ?? 50,
-                'usersCreated' => $reseller['usersCreated'] ?? 0,
+                'usersCreated' => $liveUsersCount,
                 'creditsQuota' => $reseller['creditsQuota'] ?? 1000000,
                 'whatsapp' => $reseller['whatsapp'] ?? '',
                 'status' => $reseller['status'],
@@ -480,6 +483,7 @@ final class ResellerRoutes
             $formatted[] = [
                 'id' => $u['id'],
                 'name' => $u['name'] ?? '',
+                'username' => $u['username'] ?? '',
                 'email' => $u['email'] ?? '',
                 'plainPasswordHint' => $u['plainPasswordHint'] ?? null,
                 'plan' => $u['plan'] ?? 'pro',
@@ -498,6 +502,16 @@ final class ResellerRoutes
                 'daysSinceCreation' => (int)floor($ageMs / 86400000),
             ];
         }
+
+        // Always show newest users first so newly created users are immediately visible at the top
+        usort($formatted, static function ($a, $b) {
+            $ta = !empty($a['createdAt']) ? (strtotime((string)$a['createdAt']) ?: 0) : 0;
+            $tb = !empty($b['createdAt']) ? (strtotime((string)$b['createdAt']) ?: 0) : 0;
+            if ($ta !== $tb) {
+                return $tb <=> $ta;
+            }
+            return ((int)($b['id'] ?? 0)) <=> ((int)($a['id'] ?? 0));
+        });
 
         $allowed = (int)($reqReseller['allowedUsers'] ?? 50);
         Http::json([
