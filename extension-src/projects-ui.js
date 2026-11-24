@@ -3,24 +3,31 @@
   'use strict';
   const $ = id => document.getElementById(id);
   let root, drawer, backdrop, savedCount, previousFocus, scheduled = false;
-  let currentSlot = 'slot_1', refreshProjects;
+  let currentSlot = 'slot_1', currentOwnerEmail = '', isUserLoggedIn = true, refreshProjects;
   const normalizeSlot = slot => typeof slot === 'string' && slot.trim() && slot !== 'active' ? slot.trim() : 'slot_1';
   function updateServer(state) {
     void chrome.runtime?.lastError;
     if (!state) return;
+    let changed = false;
     const slot = typeof state.activeSlot === 'string' && state.activeSlot.trim() && state.activeSlot !== 'active'
       ? normalizeSlot(state.activeSlot)
       : 'slot_' + ((Number.isInteger(state.sessionLoopIndex) && state.sessionLoopIndex >= 0 ? state.sessionLoopIndex : 0) + 1);
-    if (slot !== currentSlot) { currentSlot = slot; refreshProjects?.(); schedule(); }
+    if (slot !== currentSlot) { currentSlot = slot; changed = true; }
+    const nextEmail = String(state.userEmail || state.user?.email || state.pakflow_user?.email || state.pf_projects_owner_email || '').trim().toLowerCase();
+    if (nextEmail !== currentOwnerEmail) { currentOwnerEmail = nextEmail; changed = true; }
+    const nextLogged = !(state.isLoggedIn === false || state.isLoggedIn === 'false' || state.flowSessionDetached === true);
+    if (nextLogged !== isUserLoggedIn) { isUserLoggedIn = nextLogged; changed = true; }
+    if (changed) { refreshProjects?.(); schedule(); }
   }
+  const serverStorageKeys = ['activeSlot', 'sessionLoopIndex', 'userEmail', 'user', 'pakflow_user', 'pf_projects_owner_email', 'isLoggedIn', 'flowSessionDetached'];
   try {
     if (chrome?.runtime?.id && chrome?.storage?.local) {
-      chrome.storage.local.get(['activeSlot', 'sessionLoopIndex'], updateServer);
+      chrome.storage.local.get(serverStorageKeys, updateServer);
       chrome.storage.onChanged.addListener((changes, area) => {
         try {
           if (!chrome?.runtime?.id) return;
-          if (area === 'local' && (changes.activeSlot || changes.sessionLoopIndex)) {
-            chrome.storage.local.get(['activeSlot', 'sessionLoopIndex'], updateServer);
+          if (area === 'local' && serverStorageKeys.some((k) => Boolean(changes[k]))) {
+            chrome.storage.local.get(serverStorageKeys, updateServer);
           }
         } catch {}
       });
@@ -29,15 +36,16 @@
   const setText = (node, value) => { if (node.textContent !== value) node.textContent = value; };
   globalThis.PakFlowUI = {
     filterProjects(projects) {
-      if (!Array.isArray(projects) || projects.length === 0) return [];
+      if (!isUserLoggedIn || !Array.isArray(projects) || projects.length === 0) return [];
       const slot = currentSlot || 'slot_1';
-      // Always keep all saved projects visible (prioritizing active server's projects first)
-      // so users never see an empty "No projects found" screen after a server switch or shuffle.
+      // Strictly isolate My Projects to the currently logged-in PakFlow account so no user ever sees another user's projects.
       const seen = new Set();
       const activeFirst = [];
       const others = [];
       for (const p of projects) {
         if (!p || !p.id) continue;
+        const pOwner = String(p.ownerEmail || '').trim().toLowerCase();
+        if (currentOwnerEmail && pOwner && pOwner !== currentOwnerEmail) continue;
         const id = String(p.id).toLowerCase();
         if (seen.has(id)) continue;
         seen.add(id);
@@ -435,11 +443,89 @@
     } catch {}
   }
 
-  // ── Native Black Privacy Overlay Safeguard on Google Flow Homepage (/) ──
-  // Uses a dedicated #pakflow-home-privacy-shield (so core_module.js cannot remove it) +
-  // hides all shared /project/ cards on flow.google.com/ while keeping ONLY Google Flow's
-  // genuine "+ New project" button and bottom-left "My Saved Projects" accessible.
-  // Removed immediately inside /project/<id> and never shown on /about.
+  // ── Native Black Privacy Overlay + Guaranteed Bottom-Center "+ New project" Trigger on Google Flow Homepage (/) ──
+  // Uses a dedicated #pakflow-home-privacy-shield (z-index: 2147483000) to hide ALL shared projects,
+  // and mounts #pakflow-new-project-trigger directly on body/documentElement (z-index: 2147483400, same layer as My Projects)
+  // which clicks Google Flow's real "+ New project" button underneath — immune to React/Shadow DOM stacking traps.
+  function findRealGoogleNewProjectButton() {
+    const queue = [document];
+    const visited = new Set();
+    let fallbackMatch = null;
+    while (queue.length > 0) {
+      const rootNode = queue.shift();
+      if (!rootNode || visited.has(rootNode)) continue;
+      visited.add(rootNode);
+      let candidates = [];
+      try { candidates = rootNode.querySelectorAll('button, [role="button"], a'); } catch {}
+      for (const el of candidates) {
+        if (el.id === 'pakflow-new-project-trigger') continue;
+        if (el.closest && (el.closest('#pakflow-my-projects-root') || el.closest('#pakflow-access-lock-overlay'))) continue;
+        if (el.getAttribute && el.getAttribute('data-elevate-btn') === 'true') return el;
+        const txt = String(el.innerText || el.textContent || '').replace(/\s+/g, ' ').trim();
+        const aria = String((el.getAttribute && el.getAttribute('aria-label')) || '').trim();
+        if ((txt.length > 0 && txt.length <= 60 && /\bnew\s+project\b/i.test(txt))
+          || (aria.length > 0 && aria.length <= 60 && /\bnew\s+project\b/i.test(aria))) {
+          return el;
+        }
+        if (!fallbackMatch && ((txt.length <= 40 && /\bcreate\b/i.test(txt) && /project/i.test(txt))
+          || (aria.length <= 40 && /\bcreate\b/i.test(aria) && /project/i.test(aria)))) {
+          fallbackMatch = el;
+        }
+      }
+      // Also traverse any open Shadow Roots
+      let allNodes = [];
+      try { allNodes = rootNode.querySelectorAll('*'); } catch {}
+      for (const n of allNodes) {
+        if (n && n.shadowRoot && !visited.has(n.shadowRoot)) {
+          queue.push(n.shadowRoot);
+        }
+      }
+    }
+    return fallbackMatch;
+  }
+
+  function triggerRealGoogleNewProject(triggerBtn) {
+    const fireClick = (realBtn) => {
+      try {
+        const opts = { bubbles: true, cancelable: true, view: window };
+        realBtn.dispatchEvent(new PointerEvent('pointerdown', opts));
+        realBtn.dispatchEvent(new MouseEvent('mousedown', opts));
+        realBtn.dispatchEvent(new PointerEvent('pointerup', opts));
+        realBtn.dispatchEvent(new MouseEvent('mouseup', opts));
+        realBtn.click();
+      } catch {
+        try { realBtn.click(); } catch {}
+      }
+    };
+
+    const existing = findRealGoogleNewProjectButton();
+    if (existing) {
+      fireClick(existing);
+      return;
+    }
+
+    // Google Flow SPA may still be hydrating — retry briefly until Google's real button mounts
+    if (triggerBtn) {
+      triggerBtn.disabled = true;
+      const lbl = triggerBtn.querySelector('.pf-np-label');
+      if (lbl) lbl.textContent = 'Opening...';
+    }
+    let tries = 0;
+    const retryTimer = setInterval(() => {
+      tries++;
+      const found = findRealGoogleNewProjectButton();
+      if (found || tries >= 24) {
+        clearInterval(retryTimer);
+        if (found) fireClick(found);
+        if (triggerBtn && triggerBtn.isConnected) {
+          triggerBtn.disabled = false;
+          const lbl = triggerBtn.querySelector('.pf-np-label');
+          if (lbl) lbl.textContent = 'New project';
+        }
+      }
+    }, 250);
+  }
+
   function syncFlowHomePrivacyOverlay() {
     if (window.top !== window) return;
     const host = String(location.hostname || '').toLowerCase();
@@ -448,21 +534,13 @@
       || (/(?:^|\.)labs\.google$/i.test(host) && /^\/fx\/tools\/flow\/?$/i.test(path));
     const shield = $('pakflow-home-privacy-shield');
     const legacyOv = $('ct-blur-overlay');
+    const triggerBtn = $('pakflow-new-project-trigger');
 
     if (!isHome) {
       if (document.documentElement) document.documentElement.removeAttribute('data-pakflow-flow-home');
       if (shield) shield.remove();
       if (legacyOv) legacyOv.remove();
-      document.querySelectorAll('[data-pakflow-elevated-new-btn="true"]').forEach((el) => {
-        el.removeAttribute('data-pakflow-elevated-new-btn');
-        el.style.removeProperty('position');
-        el.style.removeProperty('top');
-        el.style.removeProperty('bottom');
-        el.style.removeProperty('left');
-        el.style.removeProperty('right');
-        el.style.removeProperty('transform');
-        el.style.removeProperty('z-index');
-      });
+      if (triggerBtn) triggerBtn.remove();
       return;
     }
 
@@ -472,6 +550,7 @@
       if (document.documentElement) document.documentElement.removeAttribute('data-pakflow-flow-home');
       if (shield) shield.remove();
       if (legacyOv) legacyOv.remove();
+      if (triggerBtn) triggerBtn.remove();
       return;
     }
 
@@ -479,7 +558,6 @@
       document.documentElement.setAttribute('data-pakflow-flow-home', 'true');
     }
 
-    // Mount shield on document.body once ready (or documentElement at document_start to prevent any flash)
     const targetParent = document.body || document.documentElement;
     if (targetParent) {
       if (!shield) {
@@ -490,114 +568,33 @@
       } else if (document.body && shield.parentElement !== document.body) {
         document.body.appendChild(shield);
       }
+
+      if (!triggerBtn) {
+        const np = document.createElement('button');
+        np.id = 'pakflow-new-project-trigger';
+        np.type = 'button';
+        np.setAttribute('aria-label', 'New project');
+        np.innerHTML = '<span class="pf-np-plus">+</span><span class="pf-np-label">New project</span>';
+        np.addEventListener('click', (ev) => {
+          ev.preventDefault();
+          ev.stopPropagation();
+          triggerRealGoogleNewProject(np);
+        });
+        targetParent.appendChild(np);
+      } else if (document.body && triggerBtn.parentElement !== document.body) {
+        document.body.appendChild(triggerBtn);
+      }
     }
 
-    // Remove legacy #ct-blur-overlay so it cannot double-cover "+ New project"
+    // Remove legacy #ct-blur-overlay so it cannot interfere
     if (legacyOv) legacyOv.remove();
 
-    // 1) FIRST locate & elevate Google Flow's genuine "+ New project" button ABOVE the black shield
-    //    (done BEFORE hiding shared cards so a shared parent can never accidentally hide "+ New project")
-    const elevatedBtns = [];
-    const buttons = document.querySelectorAll('button, [role="button"], a');
-    for (const btn of buttons) {
-      if (btn.closest('#pakflow-my-projects-root') || btn.closest('#pakflow-access-lock-overlay')) continue;
-      const isCoreElevated = btn.getAttribute('data-elevate-btn') === 'true';
-      const txt = String(btn.innerText || btn.textContent || '').replace(/\s+/g, ' ').trim();
-      const aria = String(btn.getAttribute('aria-label') || '').trim();
-      // Match Material icon ligatures too (e.g. "add_2 New project", "add New project", "+ New project")
-      const isNewProjectBtn = isCoreElevated
-        || (txt.length <= 60 && /\bnew\s+project\b/i.test(txt))
-        || (aria.length <= 60 && /\bnew\s+project\b/i.test(aria));
-      if (!isNewProjectBtn) continue;
-
-      elevatedBtns.push(btn);
-      if (btn.getAttribute('data-pakflow-elevated-new-btn') !== 'true') {
-        btn.setAttribute('data-pakflow-elevated-new-btn', 'true');
-      }
-      if (btn.hasAttribute('data-pakflow-hidden-shared-card')) {
-        btn.removeAttribute('data-pakflow-hidden-shared-card');
-      }
-      // Anchor cleanly at Google Flow's native bottom-center above the black privacy shield
-      btn.style.setProperty('position', 'fixed', 'important');
-      btn.style.setProperty('top', 'auto', 'important');
-      btn.style.setProperty('bottom', '32px', 'important');
-      btn.style.setProperty('left', '50%', 'important');
-      btn.style.setProperty('right', 'auto', 'important');
-      btn.style.setProperty('transform', 'translateX(-50%)', 'important');
-      btn.style.setProperty('z-index', '2147483200', 'important');
-      btn.style.setProperty('visibility', 'visible', 'important');
-      btn.style.setProperty('opacity', '1', 'important');
-      btn.style.setProperty('pointer-events', 'auto', 'important');
-
-      // Walk ALL ancestors up to document.body and lift EVERY CSS stacking context
-      // (including position:fixed/sticky with z-index:auto, opacity<1, contain, will-change, transform, filter, etc.)
-      const liftStackingAncestors = (forceAll) => {
-        let anc = btn.parentElement;
-        for (let d = 0; d < 25 && anc && anc !== document.body && anc !== document.documentElement; d++) {
-          if (anc.hasAttribute('data-pakflow-hidden-shared-card')) {
-            anc.removeAttribute('data-pakflow-hidden-shared-card');
-          }
-          const cs = getComputedStyle(anc);
-          if (cs) {
-            const createsStack = forceAll
-              || cs.position === 'fixed'
-              || cs.position === 'sticky'
-              || cs.zIndex !== 'auto'
-              || (cs.opacity && cs.opacity !== '1')
-              || (cs.transform && cs.transform !== 'none')
-              || (cs.filter && cs.filter !== 'none')
-              || (cs.backdropFilter && cs.backdropFilter !== 'none')
-              || cs.isolation === 'isolate'
-              || (cs.mixBlendMode && cs.mixBlendMode !== 'normal')
-              || (cs.clipPath && cs.clipPath !== 'none')
-              || (cs.perspective && cs.perspective !== 'none')
-              || (cs.contain && /(layout|paint|strict|content)/i.test(cs.contain))
-              || (cs.willChange && /(transform|opacity|filter|z-index|position|backdrop-filter|clip-path)/i.test(cs.willChange));
-            if (createsStack) {
-              const zi = parseInt(cs.zIndex, 10);
-              if (!Number.isFinite(zi) || zi < 2147483200) {
-                if (cs.position === 'static') anc.style.setProperty('position', 'relative', 'important');
-                anc.style.setProperty('z-index', '2147483200', 'important');
-              }
-            }
-          }
-          anc = anc.parentElement;
-        }
-      };
-
-      liftStackingAncestors(false);
-
-      // Self-healing visibility check: verify the black shield is NOT covering "+ New project"
-      try {
-        const r = btn.getBoundingClientRect();
-        if (r.width > 16 && r.height > 16) {
-          const cx = Math.min(window.innerWidth - 2, Math.max(2, r.left + r.width / 2));
-          const cy = Math.min(window.innerHeight - 2, Math.max(2, r.top + r.height / 2));
-          const hit = document.elementFromPoint(cx, cy);
-          if (hit && (hit.id === 'pakflow-home-privacy-shield' || hit.id === 'ct-blur-overlay')) {
-            liftStackingAncestors(true);
-          }
-        }
-      } catch {}
-    }
-
-    // 2) Mark & hide every shared account project card in the background grid (never hiding any container holding "+ New project")
+    // Mark & hide every shared account project card in the background grid
     const projLinks = document.querySelectorAll('a[href*="/project/"]');
     for (const link of projLinks) {
       if (link.closest('#pakflow-my-projects-root')) continue;
       if (link.getAttribute('data-pakflow-hidden-shared-card') !== 'true') {
         link.setAttribute('data-pakflow-hidden-shared-card', 'true');
-      }
-      const card = link.parentElement;
-      if (card && card !== document.body && card !== document.documentElement) {
-        const holdsNewBtn = elevatedBtns.some((b) => card.contains(b))
-          || Boolean(card.querySelector('[data-elevate-btn="true"], [data-pakflow-elevated-new-btn="true"]'));
-        if (!holdsNewBtn) {
-          const cardLinks = card.querySelectorAll('a[href*="/project/"]');
-          if (cardLinks.length === 1 && card.getAttribute('data-pakflow-hidden-shared-card') !== 'true') {
-            card.setAttribute('data-pakflow-hidden-shared-card', 'true');
-          }
-        }
       }
     }
   }

@@ -30,17 +30,22 @@ globalThis.PakFlowProjects = (() => {
     return result;
   }
 
-  function mergeAllProjects(unifiedList, byIpObj) {
+  function mergeAllProjects(unifiedList, byIpObj, ownerEmail = '') {
+    const cleanOwner = String(ownerEmail || '').trim().toLowerCase();
     const map = new Map();
     const ingest = (arr) => {
       if (!Array.isArray(arr)) return;
       for (const raw of arr) {
         if (!raw || typeof raw !== 'object') continue;
+        const rawOwner = String(raw.ownerEmail || '').trim().toLowerCase();
+        // Never allow another PakFlow account's projects to mix into this user's project folder
+        if (cleanOwner && rawOwner && rawOwner !== cleanOwner) continue;
         const id = String(raw.id || '').trim().toLowerCase();
         if (!id) continue;
         const item = {
           ...raw,
           id,
+          ownerEmail: rawOwner || cleanOwner || undefined,
           slot: normalize(raw.slot),
           url: raw.url || ('https://flow.google.com/project/' + id),
           createdAt: Number(raw.createdAt || raw.updatedAt || Date.now()),
@@ -56,6 +61,7 @@ globalThis.PakFlowProjects = (() => {
           map.set(id, {
             ...older,
             ...newer,
+            ownerEmail: cleanOwner || newer.ownerEmail || older.ownerEmail || undefined,
             thumbnail: newer.thumbnail || older.thumbnail || newer.thumbnailUrl || older.thumbnailUrl || '',
             title: prev.customTitle ? prev.title : (item.customTitle ? item.title : (newer.title || older.title)),
             customTitle: Boolean(prev.customTitle || item.customTitle),
@@ -80,10 +86,15 @@ globalThis.PakFlowProjects = (() => {
       'myProjectsByIp',
       'myProjectServerOwnersByIp',
       'activeSlot',
-      'sessionLoopIndex'
+      'sessionLoopIndex',
+      'userEmail',
+      'user',
+      'pakflow_user',
+      'pf_projects_owner_email'
     ]);
+    const ownerEmail = String(state.userEmail || state.user?.email || state.pakflow_user?.email || state.pf_projects_owner_email || '').trim().toLowerCase();
     const byIp = state.myProjectsByIp && typeof state.myProjectsByIp === 'object' ? { ...state.myProjectsByIp } : {};
-    const all = mergeAllProjects(state.myProjectsUnified, byIp);
+    const all = mergeAllProjects(state.myProjectsUnified, byIp, ownerEmail);
     const ownersByIp = state.myProjectServerOwnersByIp && typeof state.myProjectServerOwnersByIp === 'object'
       ? { ...state.myProjectServerOwnersByIp } : {};
     const owners = { ...(ownersByIp[ip] || {}) };
@@ -92,7 +103,7 @@ globalThis.PakFlowProjects = (() => {
       if (id && !Object.hasOwn(owners, id)) owners[id] = normalize(project.slot);
     }
     ownersByIp[ip] = owners;
-    return { ip, byIp, all, ownersByIp, owners, slot: selected(state) };
+    return { ip, byIp, all, ownersByIp, owners, ownerEmail, slot: selected(state) };
   }
 
   function response(ctx) {
@@ -183,6 +194,7 @@ globalThis.PakFlowProjects = (() => {
         const project = {
           ...previous,
           id,
+          ownerEmail: ctx.ownerEmail || previous?.ownerEmail || undefined,
           url: 'https://flow.google.com/project/' + id,
           slot: target,
           ip: ctx.ip,
@@ -233,11 +245,13 @@ globalThis.PakFlowProjects = (() => {
         return persist(ctx, { replaceCloud: true });
       });
     },
-    mergeCloud(resolveIp, cloudProjects = []) {
+    mergeCloud(resolveIp, cloudProjects = [], ownerEmail = '') {
       return run(async () => {
-        if (!Array.isArray(cloudProjects) || cloudProjects.length === 0) return null;
+        if (!Array.isArray(cloudProjects)) return null;
         const ctx = await context(resolveIp);
-        ctx.all = mergeAllProjects([...cloudProjects, ...ctx.all], ctx.byIp);
+        const effOwner = String(ownerEmail || ctx.ownerEmail || '').trim().toLowerCase();
+        const taggedCloud = cloudProjects.map((p) => (p && typeof p === 'object' ? { ...p, ownerEmail: effOwner || p.ownerEmail } : p));
+        ctx.all = mergeAllProjects([...taggedCloud, ...ctx.all], ctx.byIp, effOwner);
         return persist(ctx, { skipCloud: true });
       });
     }

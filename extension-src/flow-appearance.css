@@ -25,28 +25,73 @@ html body #pakflow-home-privacy-shield,
 }
 
 /* Hide every shared account project card/link on the homepage so no other user's video can ever show or be clicked. */
-html[data-pakflow-flow-home="true"] a[href*="/project/"]:not([data-pakflow-elevated-new-btn="true"]):not([data-elevate-btn="true"]),
+html[data-pakflow-flow-home="true"] a[href*="/project/"],
 html[data-pakflow-flow-home="true"] [data-pakflow-hidden-shared-card="true"] {
   visibility: hidden !important;
   opacity: 0 !important;
   pointer-events: none !important;
 }
 
-/* Keep Google Flow's genuine "+ New project" button ALWAYS visible above the black privacy cover
-   and anchored cleanly at Google Flow's native bottom-center position on the homepage. */
-html[data-pakflow-flow-home="true"] button[data-elevate-btn='true'],
-html[data-pakflow-flow-home="true"] [data-pakflow-elevated-new-btn="true"] {
+/* Guaranteed bottom-center "+ New project" trigger mounted directly above the black privacy cover.
+   Clicks Google Flow's real hidden "+ New project" button underneath so it NEVER disappears behind React/Shadow DOM stacking contexts. */
+#pakflow-new-project-trigger {
   position: fixed !important;
   top: auto !important;
   bottom: 32px !important;
   left: 50% !important;
   right: auto !important;
   transform: translateX(-50%) !important;
-  z-index: 2147483200 !important;
+  z-index: 2147483400 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 10px !important;
+  min-width: 216px !important;
+  height: 104px !important;
+  padding: 0 30px !important;
+  border-radius: 28px !important;
+  border: 1px solid rgba(255, 255, 255, 0.18) !important;
+  background: rgba(58, 60, 68, 0.92) !important;
+  color: #f3f4f6 !important;
+  font-family: "Google Sans", "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+  font-size: 16px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.01em !important;
+  cursor: pointer !important;
   visibility: visible !important;
   opacity: 1 !important;
   pointer-events: auto !important;
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.24), 0 12px 32px rgba(0, 0, 0, 0.65) !important;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.10), 0 18px 44px rgba(0, 0, 0, 0.72) !important;
+  backdrop-filter: blur(14px) !important;
+  -webkit-backdrop-filter: blur(14px) !important;
+  transition: transform 0.15s ease, background-color 0.15s ease, border-color 0.15s ease !important;
+}
+
+#pakflow-new-project-trigger:hover {
+  background: rgba(74, 77, 88, 0.96) !important;
+  border-color: rgba(255, 255, 255, 0.30) !important;
+  transform: translateX(-50%) translateY(-2px) !important;
+}
+
+#pakflow-new-project-trigger:active {
+  transform: translateX(-50%) scale(0.98) !important;
+}
+
+#pakflow-new-project-trigger .pf-np-plus {
+  font-size: 22px !important;
+  line-height: 1 !important;
+  font-weight: 400 !important;
+  color: #ffffff !important;
+}
+
+@media (max-width: 768px) {
+  #pakflow-new-project-trigger {
+    bottom: 78px !important;
+    min-width: 190px !important;
+    height: 72px !important;
+    border-radius: 22px !important;
+    font-size: 15px !important;
+  }
 }
 
 [data-pakflow-hide-reset="true"] {

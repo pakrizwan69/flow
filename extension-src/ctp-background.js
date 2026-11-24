@@ -1988,10 +1988,11 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
       if (!tok || String(tok).startsWith("usertoken_local_") || tok === lastCloudProjectPullToken) return;
       lastCloudProjectPullToken = tok;
 
-      // Isolate local project cache per PakFlow user email so switching accounts never leaks another user's projects
+      // Strictly isolate local project cache per PakFlow user email so switching accounts or fresh login NEVER leaks another user's projects
       const curEmail = String(st.userEmail || st.user?.email || st.pakflow_user?.email || "").trim().toLowerCase();
       const prevOwner = String(st.pf_projects_owner_email || "").trim().toLowerCase();
-      if (curEmail && prevOwner && curEmail !== prevOwner) {
+      const switchedAccount = Boolean(curEmail && curEmail !== prevOwner);
+      if (switchedAccount) {
         suppressingProjectCloudEcho = true;
         try {
           await bgStorageSet({
@@ -2004,8 +2005,6 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
         } finally {
           setTimeout(() => { suppressingProjectCloudEcho = false; }, 1200);
         }
-      } else if (curEmail && !prevOwner) {
-        await bgStorageSet({ pf_projects_owner_email: curEmail });
       }
 
       const base = String(st.pakflowWorkingOrigin || st.apiBase || st.connectedFromSite || "https://flowbypak.com").replace(/\/+$/, "");
@@ -2018,10 +2017,12 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
       });
       if (!res || !res.ok) return;
       const data = await res.json().catch(() => null);
-      if (data && Array.isArray(data.projects) && data.projects.length > 0 && globalThis.PakFlowProjects && typeof globalThis.PakFlowProjects.mergeCloud === "function") {
+      if (data && Array.isArray(data.projects) && globalThis.PakFlowProjects && typeof globalThis.PakFlowProjects.mergeCloud === "function") {
         suppressingProjectCloudEcho = true;
         try {
-          await globalThis.PakFlowProjects.mergeCloud(async () => "default", data.projects);
+          if (data.projects.length > 0 || switchedAccount) {
+            await globalThis.PakFlowProjects.mergeCloud(async () => "default", data.projects, curEmail);
+          }
         } finally {
           setTimeout(() => { suppressingProjectCloudEcho = false; }, 1200);
         }
@@ -2109,12 +2110,19 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
         projectsCloudSyncTimer = setTimeout(async () => {
           projectsCloudSyncTimer = null;
           try {
-            const st = await bgStorageGet(["myProjectsUnified", "myProjectsByIp"]);
+            const st = await bgStorageGet(["isLoggedIn", "flowSessionDetached", "userEmail", "user", "pakflow_user", "pf_projects_owner_email", "myProjectsUnified", "myProjectsByIp"]);
+            if (st.isLoggedIn === false || st.isLoggedIn === "false" || st.flowSessionDetached === true) return;
+            const curEmail = String(st.userEmail || st.user?.email || st.pakflow_user?.email || "").trim().toLowerCase();
+            const ownerEmail = String(st.pf_projects_owner_email || "").trim().toLowerCase();
+            if (!curEmail || (ownerEmail && ownerEmail !== curEmail)) return;
             const map = new Map();
             const ingest = (arr) => {
               if (!Array.isArray(arr)) return;
               for (const p of arr) {
-                if (p && p.id) map.set(String(p.id).toLowerCase(), p);
+                if (!p || !p.id) continue;
+                const pOwner = String(p.ownerEmail || "").trim().toLowerCase();
+                if (pOwner && pOwner !== curEmail) continue;
+                map.set(String(p.id).toLowerCase(), p);
               }
             };
             if (st.myProjectsByIp && typeof st.myProjectsByIp === "object") {
