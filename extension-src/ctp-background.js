@@ -861,18 +861,10 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
                   try {
                     const href = String(location.href || "");
                     if (document.readyState === "loading") return false;
-                    // Inspect Google Flow's real DOM (ignore PakFlow overlays)
-                    const ownRoots = [document.getElementById("pakflow-private-home"), document.getElementById("pakflow-access-lock-overlay"), document.getElementById("pakflow-my-projects-root")].filter(Boolean);
-                    const inOwn = (el) => ownRoots.some((r) => r.contains(el));
-                    let bodyTxt = "";
-                    for (const child of Array.from(document.body?.children || [])) {
-                      if (!ownRoots.includes(child)) bodyTxt += " " + String(child.innerText || "");
-                    }
-                    bodyTxt = bodyTxt.slice(0, 4000);
+                    const bodyTxt = String(document.body?.innerText || "").slice(0, 4000);
                     // If ANY logged-in studio UI is already visible, NEVER reload!
-                    const hasLoggedInNode = Array.from(document.querySelectorAll('textarea, [contenteditable="true"], a[href*="/project/"], img[src*="googleusercontent.com"]')).some((el) => !inOwn(el));
                     const isClearlyLoggedIn = Boolean(
-                      hasLoggedInNode ||
+                      document.querySelector('textarea, [contenteditable="true"], a[href*="/project/"], img[src*="googleusercontent.com"]') ||
                       /\b(?:new project|all media|what do you want to create|last modified|flow tv|flow music)\b/i.test(bodyTxt)
                     );
                     if (isClearlyLoggedIn) return false;
@@ -1281,8 +1273,15 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
             token: "",
             pf_last_cookie_fp: "",
             pf_last_slots_ver: "",
-            pf_last_slot_etag: ""
+            pf_last_slot_etag: "",
+            myProjectsUnified: [],
+            myProjectsByIp: {},
+            myProjectServerOwnersByIp: {},
+            myProjectsOwnedIds: [],
+            pf_projects_owner_email: ""
           });
+          lastCloudProjectPullToken = "";
+          lastProjectsCloudSig = "";
           await wipeFlowCookies(true);
           await setFlowLockState(
             true,
@@ -1976,11 +1975,33 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
     try {
       const st = await bgStorageGet([
         "isLoggedIn", "userToken", "pakflow_token", "flow_token", "authToken", "token",
-        "pakflowWorkingOrigin", "apiBase", "connectedFromSite"
+        "pakflowWorkingOrigin", "apiBase", "connectedFromSite",
+        "userEmail", "user", "pakflow_user", "pf_projects_owner_email"
       ]);
       const tok = st.userToken || st.pakflow_token || st.flow_token || st.authToken || st.token || "";
       if (!tok || String(tok).startsWith("usertoken_local_") || tok === lastCloudProjectPullToken) return;
       lastCloudProjectPullToken = tok;
+
+      // Isolate local project cache per PakFlow user email so switching accounts never leaks another user's projects
+      const curEmail = String(st.userEmail || st.user?.email || st.pakflow_user?.email || "").trim().toLowerCase();
+      const prevOwner = String(st.pf_projects_owner_email || "").trim().toLowerCase();
+      if (curEmail && prevOwner && curEmail !== prevOwner) {
+        suppressingProjectCloudEcho = true;
+        try {
+          await bgStorageSet({
+            myProjectsUnified: [],
+            myProjectsByIp: {},
+            myProjectServerOwnersByIp: {},
+            myProjectsOwnedIds: [],
+            pf_projects_owner_email: curEmail
+          });
+        } finally {
+          setTimeout(() => { suppressingProjectCloudEcho = false; }, 1200);
+        }
+      } else if (curEmail && !prevOwner) {
+        await bgStorageSet({ pf_projects_owner_email: curEmail });
+      }
+
       const base = String(st.pakflowWorkingOrigin || st.apiBase || st.connectedFromSite || "https://flowbypak.com").replace(/\/+$/, "");
       const extVer = getExtVersion();
       const fetchFn = rawBgFetch || globalThis.fetch;

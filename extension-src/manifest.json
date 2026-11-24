@@ -84,7 +84,6 @@
       ],
       "js": [
         "flow-access-guard.js",
-        "flow-private-home.js",
         "session-watchdog.js"
       ],
       "run_at": "document_start",

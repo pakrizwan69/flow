@@ -389,7 +389,7 @@
       const thumb = extractMediaThumbFromContainer(document.body);
       if (thumb) updates.set(pid, thumb);
     } else {
-      // Case B: Google Flow home/projects grid — match links or card titles
+      // Case B: Google Flow home/projects grid — match ONLY exact /project/<id> links already owned by this user
       const links = document.querySelectorAll('a[href*="/project/"]');
       for (const a of links) {
         if (a.closest('#pakflow-my-projects-root')) continue;
@@ -398,30 +398,9 @@
         const thumb = extractMediaThumbFromContainer(a) || extractMediaThumbFromContainer(a.parentElement);
         if (thumb) updates.set(String(m[1]).toLowerCase(), thumb);
       }
-      // Also match visible Flow home cards by their date/title label (e.g. "Nov 24 - 02:41")
-      if (updates.size === 0) {
-        const imgs = document.querySelectorAll('img');
-        for (const im of imgs) {
-          if (im.closest('#pakflow-my-projects-root')) continue;
-          const src = String(im.currentSrc || im.src || '').trim();
-          if (!/^https:\/\//i.test(src) || /googleusercontent\.com\/a\/|avatar|logo/i.test(src)) continue;
-          const r = im.getBoundingClientRect();
-          if (r.width < 140 || r.height < 80) continue;
-          let card = im.parentElement;
-          for (let d = 0; d < 4 && card && card !== document.body; d++) {
-            const txt = (card.innerText || '').trim();
-            if (txt && txt.length <= 120) {
-              const firstLine = txt.split('\n')[0].trim().toLowerCase();
-              if (firstLine) titleUpdates.set(firstLine, src);
-              break;
-            }
-            card = card.parentElement;
-          }
-        }
-      }
     }
 
-    if (updates.size === 0 && titleUpdates.size === 0) return;
+    if (updates.size === 0) return;
 
     try {
       chrome.storage.local.get(['myProjectsUnified', 'myProjectsByIp'], (st) => {
@@ -433,11 +412,7 @@
           return arr.map((p) => {
             if (!p || !p.id) return p;
             const pid = String(p.id).toLowerCase();
-            let nextThumb = updates.get(pid) || '';
-            if (!nextThumb && titleUpdates.size > 0 && p.title) {
-              const normT = String(p.title).replace(/^google\s*flow\s*[-–—]\s*/i, '').trim().toLowerCase();
-              if (titleUpdates.has(normT)) nextThumb = titleUpdates.get(normT);
-            }
+            const nextThumb = updates.get(pid) || '';
             if (nextThumb && p.thumbnail !== nextThumb) {
               changed = true;
               return { ...p, thumbnail: nextThumb };
@@ -460,7 +435,85 @@
     } catch {}
   }
 
-  new MutationObserver(() => { schedule(); checkProjectNotFoundRecovery(); }).observe(document, { childList: true, characterData: true, subtree: true });
-  setInterval(() => { checkProjectNotFoundRecovery(); harvestProjectThumbnails(); }, 2500);
+  // ── Native Black Privacy Overlay Safeguard on Google Flow Homepage (/) ──
+  // Ensures other shared users' projects on flow.google.com/ are ALWAYS covered by
+  // the solid black #ct-blur-overlay while keeping ONLY genuine "+ New project" and
+  // bottom-left "My Saved Projects" accessible. Removed immediately inside /project/<id>.
+  function syncFlowHomePrivacyOverlay() {
+    if (window.top !== window) return;
+    const host = String(location.hostname || '').toLowerCase();
+    const path = String(location.pathname || '/');
+    const isHome = (host === 'flow.google.com' && (path === '/' || path === ''))
+      || (/(?:^|\.)labs\.google$/i.test(host) && /^\/fx\/tools\/flow\/?$/i.test(path));
+    const existing = $('ct-blur-overlay');
+
+    if (!isHome) {
+      if (existing) existing.remove();
+      return;
+    }
+
+    // Do not cover Google's sign-in / landing page if not signed in
+    const hasSignInCta = Boolean(document.querySelector('a[href*="accounts.google.com/ServiceLogin"], a[href*="accounts.google.com/v3/signin"]'));
+    if (hasSignInCta && !document.querySelector('a[href*="/project/"]')) {
+      if (existing) existing.remove();
+      return;
+    }
+
+    const hostNode = document.body || document.documentElement;
+    if (!existing && hostNode) {
+      const ov = document.createElement('div');
+      ov.id = 'ct-blur-overlay';
+      ov.setAttribute('aria-hidden', 'true');
+      hostNode.appendChild(ov);
+    }
+
+    // Ensure Google Flow's genuine "+ New project" button is always elevated above #ct-blur-overlay
+    const buttons = document.querySelectorAll('button, [role="button"]');
+    for (const btn of buttons) {
+      if (btn.closest('#pakflow-my-projects-root') || btn.closest('#pakflow-access-lock-overlay')) continue;
+      const txt = String(btn.innerText || btn.textContent || '').replace(/\s+/g, ' ').trim();
+      if (txt.length <= 36 && /^(?:add\s*)?\+?\s*new\s+project$/i.test(txt)) {
+        if (btn.getAttribute('data-elevate-btn') !== 'true') {
+          btn.setAttribute('data-elevate-btn', 'true');
+        }
+        // Make sure no ancestor creates a lower stacking context trapping the button under #ct-blur-overlay
+        let anc = btn.parentElement;
+        for (let d = 0; d < 6 && anc && anc !== document.body; d++) {
+          const cs = getComputedStyle(anc);
+          if (cs && cs.position !== 'static' && cs.zIndex !== 'auto') {
+            const zi = parseInt(cs.zIndex, 10);
+            if (Number.isFinite(zi) && zi < 100001) {
+              anc.style.setProperty('z-index', '100001', 'important');
+            }
+          }
+          anc = anc.parentElement;
+        }
+      }
+    }
+  }
+
+  try {
+    const origPush = history.pushState;
+    const origReplace = history.replaceState;
+    if (typeof origPush === 'function') {
+      history.pushState = function () {
+        const res = origPush.apply(this, arguments);
+        setTimeout(syncFlowHomePrivacyOverlay, 0);
+        return res;
+      };
+    }
+    if (typeof origReplace === 'function') {
+      history.replaceState = function () {
+        const res = origReplace.apply(this, arguments);
+        setTimeout(syncFlowHomePrivacyOverlay, 0);
+        return res;
+      };
+    }
+    window.addEventListener('popstate', () => setTimeout(syncFlowHomePrivacyOverlay, 0));
+  } catch {}
+
+  new MutationObserver(() => { schedule(); checkProjectNotFoundRecovery(); syncFlowHomePrivacyOverlay(); }).observe(document, { childList: true, characterData: true, subtree: true });
+  setInterval(() => { checkProjectNotFoundRecovery(); harvestProjectThumbnails(); syncFlowHomePrivacyOverlay(); }, 1500);
+  syncFlowHomePrivacyOverlay();
   schedule();
 })();
