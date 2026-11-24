@@ -453,6 +453,16 @@
       if (document.documentElement) document.documentElement.removeAttribute('data-pakflow-flow-home');
       if (shield) shield.remove();
       if (legacyOv) legacyOv.remove();
+      document.querySelectorAll('[data-pakflow-elevated-new-btn="true"]').forEach((el) => {
+        el.removeAttribute('data-pakflow-elevated-new-btn');
+        el.style.removeProperty('position');
+        el.style.removeProperty('top');
+        el.style.removeProperty('bottom');
+        el.style.removeProperty('left');
+        el.style.removeProperty('right');
+        el.style.removeProperty('transform');
+        el.style.removeProperty('z-index');
+      });
       return;
     }
 
@@ -488,13 +498,16 @@
     // 1) FIRST locate & elevate Google Flow's genuine "+ New project" button ABOVE the black shield
     //    (done BEFORE hiding shared cards so a shared parent can never accidentally hide "+ New project")
     const elevatedBtns = [];
-    const buttons = document.querySelectorAll('button, [role="button"]');
+    const buttons = document.querySelectorAll('button, [role="button"], a');
     for (const btn of buttons) {
       if (btn.closest('#pakflow-my-projects-root') || btn.closest('#pakflow-access-lock-overlay')) continue;
+      const isCoreElevated = btn.getAttribute('data-elevate-btn') === 'true';
       const txt = String(btn.innerText || btn.textContent || '').replace(/\s+/g, ' ').trim();
       const aria = String(btn.getAttribute('aria-label') || '').trim();
-      const isNewProjectBtn = (txt.length <= 40 && /^(?:add\s*)?\+?\s*new\s+project$/i.test(txt))
-        || (aria.length <= 40 && /^(?:add\s*)?\+?\s*new\s+project$/i.test(aria));
+      // Match Material icon ligatures too (e.g. "add_2 New project", "add New project", "+ New project")
+      const isNewProjectBtn = isCoreElevated
+        || (txt.length <= 60 && /\bnew\s+project\b/i.test(txt))
+        || (aria.length <= 60 && /\bnew\s+project\b/i.test(aria));
       if (!isNewProjectBtn) continue;
 
       elevatedBtns.push(btn);
@@ -504,11 +517,13 @@
       if (btn.hasAttribute('data-pakflow-hidden-shared-card')) {
         btn.removeAttribute('data-pakflow-hidden-shared-card');
       }
-      // Only give the button position:relative if it is currently static; preserve Google's native fixed/absolute bottom positioning!
-      const btnCs = getComputedStyle(btn);
-      if (btnCs && btnCs.position === 'static') {
-        btn.style.setProperty('position', 'relative', 'important');
-      }
+      // Anchor cleanly at Google Flow's native bottom-center above the black privacy shield
+      btn.style.setProperty('position', 'fixed', 'important');
+      btn.style.setProperty('top', 'auto', 'important');
+      btn.style.setProperty('bottom', '32px', 'important');
+      btn.style.setProperty('left', '50%', 'important');
+      btn.style.setProperty('right', 'auto', 'important');
+      btn.style.setProperty('transform', 'translateX(-50%)', 'important');
       btn.style.setProperty('z-index', '2147483200', 'important');
       btn.style.setProperty('visibility', 'visible', 'important');
       btn.style.setProperty('opacity', '1', 'important');
@@ -561,16 +576,6 @@
           const hit = document.elementFromPoint(cx, cy);
           if (hit && (hit.id === 'pakflow-home-privacy-shield' || hit.id === 'ct-blur-overlay')) {
             liftStackingAncestors(true);
-            const hit2 = document.elementFromPoint(cx, cy);
-            if (hit2 && (hit2.id === 'pakflow-home-privacy-shield' || hit2.id === 'ct-blur-overlay')) {
-              // Final guaranteed fallback: anchor cleanly at Google Flow's native bottom-center above shield
-              btn.style.setProperty('position', 'fixed', 'important');
-              btn.style.setProperty('bottom', '28px', 'important');
-              btn.style.setProperty('top', 'auto', 'important');
-              btn.style.setProperty('left', '50%', 'important');
-              btn.style.setProperty('transform', 'translateX(-50%)', 'important');
-              btn.style.setProperty('z-index', '2147483200', 'important');
-            }
           }
         }
       } catch {}

@@ -143,10 +143,33 @@ if (($method === 'GET' || $method === 'HEAD') && str_starts_with($reqPath, '/dow
         Http::json(['success' => false, 'error' => 'DownloadNotFound', 'message' => 'Requested file not found.'], 404);
     }
 
-    // 1) If an exact versioned ZIP was requested and exists validly on disk, serve it immediately (0 DB overhead)
+    // Compute latest modification time of extension-src/ so stale ZIPs from prior deploys auto-refresh automatically
+    $extSrcMaxMtime = 0;
+    $extSrcDirPath = __DIR__ . DIRECTORY_SEPARATOR . 'extension-src';
+    if (is_dir($extSrcDirPath)) {
+        foreach (glob($extSrcDirPath . DIRECTORY_SEPARATOR . '*') ?: [] as $sf) {
+            if (is_file($sf)) {
+                $mt = @filemtime($sf) ?: 0;
+                if ($mt > $extSrcMaxMtime) {
+                    $extSrcMaxMtime = $mt;
+                }
+            }
+        }
+    }
+    $isFreshValidZip = static function (string $path) use ($isValidZipFile, $extSrcMaxMtime): bool {
+        if (!$isValidZipFile($path)) {
+            return false;
+        }
+        if ($extSrcMaxMtime > 0 && ((@filemtime($path) ?: 0) < $extSrcMaxMtime)) {
+            return false;
+        }
+        return true;
+    };
+
+    // 1) If an exact versioned ZIP was requested and is fresh & valid on disk, serve it immediately (0 DB overhead)
     if (!$isLatestReq && $exactBase !== '') {
         foreach (["$distDir/downloads/$exactBase", "$publicDir/downloads/$exactBase"] as $exactF) {
-            if ($isValidZipFile($exactF)) {
+            if ($isFreshValidZip($exactF)) {
                 Http::sendFile($exactF, 'application/zip', $exactBase, 'no-cache, no-store, must-revalidate');
             }
         }
@@ -173,7 +196,7 @@ if (($method === 'GET' || $method === 'HEAD') && str_starts_with($reqPath, '/dow
     } catch (\Throwable $_e) {}
 
     foreach (["$distDir/downloads/$dynName", "$publicDir/downloads/$dynName"] as $f) {
-        if ($isValidZipFile($f)) {
+        if ($isFreshValidZip($f)) {
             Http::sendFile($f, 'application/zip', $dynName, 'no-cache, no-store, must-revalidate');
         }
     }

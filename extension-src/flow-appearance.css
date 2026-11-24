@@ -25,18 +25,23 @@ html body #pakflow-home-privacy-shield,
 }
 
 /* Hide every shared account project card/link on the homepage so no other user's video can ever show or be clicked. */
-html[data-pakflow-flow-home="true"] a[href*="/project/"],
+html[data-pakflow-flow-home="true"] a[href*="/project/"]:not([data-pakflow-elevated-new-btn="true"]):not([data-elevate-btn="true"]),
 html[data-pakflow-flow-home="true"] [data-pakflow-hidden-shared-card="true"] {
   visibility: hidden !important;
   opacity: 0 !important;
   pointer-events: none !important;
 }
 
-/* Keep Google Flow's genuine "+ New project" button elevated cleanly above the black privacy cover
-   WITHOUT overriding its native fixed/absolute bottom-center position. */
-html body button[data-elevate-btn='true'],
-button[data-elevate-btn='true'],
-[data-pakflow-elevated-new-btn="true"] {
+/* Keep Google Flow's genuine "+ New project" button ALWAYS visible above the black privacy cover
+   and anchored cleanly at Google Flow's native bottom-center position on the homepage. */
+html[data-pakflow-flow-home="true"] button[data-elevate-btn='true'],
+html[data-pakflow-flow-home="true"] [data-pakflow-elevated-new-btn="true"] {
+  position: fixed !important;
+  top: auto !important;
+  bottom: 32px !important;
+  left: 50% !important;
+  right: auto !important;
+  transform: translateX(-50%) !important;
   z-index: 2147483200 !important;
   visibility: visible !important;
   opacity: 1 !important;
