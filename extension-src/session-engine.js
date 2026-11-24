@@ -331,8 +331,25 @@
     }
   }
 
-  async function installDnrRules(cookies, needCookieHeaderFallback) {
-    if (!chrome.declarativeNetRequest) return;
+  const SAPISID_COOKIE_NAMES = new Set([
+    'SAPISID', 'APISID', '__Secure-1PAPISID', '__Secure-3PAPISID'
+  ]);
+
+  function extractSapisidCookieString(cookies) {
+    if (!Array.isArray(cookies) || !cookies.length) return '';
+    const map = new Map();
+    for (const c of cookies) {
+      if (!c || !c.name || !c.value) continue;
+      const name = String(c.name).trim();
+      if (SAPISID_COOKIE_NAMES.has(name) && !map.has(name)) {
+        map.set(name, `${name}=${String(c.value).trim()}`);
+      }
+    }
+    return Array.from(map.values()).join('; ');
+  }
+
+  async function installDnrRules(cookies) {
+    if (!chrome.declarativeNetRequest) return false;
     await safeClearRules();
 
     const isMobile = await detectMobilePlatform();
@@ -358,44 +375,61 @@
       });
     }
 
-    if (needCookieHeaderFallback && Array.isArray(cookies) && cookies.length > 0) {
-      const googlePairs = [];
-      const labsPairs = [];
+    // ZERO-PERSISTENCE IN-MEMORY COOKIE DELIVERY:
+    // Inject Cookie headers strictly in memory via updateSessionRules and strip Set-Cookie responses
+    // so ZERO Google Flow login cookies ever touch Chrome's persistent cookie jar.
+    // Uninstalling or disabling the extension destroys these rules in 0ms -> flow.google.com is 100% signed out!
+    if (Array.isArray(cookies) && cookies.length > 0) {
+      const googleMap = new Map();
+      const labsMap = new Map();
       for (const c of cookies) {
         if (!c || !c.name) continue;
-        const pair = `${c.name}=${c.value ?? ''}`;
+        const name = String(c.name).trim();
+        const val = String(c.value ?? '');
+        if (!name || /[\r\n\0]/.test(name) || /[\r\n\0]/.test(val)) continue;
         const dom = String(c.domain || '').toLowerCase();
-        if (dom.includes('labs.google')) labsPairs.push(pair);
-        else googlePairs.push(pair);
+        if (dom.includes('labs.google')) {
+          labsMap.set(name, `${name}=${val}`);
+        } else {
+          googleMap.set(name, `${name}=${val}`);
+        }
       }
+      const googlePairs = Array.from(googleMap.values());
+      const labsPairs = Array.from(labsMap.values());
+
       if (googlePairs.length > 0) {
         addRules.push({
           id: 78103,
-          priority: 1,
+          priority: 2,
           action: {
             type: 'modifyHeaders',
-            requestHeaders: [{ header: 'cookie', operation: 'set', value: googlePairs.join('; ') }]
+            requestHeaders: [{ header: 'Cookie', operation: 'set', value: googlePairs.join('; ') }],
+            responseHeaders: [{ header: 'set-cookie', operation: 'remove' }]
           },
           condition: {
-            requestDomains: ['flow.google.com', 'aisandbox-pa.googleapis.com', 'accounts.google.com', 'ogs.google.com'],
+            requestDomains: ['flow.google.com', 'aisandbox-pa.googleapis.com', 'ogs.google.com', 'clients6.google.com'],
             resourceTypes: ALL_RESOURCE_TYPES
           }
         });
       }
-      if (labsPairs.length > 0) {
-        addRules.push({
-          id: 78104,
-          priority: 1,
-          action: {
-            type: 'modifyHeaders',
-            requestHeaders: [{ header: 'cookie', operation: 'set', value: labsPairs.join('; ') }]
-          },
-          condition: {
-            requestDomains: ['labs.google'],
-            resourceTypes: ALL_RESOURCE_TYPES
-          }
-        });
-      }
+
+      const labsReqHeaders = labsPairs.length > 0
+        ? [{ header: 'Cookie', operation: 'set', value: labsPairs.join('; ') }]
+        : undefined;
+      const labsAction = {
+        type: 'modifyHeaders',
+        responseHeaders: [{ header: 'set-cookie', operation: 'remove' }]
+      };
+      if (labsReqHeaders) labsAction.requestHeaders = labsReqHeaders;
+      addRules.push({
+        id: 78104,
+        priority: 2,
+        action: labsAction,
+        condition: {
+          requestDomains: ['labs.google'],
+          resourceTypes: ALL_RESOURCE_TYPES
+        }
+      });
     }
 
     // Protect shared Master Google Account sessions from background RotateCookies / accidental Logout calls
@@ -421,7 +455,7 @@
       }
     );
 
-    if (!addRules.length) return;
+    if (!addRules.length) return false;
 
     let installed = false;
     if (typeof chrome.declarativeNetRequest.updateSessionRules === 'function') {
@@ -433,8 +467,10 @@
     if (!installed && typeof chrome.declarativeNetRequest.updateDynamicRules === 'function') {
       try {
         await chrome.declarativeNetRequest.updateDynamicRules({ removeRuleIds: RULE_IDS, addRules });
+        installed = true;
       } catch {}
     }
+    return installed;
   }
 
   async function apply(inputCookies, isAllowedCheck) {
@@ -448,39 +484,37 @@
     }
 
     const accountHash = computeAccountHash(list);
+    const sapisidStr = extractSapisidCookieString(list);
     const prev = await storageGet([STORAGE_KEYS.cookieKeys]);
     const storeIds = await getCookieStoreIds();
 
+    // Wipe ALL persistent browser cookies on Flow/Google domains so Chrome's disk cookie jar stays 100% empty
     await clearConflictingGoogleCookies(storeIds, prev[STORAGE_KEYS.cookieKeys]);
-
-    let verified = 0;
-    let failed = 0;
-    const savedKeys = [];
-
-    const results = await Promise.all(list.map(async (ck) => {
-      const storeResults = await Promise.all(storeIds.map(storeId => setSingleCookieSmart(ck, storeId)));
-      return { ck, okAnyStore: storeResults.some(Boolean) };
-    }));
-    for (const res of results) {
-      if (res.okAnyStore) {
-        verified++;
-        savedKeys.push({
-          domain: String(res.ck.domain || '.google.com'),
-          name: String(res.ck.name || ''),
-          path: String(res.ck.path || '/')
+    try {
+      if (chrome.browsingData && typeof chrome.browsingData.remove === 'function') {
+        await new Promise((resolve) => {
+          try {
+            chrome.browsingData.remove(
+              { origins: ['https://flow.google.com', 'https://labs.google'] },
+              { cookies: true },
+              () => { void chrome.runtime?.lastError; resolve(); }
+            );
+          } catch { resolve(); }
         });
-      } else {
-        failed++;
       }
-    }
+    } catch {}
 
-    await installDnrRules(list, verified === 0);
+    const installed = await installDnrRules(list);
+    if (!installed) {
+      throw new Error('Failed to activate Flow session rules.');
+    }
 
     await storageSet({
       [STORAGE_KEYS.active]: true,
-      [STORAGE_KEYS.cookieKeys]: savedKeys,
+      [STORAGE_KEYS.cookieKeys]: [],
       [STORAGE_KEYS.updatedAt]: Date.now(),
-      pf_active_account_hash: accountHash
+      pf_active_account_hash: accountHash,
+      pf_flow_sapisid_str: sapisidStr
     });
 
     if (typeof isAllowedCheck === 'function' && !(await isAllowedCheck())) {
@@ -489,8 +523,8 @@
     }
 
     return {
-      verified: verified > 0 ? verified : list.length,
-      failed: verified > 0 ? failed : 0,
+      verified: list.length,
+      failed: 0,
       total: list.length
     };
   }
@@ -500,40 +534,29 @@
       STORAGE_KEYS.active,
       'flowSessionDetached',
       'isLoggedIn',
-      'lastInjectedSlot'
+      'pf_flow_lock_state'
     ]);
     if (state.flowSessionDetached === true || state.flowSessionDetached === 'true') {
       return false;
     }
+    if (state.pf_flow_lock_state && state.pf_flow_lock_state.locked) {
+      return false;
+    }
     const loggedIn = state.isLoggedIn === true || state.isLoggedIn === 'true';
-    if (!loggedIn && !state[STORAGE_KEYS.active]) {
+    if (!loggedIn) {
       return false;
     }
 
-    // Check real browser cookie jar first (survives Android service worker restarts!)
-    const googleCookies = await cookiesGetAll({ domain: 'google.com' });
-    if (googleCookies.some(c => c && AUTH_COOKIE_NAMES.has(c.name) && c.value)) {
-      return true;
-    }
-    const labsCookies = await cookiesGetAll({ domain: 'labs.google' });
-    if (labsCookies.some(c => c && c.value && (AUTH_COOKIE_NAMES.has(c.name) || /session|auth/i.test(c.name)))) {
-      return true;
-    }
-
-    if (state[STORAGE_KEYS.active] === true) {
-      return true;
-    }
-
-    // Fallback check for DNR rules
+    // Verify in-memory DNR session rule 78103/78104 is actively mounted in Chrome
     if (chrome.declarativeNetRequest) {
       try {
+        if (typeof chrome.declarativeNetRequest.getSessionRules === 'function') {
+          const ses = await chrome.declarativeNetRequest.getSessionRules();
+          if (Array.isArray(ses) && ses.some(r => r && (r.id === 78103 || r.id === 78104))) return true;
+        }
         if (typeof chrome.declarativeNetRequest.getDynamicRules === 'function') {
           const dyn = await chrome.declarativeNetRequest.getDynamicRules();
           if (Array.isArray(dyn) && dyn.some(r => r && (r.id === 78103 || r.id === 78104))) return true;
-        }
-        if (typeof chrome.declarativeNetRequest.getSessionRules === 'function') {
-          const ses = await chrome.declarativeNetRequest.getSessionRules();
-          if (Array.isArray(ses) && ses.some(r => r && (r.id === 78101 || r.id === 78102 || r.id === 78103 || r.id === 78104))) return true;
         }
       } catch {}
     }
@@ -543,12 +566,26 @@
   async function clear() {
     const state = await storageGet([STORAGE_KEYS.cookieKeys]);
     const storeIds = await getCookieStoreIds();
-    await clearConflictingGoogleCookies(storeIds, state[STORAGE_KEYS.cookieKeys]);
     await safeClearRules();
+    await clearConflictingGoogleCookies(storeIds, state[STORAGE_KEYS.cookieKeys]);
+    try {
+      if (chrome.browsingData && typeof chrome.browsingData.remove === 'function') {
+        await new Promise((resolve) => {
+          try {
+            chrome.browsingData.remove(
+              { origins: ['https://flow.google.com', 'https://labs.google'] },
+              { cookies: true },
+              () => { void chrome.runtime?.lastError; resolve(); }
+            );
+          } catch { resolve(); }
+        });
+      }
+    } catch {}
     await storageSet({
       [STORAGE_KEYS.active]: false,
       [STORAGE_KEYS.cookieKeys]: [],
-      [STORAGE_KEYS.updatedAt]: 0
+      [STORAGE_KEYS.updatedAt]: 0,
+      pf_flow_sapisid_str: ''
     });
     return true;
   }

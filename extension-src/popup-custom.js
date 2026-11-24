@@ -122,11 +122,19 @@
           }
           var daysValEl = document.getElementById("customDaysLeftVal");
           if (daysValEl) {
-            var dLeft = user.daysLeft != null ? Number(user.daysLeft) : (user.planExpiresAt ? Math.max(0, Math.ceil((Date.parse(user.planExpiresAt) - Date.now()) / 86400000)) : null);
-            if (dLeft != null && !isNaN(dLeft)) {
-              daysValEl.textContent = String(Math.max(0, Math.round(dLeft)));
-            } else if (data.pakflow_days_cache != null) {
-              daysValEl.textContent = String(data.pakflow_days_cache);
+            var pLowDays = String(user.plan || "").toLowerCase();
+            var expMsInit = user.planExpiresAt ? Date.parse(String(user.planExpiresAt)) : (data.expiresAt ? Date.parse(String(data.expiresAt)) : NaN);
+            if (pLowDays === "demo" && isFinite(expMsInit)) {
+              var remSecInit = Math.max(0, Math.floor((expMsInit - Date.now()) / 1000));
+              daysValEl.textContent = remSecInit <= 0 ? "0m" : (remSecInit < 3600 ? (Math.max(1, Math.ceil(remSecInit / 60)) + "m") : (Math.ceil(remSecInit / 3600) + "h"));
+              daysValEl.dataset.fromApi = "1";
+            } else {
+              var dLeft = user.daysLeft != null ? Number(user.daysLeft) : (isFinite(expMsInit) ? Math.max(0, Math.ceil((expMsInit - Date.now()) / 86400000)) : null);
+              if (dLeft != null && !isNaN(dLeft)) {
+                daysValEl.textContent = String(Math.max(0, Math.round(dLeft)));
+              } else if (data.pakflow_days_cache != null) {
+                daysValEl.textContent = String(data.pakflow_days_cache);
+              }
             }
           }
         } else if (creditsEl && data.credits != null) {
@@ -189,11 +197,19 @@
                 creditsEl.dataset.fromApi = "1";
                 var dLeft2 = me && me.daysLeft != null ? Number(me.daysLeft) : (u.daysLeft != null ? Number(u.daysLeft) : (u.planExpiresAt ? Math.max(0, Math.ceil((Date.parse(u.planExpiresAt) - Date.now()) / 86400000)) : null));
                 var daysValEl2 = document.getElementById("customDaysLeftVal");
-                if (daysValEl2 && dLeft2 != null && !isNaN(dLeft2)) {
-                  var dClean = String(Math.max(0, Math.round(dLeft2)));
-                  daysValEl2.textContent = dClean;
-                  daysValEl2.dataset.fromApi = "1";
-                  chrome.storage.local.set({ pakflow_days_cache: dClean });
+                if (daysValEl2) {
+                  var dClean = null;
+                  if (pLow2 === "demo" && u.planExpiresAt) {
+                    var remSec2 = Math.max(0, Math.floor((Date.parse(String(u.planExpiresAt)) - Date.now()) / 1000));
+                    dClean = remSec2 <= 0 ? "0m" : (remSec2 < 3600 ? (Math.max(1, Math.ceil(remSec2 / 60)) + "m") : (Math.ceil(remSec2 / 3600) + "h"));
+                  } else if (dLeft2 != null && !isNaN(dLeft2)) {
+                    dClean = String(Math.max(0, Math.round(dLeft2)));
+                  }
+                  if (dClean !== null) {
+                    daysValEl2.textContent = dClean;
+                    daysValEl2.dataset.fromApi = "1";
+                    chrome.storage.local.set({ pakflow_days_cache: dClean });
+                  }
                 }
                 chrome.storage.local.set({ credits: cVal, fakeBalance: isBasic2 ? 0 : Math.round(liveCredNum), pf_last_synced_fb: isBasic2 ? 0 : Math.round(liveCredNum), pf_outdated_ext_notice: null });
               }

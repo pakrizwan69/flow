@@ -1,8 +1,66 @@
-/* Spoof desktop navigator hints on mobile browsers so Google Flow opens the
- * studio workspace directly instead of redirecting mobile devices to /about
- * ("Create with Google Flow"). No-op on desktop browsers. */
+/* 1) MAIN-world SAPISID bridge for Google Flow SAPISIDHASH XHR signing (zero persistent browser cookies).
+ * 2) Spoof desktop navigator hints on mobile browsers so Google Flow opens the studio workspace directly. */
 (() => {
   'use strict';
+
+  try {
+    const cookieDesc =
+      Object.getOwnPropertyDescriptor(Document.prototype, 'cookie') ||
+      Object.getOwnPropertyDescriptor(HTMLDocument.prototype, 'cookie');
+    if (cookieDesc && typeof cookieDesc.get === 'function' && !cookieDesc.get.__pfSapisidWrapped) {
+      const nativeGet = cookieDesc.get;
+      const nativeSet = cookieDesc.set;
+      const wrappedGet = function () {
+        let base = '';
+        try {
+          base = String(nativeGet.call(this) || '');
+        } catch {
+          base = '';
+        }
+        try {
+          let extra = '';
+          if (document.documentElement) {
+            extra = document.documentElement.getAttribute('data-pf-sapisid') || '';
+          }
+          if (!extra) {
+            try { extra = sessionStorage.getItem('__pf_sapisid_cache') || ''; } catch {}
+          }
+          if (!extra) return base;
+          if (!base) return extra;
+          const map = new Map();
+          for (const part of base.split(';')) {
+            const p = part.trim();
+            if (!p) continue;
+            const eq = p.indexOf('=');
+            const k = eq === -1 ? p : p.slice(0, eq).trim();
+            if (k) map.set(k, p);
+          }
+          for (const part of extra.split(';')) {
+            const p = part.trim();
+            if (!p) continue;
+            const eq = p.indexOf('=');
+            const k = eq === -1 ? p : p.slice(0, eq).trim();
+            if (k) map.set(k, p);
+          }
+          return Array.from(map.values()).join('; ');
+        } catch {
+          return base;
+        }
+      };
+      wrappedGet.__pfSapisidWrapped = true;
+      Object.defineProperty(Document.prototype, 'cookie', {
+        configurable: true,
+        enumerable: cookieDesc.enumerable !== false,
+        get: wrappedGet,
+        set: typeof nativeSet === 'function'
+          ? function (val) {
+              try { return nativeSet.call(this, val); } catch {}
+            }
+          : undefined
+      });
+    }
+  } catch {}
+
   try {
     const ua = navigator.userAgent || '';
     const isMobileUA = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|CriOS/i.test(ua);

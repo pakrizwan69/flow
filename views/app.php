@@ -3015,7 +3015,7 @@ $__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
           </div>
           <div class="p-sub">For everyday AI creation</div>
           <div class="p-box">
-            <div class="p-credits">✨ 45,000 AI Credits</div>
+            <div class="p-credits">✨ 25,000 AI Credits</div>
             <div class="p-duration">= Full Google Flow access for 20 days</div>
             <div class="p-tools-label">MAIN TOOLS</div>
             <div class="p-tool-row">
@@ -3222,7 +3222,7 @@ $__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
       function syncExtensionBridgeLogin(token, user) {
         if (!token || !user) return;
         const plan = String(user.plan || 'basic').toLowerCase();
-        if (plan === 'basic' || plan === 'free' || plan === 'trial') return;
+        if (plan === 'basic' || plan === 'free' || plan === 'trial' || plan === 'vibe' || plan === 'starter') return;
         try {
           localStorage.setItem('pakflow_token', token);
           localStorage.setItem('token', token);
@@ -3477,20 +3477,42 @@ $__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
       if (tabLogin) tabLogin.addEventListener('click', () => setMode('login'));
       if (tabSignup) tabSignup.addEventListener('click', () => setMode('signup'));
 
+      function formatValidityText(user, shortCard) {
+        const plan = String((user && user.plan) || 'basic').toLowerCase();
+        const isDemo = plan === 'demo' || Boolean(user && user.isDemo);
+        const expMs = user && user.planExpiresAt ? Date.parse(String(user.planExpiresAt)) : NaN;
+        const remSec = Number.isFinite(expMs) ? Math.max(0, Math.floor((expMs - Date.now()) / 1000)) : Number((user && user.remainingSeconds) || 0);
+        if (isDemo) {
+          if (remSec <= 0) return shortCard ? 'Demo Ended' : 'Demo time ended';
+          if (remSec < 3600) {
+            const mins = Math.max(1, Math.ceil(remSec / 60));
+            return shortCard ? (mins + (mins === 1 ? ' Min' : ' Mins')) : (mins + ' min left in demo');
+          }
+          const hrs = Math.floor(remSec / 3600);
+          const mins = Math.floor((remSec % 3600) / 60);
+          const hm = mins > 0 ? (hrs + 'h ' + mins + 'm') : (hrs + 'h');
+          return shortCard ? hm : (hm + ' left in demo');
+        }
+        const days = Number((user && (user.daysRemaining ?? user.daysLeft)) ?? 0);
+        return shortCard ? (days + (days === 1 ? ' Day' : ' Days')) : (days + ' days left in plan');
+      }
+
       function renderUser(user) {
         currentUser = user;
         const name = (user.name || user.username || user.email || 'User').toString();
         const email = (user.email || '').toString();
         const plan = (user.plan || 'basic').toString().toLowerCase();
+        const isDemo = plan === 'demo' || Boolean(user.isDemo);
         const isBasic = ['basic', 'free', 'trial', 'vibe', 'starter'].includes(plan);
         const rawTotal = Number(user.creditsTotal ?? 0);
-        const creditsTotal = isBasic ? 0 : (rawTotal > 0 ? rawTotal : 45000);
+        const defaultPlanTotal = isDemo ? 2000 : ((plan === 'pro' || plan === 'plus') ? 25000 : 45000);
+        const creditsTotal = isBasic ? 0 : (rawTotal > 0 ? rawTotal : defaultPlanTotal);
         const hasLiveCredits = user.credits !== undefined && user.credits !== null && Number.isFinite(Number(user.credits));
         const credits = isBasic ? 0 : Math.max(0, hasLiveCredits ? Math.round(Number(user.credits)) : creditsTotal);
         const pct = creditsTotal > 0 ? Math.max(0, Math.min(100, Math.round((credits / creditsTotal) * 100))) : 0;
-        const days = Number(user.daysRemaining ?? user.daysLeft ?? 0);
-        const planBadge = plan === 'ultra' || plan === 'max' ? 'Flow Ultra'
-          : plan === 'pro' || plan === 'plus' ? 'Flow Plus'
+        const planBadge = isDemo ? 'Flow Demo'
+          : (plan === 'ultra' || plan === 'max') ? 'Flow Ultra'
+          : (plan === 'pro' || plan === 'plus') ? 'Flow Plus'
           : plan === 'heavy' ? 'Flow Heavy'
           : 'Flow Basic';
 
@@ -3501,7 +3523,7 @@ $__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
         document.getElementById('ddCreditsVal').innerHTML =
           credits.toLocaleString() + ' <span>/ ' + creditsTotal.toLocaleString() + '</span>';
         document.getElementById('ddProgress').style.width = pct + '%';
-        document.getElementById('ddDays').textContent = days + ' days left in plan';
+        document.getElementById('ddDays').textContent = formatValidityText(user, false);
 
         const dashPlanEl = document.getElementById('dashPlanCardVal');
         const dashCreditsEl = document.getElementById('dashCreditsCardVal');
@@ -3511,7 +3533,7 @@ $__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
         if (dashPlanEl) dashPlanEl.textContent = planBadge;
         if (dashCreditsEl) dashCreditsEl.textContent = credits.toLocaleString();
         if (dashBarEl) dashBarEl.style.width = pct + '%';
-        if (dashDaysEl) dashDaysEl.textContent = days + (days === 1 ? ' Day' : ' Days');
+        if (dashDaysEl) dashDaysEl.textContent = formatValidityText(user, true);
         if (dashEmailSub) dashEmailSub.textContent = email || '1 active device session';
       }
 
@@ -3726,7 +3748,7 @@ $__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
           const endpoint = mode === 'signup' ? '/api/auth/register' : '/api/auth/login';
           const payload = mode === 'signup'
             ? { name, email, password, deviceId: getDeviceId() }
-            : { email, password, deviceId: getDeviceId(), forceLogoutExisting: Boolean(forceLogoutExisting) };
+            : { email, password, deviceId: getDeviceId(), forceLogoutExisting: true };
 
           const res = await fetch(endpoint, {
             method: 'POST',
@@ -4036,6 +4058,18 @@ $__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
           verifyActiveSession();
         }
       }, sessionPollMs);
+      // Exact-minute Demo timer refresh + immediate auto-logout when Demo timer reaches 0
+      setInterval(() => {
+        if (!currentUser) return;
+        const p = String(currentUser.plan || '').toLowerCase();
+        if (p !== 'demo' && !currentUser.isDemo) return;
+        const expMs = currentUser.planExpiresAt ? Date.parse(String(currentUser.planExpiresAt)) : NaN;
+        if (Number.isFinite(expMs) && expMs <= Date.now()) {
+          verifyActiveSession();
+        } else {
+          renderUser(currentUser);
+        }
+      }, 15000);
       document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible' && (Date.now() - lastSessionCheckMs) >= 15000) {
           verifyActiveSession();

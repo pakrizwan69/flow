@@ -1120,10 +1120,17 @@ final class Db
             'plans' => [
                 'vibe' => ['name' => 'Vibe', 'price' => 1500, 'credits' => 10000, 'visible' => true, 'description' => 'Budget friendly Veo 3.1 Lite model'],
                 'plus' => ['name' => 'Plus', 'price' => 2500, 'credits' => 25000, 'visible' => true, 'description' => 'Most popular: 25,000 credits & single device lock'],
-                'pro' => ['name' => 'Pro', 'price' => 3500, 'credits' => 35000, 'visible' => true, 'description' => 'High-speed Google Flow rendering & 35,000 credits'],
-                'max' => ['name' => 'Max', 'price' => 5000, 'credits' => 50000, 'visible' => true, 'description' => 'Heavy creators: 50,000 credits & VIP priority queue'],
+                'pro' => ['name' => 'Pro', 'price' => 3500, 'credits' => 25000, 'visible' => true, 'description' => 'High-speed Google Flow rendering & 25,000 credits'],
+                'max' => ['name' => 'Max', 'price' => 5000, 'credits' => 45000, 'visible' => true, 'description' => 'Heavy creators: 45,000 credits & VIP priority queue'],
                 'ultra' => ['name' => 'Ultra', 'price' => 8000, 'credits' => 100000, 'visible' => true, 'description' => 'Ultimate studio power: 100,000 credits & personal support'],
                 'heavy' => ['name' => 'Heavy', 'price' => 5999, 'credits' => 100000, 'heavyCredits' => 6200, 'visible' => true, 'exclusiveEmail' => 'pak@gmail.com', 'description' => 'Omni Flash 6,200 Credits + Unlimited Veo 3.1 Lite'],
+            ],
+            'resellerPlanCredits' => [
+                'pro' => 25000,
+                'max' => 45000,
+                'plus' => 25000,
+                'ultra' => 45000,
+                'demo' => 2000,
             ],
             'toolsVisibility' => [
                 'chatgpt' => false,

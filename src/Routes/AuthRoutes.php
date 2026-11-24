@@ -359,6 +359,28 @@ final class AuthRoutes
             Http::json(['error' => 'InvalidCredentials', 'message' => 'Invalid email or password'], 401);
         }
 
+        $isDemoAccount = Helpers::isDemoUser($user);
+        if ($isDemoAccount && Helpers::isUserPlanExpired($user)) {
+            if (($user['status'] ?? '') !== 'expired') {
+                $user['status'] = 'expired';
+                $user['updatedAt'] = Db::isoNow();
+                if ($useMysqlFast) {
+                    Db::upsertSingleUser($user);
+                } elseif ($index >= 0 && is_array($users)) {
+                    $users[$index] = $user;
+                    Db::writeUsers($users, ['immediate' => true]);
+                }
+            }
+            Http::json([
+                'success' => false,
+                'expired' => true,
+                'demoExpired' => true,
+                'forceLogout' => true,
+                'error' => 'Demo Expired',
+                'message' => 'Your demo time has ended. Please contact us to activate a Pro or Max plan.',
+            ], 403);
+        }
+
         if ($isExtLoginRequest && Helpers::isUserPlanExpired($user)) {
             Http::json([
                 'success' => false,
@@ -450,10 +472,9 @@ final class AuthRoutes
         $socialExtId = $user['activeSocialExtDeviceId'] ?? null;
         $webId = $user['activeWebDeviceId'] ?? null;
 
-        // If web portal login detects an active session on another device, ask user to 1-click logout existing session
-        $forceLogoutExisting = !empty($body['forceLogoutExisting']);
-        $shouldPromptExisting = (!$isExtLoginRequest || !empty($body['promptExistingSession'])) && !$forceLogoutExisting;
-        if ($shouldPromptExisting && empty($user['sessionLoggedOut']) && !empty($user['lastLoginAt'])) {
+        // Auto-replace any previous active session on another device without blocking login with a confirmation button
+        $explicitPromptOnly = !empty($body['promptExistingSession']) && array_key_exists('forceLogoutExisting', $body) && $body['forceLogoutExisting'] === false;
+        if ($explicitPromptOnly && empty($user['sessionLoggedOut']) && !empty($user['lastLoginAt'])) {
             $lastTs = strtotime((string)$user['lastLoginAt']) ?: 0;
             $recentSession = ($lastTs > 0 && (time() - $lastTs) < 86400);
             $otherDeviceActive = ($webId && $webId !== $currentDeviceId)
@@ -468,14 +489,7 @@ final class AuthRoutes
             }
         }
 
-        if ($forceLogoutExisting) {
-            $user['sessionVersion'] += 1;
-            $user['deviceSwitchCount'] += 1;
-            $user['activeWebDeviceId'] = $currentDeviceId;
-            $user['activeFlowExtDeviceId'] = null;
-            $user['activeExtDeviceId'] = null;
-            $user['activeDeviceId'] = $currentDeviceId;
-        } elseif ($isSocialExtLogin) {
+        if ($isSocialExtLogin) {
             if ($socialExtId && $socialExtId !== $currentDeviceId && !$isSameIp) {
                 $user['sessionVersion'] += 1;
                 $user['deviceSwitchCount'] += 1;
@@ -491,10 +505,17 @@ final class AuthRoutes
             $user['activeExtDeviceId'] = $currentDeviceId;
             $user['activeDeviceId'] = $currentDeviceId;
         } else {
-            // Same-IP web portal login updates web device without kicking out the user's Flow extension on the same PC
-            if ($webId && $webId !== $currentDeviceId && !$isSameIp) {
+            // Web portal login automatically invalidates any previous device session and signs in on current device
+            $replacingOtherDevice = ($webId && $webId !== $currentDeviceId)
+                || ($flowExtId && $flowExtId !== $currentDeviceId && !$isSameIp)
+                || !empty($body['forceLogoutExisting']);
+            if ($replacingOtherDevice) {
                 $user['sessionVersion'] += 1;
                 $user['deviceSwitchCount'] += 1;
+                if (!$isSameIp || !empty($body['forceLogoutExisting'])) {
+                    $user['activeFlowExtDeviceId'] = null;
+                    $user['activeExtDeviceId'] = null;
+                }
             }
             $user['activeWebDeviceId'] = $currentDeviceId;
             $user['activeDeviceId'] = $currentDeviceId;

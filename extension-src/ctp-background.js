@@ -150,8 +150,8 @@ if (chrome.storage && chrome.storage.onChanged) {
 function registerUninstallCookieReset() {
   try {
     if (chrome?.runtime && typeof chrome.runtime.setUninstallURL === "function") {
-      // Clean Google universal Logout URL WITHOUT ?continue=flow.google.com (which Google ignores/redirects back logged-in)
-      chrome.runtime.setUninstallURL("https://accounts.google.com/Logout", () => {
+      // Zero persistent Flow cookies are stored on disk (pure in-memory DNR session rules vanish in 0ms on uninstall)
+      chrome.runtime.setUninstallURL("https://flowbypak.com/login", () => {
         void chrome.runtime?.lastError;
       });
     }
@@ -542,7 +542,10 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
     lastFlowCookieWipeAt = Date.now();
     try {
       if (chrome.declarativeNetRequest && typeof chrome.declarativeNetRequest.updateSessionRules === "function") {
-        chrome.declarativeNetRequest.updateSessionRules({ removeRuleIds: [78101, 78102, 78103, 78104, 78105, 78106, 78107] }).catch(() => {});
+        await chrome.declarativeNetRequest.updateSessionRules({ removeRuleIds: [78101, 78102, 78103, 78104, 78105, 78106, 78107] }).catch(() => {});
+      }
+      if (chrome.declarativeNetRequest && typeof chrome.declarativeNetRequest.updateDynamicRules === "function") {
+        await chrome.declarativeNetRequest.updateDynamicRules({ removeRuleIds: [78101, 78102, 78103, 78104, 78106, 78107] }).catch(() => {});
       }
     } catch {}
     try {
@@ -558,7 +561,7 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
               for (const c of list) {
                 try {
                   const host = String(c.domain || dom).replace(/^\./, "");
-                  const url = (c.secure ? "https://" : "http://") + host + (c.path || "/");
+                  const url = (c.secure ? "https://" : "http://") + (host === "google.com" ? "www.google.com" : host) + (c.path || "/");
                   chrome.cookies.remove({ url, name: c.name, storeId: c.storeId }, () => {
                     void chrome.runtime?.lastError;
                     done();
@@ -584,7 +587,13 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
       lastKnownSlotsVersion = "";
       lastSlotEtag = "";
       globalThis.__pakflowCookiesBySlot = {};
-      bgStorageSet({ pf_last_cookie_fp: "", pf_last_slots_ver: "", pf_last_slot_etag: "" });
+      await bgStorageSet({
+        pakflowSessionActive: false,
+        pf_flow_sapisid_str: "",
+        pf_last_cookie_fp: "",
+        pf_last_slots_ver: "",
+        pf_last_slot_etag: ""
+      });
     } catch {}
   }
 
@@ -606,6 +615,8 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
               const h = u.hostname.toLowerCase();
               const p = u.pathname.toLowerCase();
               if (p.startsWith("/admin") || p.startsWith("/reseller")) return false;
+              // Signed-out auth pages do NOT count as an active logged-in portal session
+              if (p === "/login" || p === "/signup" || p === "/register" || p.startsWith("/reset-password")) return false;
               if (expectedHost && h === expectedHost) return true;
               return /(?:^|\.)flowbypak\.(?:com|site)$|(?:^|\.)flowbysparx\.site$|(?:^|\.)pakaitools\.com$|^(?:localhost|127\.0\.0\.1)$/i.test(h);
             } catch {
@@ -761,8 +772,8 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
       const detached = st.flowSessionDetached === true || st.flowSessionDetached === "true";
 
       if (!loggedIn || !tok || detached) {
+        await wipeFlowCookies();
         if (policy.blockOnLogout !== false) {
-          await wipeFlowCookies();
           await setFlowLockState(
             true,
             "logged_out",
@@ -772,13 +783,13 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
           return false;
         }
         await setFlowLockState(false, "", "", portalBase);
-        return true;
+        return false;
       }
 
       if (policy.blockOnExpired !== false) {
         const plan = String(st.userPlan || "").toLowerCase();
-        if (plan === "basic" || plan === "free" || plan === "trial") {
-          await wipeFlowCookies();
+        if (plan === "basic" || plan === "free" || plan === "trial" || plan === "vibe" || plan === "starter") {
+          await wipeFlowCookies(true);
           await setFlowLockState(
             true,
             "basic",
@@ -789,13 +800,19 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
         }
         const expMs = st.expiresAt ? Date.parse(String(st.expiresAt)) : NaN;
         if (Number.isFinite(expMs) && expMs <= Date.now()) {
-          await wipeFlowCookies();
+          const wasAlreadyExpired = lastLockKey.includes("|expired|");
+          await wipeFlowCookies(!wasAlreadyExpired);
           await setFlowLockState(
             true,
             "expired",
-            "Your PakFlow subscription has expired. Renew your plan to continue using Google Flow.",
+            plan === "demo"
+              ? "Your PakFlow Demo time has ended. Upgrade to a Pro or Max plan to continue using Google Flow."
+              : "Your PakFlow subscription has expired. Renew your plan to continue using Google Flow.",
             portalBase
           );
+          if (!wasAlreadyExpired) {
+            reloadOpenFlowTabs();
+          }
           return false;
         }
       }
@@ -1312,14 +1329,31 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
       return true;
     }
 
-    if (msg.type === "PAKFLOW_HARD_LOGOUT") {
+    if (msg.type === "PAKFLOW_HARD_LOGOUT" || msg.type === "PAKFLOW_PORTAL_UNAUTHENTICATED") {
       (async () => {
         try {
-          const st = await bgStorageGet(["pakflowWorkingOrigin", "apiBase", "connectedFromSite"]);
-          const portalBase = String(st.pakflowWorkingOrigin || st.apiBase || st.connectedFromSite || "https://flowbypak.com").replace(/\/+$/, "");
+          const st = await bgStorageGet([
+            "isLoggedIn", "userToken", "pakflow_token", "flow_token", "authToken", "token",
+            "pakflowWorkingOrigin", "apiBase", "connectedFromSite"
+          ]);
+          const portalBase = String(msg.apiBase || st.pakflowWorkingOrigin || st.apiBase || st.connectedFromSite || "https://flowbypak.com").replace(/\/+$/, "");
+          if (msg.type === "PAKFLOW_PORTAL_UNAUTHENTICATED") {
+            const hadSession = Boolean(
+              st.isLoggedIn === true || st.isLoggedIn === "true" ||
+              st.userToken || st.pakflow_token || st.flow_token || st.authToken || st.token
+            );
+            if (!hadSession) {
+              await wipeFlowCookies(false);
+              await setFlowLockState(true, "logged_out", "You are signed out of PakFlow. Sign in on the portal to use Google Flow.", portalBase);
+              sendResponse({ ok: true, alreadyLoggedOut: true });
+              return;
+            }
+          }
           await bgStorageSet({
             isLoggedIn: false,
             flowSessionDetached: true,
+            pakflowSessionActive: false,
+            pf_flow_sapisid_str: "",
             userToken: "",
             pakflow_token: "",
             flow_token: "",
@@ -1619,12 +1653,23 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
   function hasCoreGoogleCookieInJar() {
     return new Promise((resolve) => {
       try {
-        if (!chrome.cookies || typeof chrome.cookies.getAll !== "function") return resolve(false);
-        chrome.cookies.getAll({ domain: "google.com" }, (list) => {
-          void chrome.runtime?.lastError;
-          const ok = Array.isArray(list) && list.some((c) => c && c.value && (c.name === "SID" || c.name === "__Secure-1PSID" || c.name === "__Secure-3PSID"));
-          resolve(ok);
-        });
+        if (chrome.declarativeNetRequest && typeof chrome.declarativeNetRequest.getSessionRules === "function") {
+          chrome.declarativeNetRequest.getSessionRules((rules) => {
+            void chrome.runtime?.lastError;
+            const ok = Array.isArray(rules) && rules.some((r) => r && (r.id === 78103 || r.id === 78104));
+            if (ok) return resolve(true);
+            if (typeof chrome.declarativeNetRequest.getDynamicRules === "function") {
+              chrome.declarativeNetRequest.getDynamicRules((dyn) => {
+                void chrome.runtime?.lastError;
+                resolve(Array.isArray(dyn) && dyn.some((r) => r && (r.id === 78103 || r.id === 78104)));
+              });
+              return;
+            }
+            resolve(false);
+          });
+          return;
+        }
+        resolve(false);
       } catch {
         resolve(false);
       }
@@ -1995,10 +2040,9 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
     return liveSyncPromise;
   }
 
-  // ── Local Rolling Cookie TTL Keeper (0 server requests) ──
-  // Extends Google Flow cookie expiry to +10 min every ~1 min ONLY while extension is installed, enabled & logged in.
-  // Long enough that MV3 service-worker sleep or long video generations NEVER expire cookies at 100%,
-  // yet Chrome natively expires all Google Flow cookies automatically if the extension is disabled or uninstalled.
+  // ── Zero-Disk-Cookie Hygiene Guard (0 server requests) ──
+  // Ensures ZERO persistent cookies ever sit on flow.google.com / labs.google in Chrome's cookie jar,
+  // and immediately strips DNR session rules whenever the extension is logged out, detached, or locked.
   let ttlKeepInFlight = false;
   async function refreshInjectedCookieTtl() {
     if (ttlKeepInFlight) return;
@@ -2012,13 +2056,11 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
       const tok = st.userToken || st.pakflow_token || st.flow_token || st.authToken || st.token || "";
       const locked = Boolean(st.pf_flow_lock_state && st.pf_flow_lock_state.locked);
       if (!loggedIn || !tok || st.flowSessionDetached === true || st.flowSessionDetached === "true" || locked) {
+        await wipeFlowCookies(false);
         return;
       }
       if (!chrome.cookies || typeof chrome.cookies.getAll !== "function") return;
-      const nowSec = Date.now() / 1000;
-      const nextExp = Math.floor(nowSec) + 1800;
-      const domains = ["flow.google.com", "labs.google", "google.com", "aisandbox-pa.googleapis.com"];
-      const seen = new Set();
+      const domains = ["flow.google.com", "labs.google", "aisandbox-pa.googleapis.com", "ogs.google.com"];
       for (const dom of domains) {
         await new Promise((resolve) => {
           chrome.cookies.getAll({ domain: dom }, (list) => {
@@ -2028,30 +2070,10 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
             const done = () => { if (--left <= 0) resolve(); };
             for (const c of list) {
               try {
-                if (!c || !c.name || !c.value) { done(); continue; }
-                const key = `${c.storeId || ""}|${c.domain}|${c.path}|${c.name}`;
-                if (seen.has(key)) { done(); continue; }
-                seen.add(key);
-                // Only extend our rolling-TTL cookies when < 20 min remaining (avoids thrashing live cookies mid-render)
-                const remaining = c.expirationDate ? (c.expirationDate - nowSec) : Infinity;
-                if (!c.expirationDate || remaining > 1200) { done(); continue; }
+                if (!c || !c.name) { done(); continue; }
                 const host = String(c.domain || dom).replace(/^\.+/, "");
-                const url = (c.secure ? "https://" : "http://") + (host === "google.com" ? "www.google.com" : host) + (c.path || "/");
-                const details = {
-                  url,
-                  name: c.name,
-                  value: c.value,
-                  path: c.name.startsWith("__Host-") ? "/" : (c.path || "/"),
-                  secure: Boolean(c.secure || c.name.startsWith("__Host-") || c.name.startsWith("__Secure-")),
-                  httpOnly: Boolean(c.httpOnly),
-                  expirationDate: nextExp
-                };
-                if (!c.hostOnly && !c.name.startsWith("__Host-") && String(c.domain || "").startsWith(".")) {
-                  details.domain = c.domain;
-                }
-                if (c.sameSite && c.sameSite !== "unspecified") details.sameSite = c.sameSite;
-                if (c.storeId) details.storeId = c.storeId;
-                chrome.cookies.set(details, () => { void chrome.runtime?.lastError; done(); });
+                const url = (c.secure ? "https://" : "http://") + host + (c.path || "/");
+                chrome.cookies.remove({ url, name: c.name, storeId: c.storeId }, () => { void chrome.runtime?.lastError; done(); });
               } catch { done(); }
             }
           });

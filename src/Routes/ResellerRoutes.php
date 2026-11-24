@@ -153,6 +153,7 @@ final class ResellerRoutes
                 'bankDetails' => $settings['resellerBankDetails'] ?? $defaults['resellerBankDetails'],
                 'broadcast' => $settings['resellerBroadcast'] ?? $defaults['resellerBroadcast'],
                 'rates' => $settings['resellerRates'] ?? $defaults['resellerRates'],
+                'planCredits' => Helpers::getResellerPlanCredits(null, $settings),
             ]);
         }
         if ($method === 'PUT' && $path === '/admin/settings/reseller-bank') {
@@ -190,16 +191,46 @@ final class ResellerRoutes
             Helpers::requireAdmin();
             $body = Http::body();
             $settings = Db::readSettings();
+            $curRates = is_array($settings['resellerRates'] ?? null) ? $settings['resellerRates'] : [];
             $settings['resellerRates'] = [
-                'basic' => array_key_exists('basic', $body) ? (float)$body['basic'] : 0,
-                'pro' => array_key_exists('pro', $body) ? (float)$body['pro'] : 500,
-                'ultra' => array_key_exists('ultra', $body) ? (float)$body['ultra'] : 800,
-                'plus' => array_key_exists('plus', $body) ? (float)$body['plus'] : 500,
-                'max' => array_key_exists('max', $body) ? (float)$body['max'] : 800,
+                'basic' => array_key_exists('basic', $body) ? (float)$body['basic'] : (float)($curRates['basic'] ?? 0),
+                'pro' => array_key_exists('pro', $body) ? (float)$body['pro'] : (float)($curRates['pro'] ?? 500),
+                'ultra' => array_key_exists('ultra', $body) ? (float)$body['ultra'] : (float)($curRates['ultra'] ?? 800),
+                'plus' => array_key_exists('plus', $body) ? (float)$body['plus'] : (float)($curRates['plus'] ?? 500),
+                'max' => array_key_exists('max', $body) ? (float)$body['max'] : (float)($curRates['max'] ?? 800),
                 'vibe' => 0,
             ];
+            $curCredits = Helpers::getResellerPlanCredits(null, $settings);
+            $inPlanCr = is_array($body['planCredits'] ?? null) ? $body['planCredits'] : [];
+            $nextProCr = isset($body['proCredits']) && is_numeric($body['proCredits'])
+                ? max(100, (int)$body['proCredits'])
+                : (isset($inPlanCr['pro']) && is_numeric($inPlanCr['pro']) ? max(100, (int)$inPlanCr['pro']) : $curCredits['pro']);
+            $nextMaxCr = isset($body['maxCredits']) && is_numeric($body['maxCredits'])
+                ? max(100, (int)$body['maxCredits'])
+                : (isset($inPlanCr['max']) && is_numeric($inPlanCr['max']) ? max(100, (int)$inPlanCr['max']) : $curCredits['max']);
+            $nextDemoCr = isset($body['demoCredits']) && is_numeric($body['demoCredits'])
+                ? max(50, (int)$body['demoCredits'])
+                : (isset($inPlanCr['demo']) && is_numeric($inPlanCr['demo']) ? max(50, (int)$inPlanCr['demo']) : $curCredits['demo']);
+            $settings['resellerPlanCredits'] = [
+                'pro' => $nextProCr,
+                'max' => $nextMaxCr,
+                'plus' => $nextProCr,
+                'ultra' => $nextMaxCr,
+                'demo' => $nextDemoCr,
+            ];
+            if (is_array($settings['plans']['pro'] ?? null)) {
+                $settings['plans']['pro']['credits'] = $nextProCr;
+            }
+            if (is_array($settings['plans']['max'] ?? null)) {
+                $settings['plans']['max']['credits'] = $nextMaxCr;
+            }
             Db::writeSettings($settings);
-            Http::json(['success' => true, 'message' => 'Reseller plan rates updated successfully', 'rates' => $settings['resellerRates']]);
+            Http::json([
+                'success' => true,
+                'message' => 'Reseller plan rates & default user credits updated successfully',
+                'rates' => $settings['resellerRates'],
+                'planCredits' => $settings['resellerPlanCredits'],
+            ]);
         }
 
         return false;
@@ -319,6 +350,10 @@ final class ResellerRoutes
                 'isOverdue' => $billingInfo['isOverdue'],
                 'discount' => $billingInfo['discountAmount'],
                 'discountPercent' => $billingInfo['discountPercent'],
+                'proRate' => $r['proRate'] ?? null,
+                'maxRate' => $r['maxRate'] ?? null,
+                'proCredits' => $r['proCredits'] ?? null,
+                'maxCredits' => $r['maxCredits'] ?? null,
             ],
             'metrics' => [
                 'totalUsers' => count($myUsers),
@@ -338,6 +373,7 @@ final class ResellerRoutes
             ],
             'billing' => [
                 'rates' => $billingInfo['rates'],
+                'planCredits' => $billingInfo['planCredits'],
                 'usersCharges' => $billingInfo['usersCharges'],
                 'deletedCharges' => $billingInfo['deletedCharges'],
                 'rawTotalCharges' => $billingInfo['rawTotalCharges'],
@@ -455,6 +491,7 @@ final class ResellerRoutes
             }
         }
         $billing = $currentR ? Helpers::getResellerBillingInfo($currentR, $users, $settings) : null;
+        $planCredits = Helpers::getResellerPlanCredits($currentR ?: $reqReseller, $settings);
         $billedMap = [];
         if ($billing) {
             foreach ($billing['myUsers'] as $bu) {
@@ -479,6 +516,8 @@ final class ResellerRoutes
             $isPastGrace = $bu ? (bool)$bu['isPastGrace'] : $rawPastGrace;
             $hoursLeftInGrace = $isPaid ? 0 : ($bu ? $bu['hoursLeftInGrace'] : $rawHoursLeft);
             $effectiveStatus = (!$isPaid && $isPastGrace) ? 'unpaid_suspended' : ($u['status'] ?? 'active');
+            $uPlan = strtolower((string)($u['plan'] ?? 'pro'));
+            $defTot = ($uPlan === 'max' || $uPlan === 'ultra') ? $planCredits['max'] : $planCredits['pro'];
 
             $formatted[] = [
                 'id' => $u['id'],
@@ -487,7 +526,8 @@ final class ResellerRoutes
                 'email' => $u['email'] ?? '',
                 'plainPasswordHint' => $u['plainPasswordHint'] ?? null,
                 'plan' => $u['plan'] ?? 'pro',
-                'credits' => $u['credits'] ?? 0,
+                'credits' => (int)($u['credits'] ?? 0),
+                'creditsTotal' => (int)($u['creditsTotal'] ?? 0) ?: $defTot,
                 'planExpiresAt' => $u['planExpiresAt'] ?? null,
                 'daysRemaining' => $days,
                 'status' => $effectiveStatus,
@@ -522,6 +562,8 @@ final class ResellerRoutes
             'remainingUsers' => max(0, $allowed - count($formatted)),
             'isOverdue' => (bool)($billing && $billing['isOverdue']),
             'balanceDue' => $billing ? $billing['balanceDue'] : 0,
+            'planCredits' => $planCredits,
+            'rates' => $billing ? $billing['rates'] : null,
         ]);
     }
 
@@ -543,9 +585,13 @@ final class ResellerRoutes
         $useMysqlFast = \App\Database::isEnabled();
         $resellerId = (int)$reqReseller['id'];
 
+        $settings = Db::readSettings();
+        $freshResellerMeta = $useMysqlFast ? (Db::findResellerByIdMysql($resellerId) ?: $reqReseller) : $reqReseller;
+        $planCredits = Helpers::getResellerPlanCredits($freshResellerMeta, $settings);
+
         $chosenPlan = strtolower((string)$plan) === 'max' ? 'max' : 'pro';
         $durationDays = $chosenPlan === 'pro' ? 20 : 30;
-        $assignedCredits = $chosenPlan === 'max' ? 50000 : 35000;
+        $assignedCredits = $chosenPlan === 'max' ? (int)$planCredits['max'] : (int)$planCredits['pro'];
         $localPart = explode('@', $cleanEmail)[0] ?? 'user';
         $cleanUsername = $username
             ? Db::sanitizeCredential($username)
@@ -811,7 +857,24 @@ final class ResellerRoutes
             Http::json(['error' => 'Forbidden', 'message' => 'Resellers are not allowed to add or extend days. Only administrator can extend validity.'], 403);
         }
         if (!empty($body['name'])) $user['name'] = Db::sanitizeCredential($body['name']);
-        if (!empty($body['plan'])) $user['plan'] = strtolower((string)$body['plan']) === 'max' ? 'max' : 'pro';
+        if (!empty($body['plan'])) {
+            $nextPlan = strtolower((string)$body['plan']) === 'max' ? 'max' : 'pro';
+            $prevPlan = strtolower((string)($user['plan'] ?? 'pro')) === 'max' ? 'max' : 'pro';
+            if ($nextPlan !== $prevPlan) {
+                $planCr = Helpers::getResellerPlanCredits($reqReseller, Db::readSettings());
+                $proCr = (int)$planCr['pro'];
+                $maxCr = (int)$planCr['max'];
+                if ($nextPlan === 'max') {
+                    $delta = max(0, $maxCr - $proCr);
+                    $user['credits'] = min($maxCr, max(0, (int)($user['credits'] ?? 0)) + $delta);
+                    $user['creditsTotal'] = $maxCr;
+                } else {
+                    $user['credits'] = min($proCr, max(0, (int)($user['credits'] ?? 0)));
+                    $user['creditsTotal'] = $proCr;
+                }
+            }
+            $user['plan'] = $nextPlan;
+        }
         if (!empty($body['status'])) $user['status'] = $body['status'];
         if (!empty($body['password']) && Db::sanitizeCredential($body['password']) !== '') {
             $cleanPass = Helpers::normalizePasswordForEmail($body['password'], (string)($user['email'] ?? ''));
@@ -1202,6 +1265,9 @@ final class ResellerRoutes
                 'discountPercent' => $info['discountPercent'],
                 'proRate' => $r['proRate'] ?? null,
                 'maxRate' => $r['maxRate'] ?? null,
+                'proCredits' => $r['proCredits'] ?? null,
+                'maxCredits' => $r['maxCredits'] ?? null,
+                'planCredits' => $info['planCredits'],
                 'rates' => $info['rates'],
                 'rawTotalCharges' => $info['rawTotalCharges'],
                 'totalDiscount' => $info['totalDiscount'],
@@ -1250,6 +1316,8 @@ final class ResellerRoutes
             'discountPercent' => max(0, min(100, (float)($body['discountPercent'] ?? 0))),
             'proRate' => (isset($body['proRate']) && $body['proRate'] !== '' && $body['proRate'] !== null) ? (float)$body['proRate'] : null,
             'maxRate' => (isset($body['maxRate']) && $body['maxRate'] !== '' && $body['maxRate'] !== null) ? (float)$body['maxRate'] : null,
+            'proCredits' => (isset($body['proCredits']) && $body['proCredits'] !== '' && $body['proCredits'] !== null) ? max(100, (int)$body['proCredits']) : null,
+            'maxCredits' => (isset($body['maxCredits']) && $body['maxCredits'] !== '' && $body['maxCredits'] !== null) ? max(100, (int)$body['maxCredits']) : null,
             'whatsapp' => !empty($body['whatsapp']) ? trim((string)$body['whatsapp']) : '',
             'status' => $body['status'] ?? 'active',
             'createdAt' => Db::isoNow(),
@@ -1285,6 +1353,8 @@ final class ResellerRoutes
                 if (array_key_exists('discountPercent', $body)) $r['discountPercent'] = max(0, min(100, (float)$body['discountPercent']));
                 if (array_key_exists('proRate', $body)) $r['proRate'] = ($body['proRate'] === null || $body['proRate'] === '') ? null : (float)$body['proRate'];
                 if (array_key_exists('maxRate', $body)) $r['maxRate'] = ($body['maxRate'] === null || $body['maxRate'] === '') ? null : (float)$body['maxRate'];
+                if (array_key_exists('proCredits', $body)) $r['proCredits'] = ($body['proCredits'] === null || $body['proCredits'] === '') ? null : max(100, (int)$body['proCredits']);
+                if (array_key_exists('maxCredits', $body)) $r['maxCredits'] = ($body['maxCredits'] === null || $body['maxCredits'] === '') ? null : max(100, (int)$body['maxCredits']);
                 if (array_key_exists('totalPaid', $body)) $r['totalPaid'] = max(0, (float)$body['totalPaid']);
                 if (array_key_exists('deletedCharges', $body)) $r['deletedCharges'] = max(0, (float)$body['deletedCharges']);
 

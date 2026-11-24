@@ -26,14 +26,24 @@
     var planRaw = String(st.userPlan || (st.user && st.user.plan) || "plus").trim();
     var pLow = planRaw.toLowerCase();
     var isBasic = /^(basic|free|trial|vibe|starter)$/.test(pLow);
-    var dLeft =
-      st.daysLeft != null
-        ? Number(st.daysLeft)
-        : st.pakflow_days_cache != null
-          ? Number(st.pakflow_days_cache)
-          : st.expiresAt
-            ? Math.max(0, Math.ceil((Date.parse(st.expiresAt) - Date.now()) / 86400000))
-            : null;
+    var expMs = st.expiresAt ? Date.parse(String(st.expiresAt)) : NaN;
+    var remSec = isFinite(expMs) ? Math.max(0, Math.floor((expMs - Date.now()) / 1000)) : null;
+    var daysDisplay = null;
+    if (pLow === "demo" && remSec !== null) {
+      if (remSec <= 0) daysDisplay = "0m";
+      else if (remSec < 3600) daysDisplay = Math.max(1, Math.ceil(remSec / 60)) + "m";
+      else daysDisplay = Math.ceil(remSec / 3600) + "h";
+    } else {
+      var dLeft =
+        st.daysLeft != null
+          ? Number(st.daysLeft)
+          : st.pakflow_days_cache != null
+            ? Number(st.pakflow_days_cache)
+            : isFinite(expMs)
+              ? Math.max(0, Math.ceil((expMs - Date.now()) / 86400000))
+              : null;
+      daysDisplay = dLeft != null && !isNaN(dLeft) ? String(Math.max(0, Math.round(dLeft))) : "30";
+    }
     var slotNum =
       parseSlotNumber(st.activeSlot || st.selectedSlot || st.currentSlot || st.currentServerNumber) || 1;
     var slots = Array.isArray(st.pakflow_slots_cache)
@@ -45,8 +55,8 @@
       loggedIn: true,
       email: st.userEmail || (st.user && st.user.email) || "",
       plan: planRaw,
-      credits: isBasic ? "0" : st.credits != null ? String(st.credits) : "45000",
-      daysLeft: dLeft != null && !isNaN(dLeft) ? String(Math.max(0, Math.round(dLeft))) : "30",
+      credits: isBasic ? "0" : st.credits != null ? String(st.credits) : (pLow === "demo" ? "2000" : (pLow === "pro" || pLow === "plus" ? "25000" : "45000")),
+      daysLeft: daysDisplay,
       activeSlot: slotNum,
       slotNumbers: slots,
       apiBase: st.apiBase || st.connectedFromSite || st.pakflowWorkingOrigin || "",

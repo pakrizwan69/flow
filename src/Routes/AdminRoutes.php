@@ -633,20 +633,26 @@ final class AdminRoutes
                 $deviceSwitchCount = 0;
                 $resellerName = null;
                 $requestedDays = null;
+                $demoHours = null;
+                $isDemoFlag = strtolower((string)($r['plan'] ?? '')) === 'demo';
                 if ($extraRaw !== '') {
                     $extra = json_decode($extraRaw, true);
                     if (is_array($extra)) {
                         $deviceSwitchCount = (int)($extra['deviceSwitchCount'] ?? 0);
                         $resellerName = $extra['resellerName'] ?? null;
                         $requestedDays = $extra['requestedDays'] ?? null;
+                        $demoHours = isset($extra['demoHours']) ? (float)$extra['demoHours'] : null;
+                        if (!empty($extra['isDemo'])) $isDemoFlag = true;
                     }
                 }
                 $expRaw = $r['plan_expires_at'] ?? null;
                 $daysRem = 0;
+                $remSec = 0;
                 if ($expRaw) {
                     $expTs = strtotime((string)$expRaw);
                     if ($expTs !== false && $expTs > $now) {
-                        $daysRem = max(0, (int)ceil(($expTs - $now) / 86400));
+                        $remSec = $expTs - $now;
+                        $daysRem = max(0, (int)ceil($remSec / 86400));
                     }
                 }
                 $rowOut = [
@@ -660,7 +666,10 @@ final class AdminRoutes
                     'creditsTotal' => (int)($r['credits_total'] ?? 0),
                     'planExpiresAt' => $expRaw,
                     'daysRemaining' => $daysRem,
-                    'status' => (string)($r['status'] ?? 'active'),
+                    'remainingSeconds' => $remSec,
+                    'isDemo' => $isDemoFlag,
+                    'demoHours' => $demoHours,
+                    'status' => ($isDemoFlag && $remSec <= 0 && strtolower((string)($r['status'] ?? 'active')) !== 'suspended') ? 'expired' : (string)($r['status'] ?? 'active'),
                     'isLocked' => !empty($r['is_locked']),
                     'deviceSwitchCount' => $deviceSwitchCount,
                     'createdAt' => $r['created_at'],
@@ -694,14 +703,17 @@ final class AdminRoutes
         foreach ($rawUsers as $u) {
             $expRaw = $u['planExpiresAt'] ?? null;
             $daysRem = 0;
+            $remSec = 0;
             if ($expRaw) {
                 $expTs = strtotime((string)$expRaw);
                 if ($expTs !== false && $expTs > $now) {
-                    $daysRem = max(0, (int)ceil(($expTs - $now) / 86400));
+                    $remSec = $expTs - $now;
+                    $daysRem = max(0, (int)ceil($remSec / 86400));
                 }
             }
             $stLower = strtolower((string)($u['status'] ?? 'active'));
             $plLower = strtolower((string)($u['plan'] ?? 'basic'));
+            $isDemoFlag = ($plLower === 'demo') || !empty($u['isDemo']);
             if ($stLower === 'suspended' || !empty($u['isLocked'])) {
                 $stats['suspended']++;
             } elseif ($plLower !== 'basic' && $plLower !== 'free' && $daysRem > 0) {
@@ -722,7 +734,10 @@ final class AdminRoutes
                 'creditsTotal' => (int)($u['creditsTotal'] ?? 0),
                 'planExpiresAt' => $expRaw,
                 'daysRemaining' => $daysRem,
-                'status' => $u['status'] ?? 'active',
+                'remainingSeconds' => $remSec,
+                'isDemo' => $isDemoFlag,
+                'demoHours' => isset($u['demoHours']) ? (float)$u['demoHours'] : null,
+                'status' => ($isDemoFlag && $remSec <= 0 && $stLower !== 'suspended') ? 'expired' : ($u['status'] ?? 'active'),
                 'isLocked' => !empty($u['isLocked']),
                 'deviceSwitchCount' => (int)($u['deviceSwitchCount'] ?? 0),
                 'createdAt' => $u['createdAt'] ?? null,
@@ -809,13 +824,33 @@ final class AdminRoutes
 
         Db::unmarkUserDeleted($cleanEmail);
 
-        $userDays = (int)$days ?: 30;
-        $nowIso = Db::isoNow();
-        $planExpiresAt = Db::isoNow($userDays * 86400);
         $selectedPlan = strtolower((string)($plan ?: 'plus'));
+        $isDemoPlan = ($selectedPlan === 'demo');
+        $demoHours = null;
+        $nowIso = Db::isoNow();
+        if ($isDemoPlan) {
+            $rawDemoHours = $body['demoHours'] ?? ($body['hours'] ?? 2);
+            $demoHours = is_numeric($rawDemoHours) ? max(0.0005, min(720.0, (float)$rawDemoHours)) : 2.0;
+            $demoSeconds = max(2, (int)round($demoHours * 3600));
+            $planExpiresAt = Db::isoNow($demoSeconds);
+            $userDays = max(1, (int)ceil($demoSeconds / 86400));
+        } else {
+            $userDays = (int)$days ?: 30;
+            $planExpiresAt = Db::isoNow($userDays * 86400);
+        }
+
+        $planCrCfg = Helpers::getResellerPlanCredits(null, Db::readSettings());
         $planCreditsDefault = [
-            'vibe' => 45000, 'plus' => 45000, 'pro' => 45000, 'max' => 45000,
-            'ultra' => 45000, 'starter' => 45000, 'free' => 45000, 'trial' => 45000,
+            'vibe' => 10000,
+            'plus' => (int)$planCrCfg['pro'],
+            'pro' => (int)$planCrCfg['pro'],
+            'max' => (int)$planCrCfg['max'],
+            'ultra' => (int)$planCrCfg['max'],
+            'demo' => (int)($planCrCfg['demo'] ?? 2000),
+            'starter' => 0,
+            'free' => 0,
+            'trial' => 0,
+            'basic' => 0,
         ];
         $userCredits = ($credits !== null && $credits !== '') ? (int)$credits : ($planCreditsDefault[$selectedPlan] ?? 25000);
         $localPart = explode('@', $cleanEmail)[0] ?? 'user';
@@ -829,6 +864,8 @@ final class AdminRoutes
                 $existing['passwordHash'] = Db::hashPassword($cleanPass);
                 $existing['plainPasswordHint'] = $cleanPass;
                 $existing['plan'] = $selectedPlan;
+                $existing['isDemo'] = $isDemoPlan;
+                $existing['demoHours'] = $demoHours;
                 $existing['credits'] = $userCredits;
                 $existing['creditsTotal'] = $userCredits;
                 $existing['planExpiresAt'] = $planExpiresAt;
@@ -856,6 +893,8 @@ final class AdminRoutes
                 'passwordHash' => Db::hashPassword($cleanPass),
                 'plainPasswordHint' => $cleanPass,
                 'plan' => $selectedPlan,
+                'isDemo' => $isDemoPlan,
+                'demoHours' => $demoHours,
                 'credits' => $userCredits,
                 'creditsTotal' => $userCredits,
                 'planExpiresAt' => $planExpiresAt,
@@ -884,6 +923,8 @@ final class AdminRoutes
                 $existing['passwordHash'] = Db::hashPassword($cleanPass);
                 $existing['plainPasswordHint'] = $cleanPass;
                 $existing['plan'] = $selectedPlan;
+                $existing['isDemo'] = $isDemoPlan;
+                $existing['demoHours'] = $demoHours;
                 $existing['credits'] = $userCredits;
                 $existing['creditsTotal'] = $userCredits;
                 $existing['planExpiresAt'] = $planExpiresAt;
@@ -913,6 +954,8 @@ final class AdminRoutes
             'passwordHash' => Db::hashPassword($cleanPass),
             'plainPasswordHint' => $cleanPass,
             'plan' => $selectedPlan,
+            'isDemo' => $isDemoPlan,
+            'demoHours' => $demoHours,
             'credits' => $userCredits,
             'creditsTotal' => $userCredits,
             'planExpiresAt' => $planExpiresAt,
@@ -967,7 +1010,10 @@ final class AdminRoutes
                 $user['email'] = $nextEmail;
             }
         }
-        if (array_key_exists('plan', $body)) $user['plan'] = strtolower((string)$body['plan']);
+        if (array_key_exists('plan', $body)) {
+            $user['plan'] = strtolower((string)$body['plan']);
+            $user['isDemo'] = ($user['plan'] === 'demo');
+        }
         if (array_key_exists('status', $body)) {
             $user['status'] = $body['status'];
             if ($body['status'] === 'active') {
@@ -975,7 +1021,15 @@ final class AdminRoutes
                 $user['lockReason'] = null;
             }
         }
-        if (array_key_exists('credits', $body)) $user['credits'] = (int)$body['credits'];
+        if (array_key_exists('credits', $body)) {
+            $nextCr = max(0, (int)$body['credits']);
+            $user['credits'] = $nextCr;
+            if (array_key_exists('creditsTotal', $body)) {
+                $user['creditsTotal'] = max($nextCr, (int)$body['creditsTotal']);
+            } elseif ($nextCr > (int)($user['creditsTotal'] ?? 0) || (int)($user['creditsTotal'] ?? 0) <= 0) {
+                $user['creditsTotal'] = $nextCr;
+            }
+        }
         if (array_key_exists('isLocked', $body)) {
             $user['isLocked'] = (bool)$body['isLocked'];
             if (!$user['isLocked'] && ($user['status'] ?? '') === 'locked') {
@@ -1002,7 +1056,17 @@ final class AdminRoutes
                 $user['plainPasswordHint'] = $cleanPass;
             }
         }
-        if (array_key_exists('days', $body)) {
+        if ((strtolower((string)($user['plan'] ?? '')) === 'demo') && isset($body['demoHours']) && is_numeric($body['demoHours'])) {
+            $dHrs = max(0.0005, min(720.0, (float)$body['demoHours']));
+            $dSec = max(2, (int)round($dHrs * 3600));
+            $user['planExpiresAt'] = Db::isoNow($dSec);
+            $user['daysRemaining'] = max(1, (int)ceil($dSec / 86400));
+            $user['isDemo'] = true;
+            $user['demoHours'] = $dHrs;
+            if (($user['status'] ?? '') === 'expired') {
+                $user['status'] = 'active';
+            }
+        } elseif (array_key_exists('days', $body)) {
             $numDays = max(0, (int)$body['days']);
             $user['planExpiresAt'] = Db::isoNow($numDays * 86400);
             $user['daysRemaining'] = $numDays;
@@ -1131,14 +1195,22 @@ final class AdminRoutes
 
     private static function buildResetLimitUser(array $user, $credits, $days): array
     {
+        $planCrCfg = Helpers::getResellerPlanCredits(null, Db::readSettings());
         $planCreditsDefault = [
-            'vibe' => 45000, 'plus' => 45000, 'pro' => 45000, 'max' => 45000,
-            'ultra' => 45000, 'starter' => 45000, 'free' => 45000, 'trial' => 45000,
+            'vibe' => 10000,
+            'plus' => (int)$planCrCfg['pro'],
+            'pro' => (int)$planCrCfg['pro'],
+            'max' => (int)$planCrCfg['max'],
+            'ultra' => (int)$planCrCfg['max'],
+            'demo' => (int)($planCrCfg['demo'] ?? 2000),
+            'starter' => 25000,
+            'free' => 25000,
+            'trial' => 25000,
         ];
         $planKey = strtolower((string)($user['plan'] ?? 'plus'));
         $defaultCredits = $planCreditsDefault[$planKey] ?? 25000;
         $targetCredits = $credits !== null ? (int)$credits : $defaultCredits;
-        $targetDays = $days !== null ? (int)$days : 30;
+        $targetDays = $days !== null ? (int)$days : ($planKey === 'pro' ? 20 : 30);
 
         $user['credits'] = $targetCredits;
         $user['creditsTotal'] = $targetCredits;
@@ -1146,8 +1218,14 @@ final class AdminRoutes
         $now = time();
         $expTime = !empty($user['planExpiresAt']) ? (strtotime((string)$user['planExpiresAt']) ?: 0) : 0;
         if (!$expTime || $expTime <= $now) {
-            $user['planExpiresAt'] = Db::isoNow($targetDays * 86400);
-            $user['daysRemaining'] = $targetDays;
+            if ($planKey === 'demo') {
+                $dHrs = isset($user['demoHours']) && is_numeric($user['demoHours']) ? max(0.05, (float)$user['demoHours']) : 2.0;
+                $user['planExpiresAt'] = Db::isoNow((int)round($dHrs * 3600));
+                $user['daysRemaining'] = 1;
+            } else {
+                $user['planExpiresAt'] = Db::isoNow($targetDays * 86400);
+                $user['daysRemaining'] = $targetDays;
+            }
         } else {
             $user['daysRemaining'] = Db::calculateDaysRemaining($user['planExpiresAt']);
         }

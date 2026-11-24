@@ -47,14 +47,84 @@
     return null;
   }
 
+  function triggerHardLogoutSync() {
+    try {
+      chrome.runtime.sendMessage({ type: 'PAKFLOW_HARD_LOGOUT', apiBase: window.location.origin }, () => {
+        void chrome.runtime?.lastError;
+      });
+    } catch {}
+  }
+
+  function reconcilePortalConnectionState() {
+    try {
+      const path = String(window.location.pathname || '/').toLowerCase();
+      if (path.startsWith('/admin') || path.startsWith('/reseller')) return;
+      const tok = readSiteToken();
+      if (tok) {
+        chrome.runtime.sendMessage(
+          {
+            type: 'PAKFLOW_ENSURE_COOKIES_READY',
+            token: tok,
+            user: readSiteUser(),
+            apiBase: window.location.origin
+          },
+          () => { void chrome.runtime?.lastError; }
+        );
+      } else if (path === '/login' || path === '/signup' || path === '/register' || path === '/') {
+        chrome.runtime.sendMessage(
+          {
+            type: 'PAKFLOW_PORTAL_UNAUTHENTICATED',
+            apiBase: window.location.origin,
+            pathname: path
+          },
+          () => { void chrome.runtime?.lastError; }
+        );
+      }
+    } catch {}
+  }
+
+  window.addEventListener('__bf_logout__', triggerHardLogoutSync);
+
+  window.addEventListener('storage', (ev) => {
+    try {
+      if (!ev) return;
+      const authKeys = ['pakflow_token', 'token', 'flow_token', 'flowbypak_token', 'pakflow_auth_bridge'];
+      if (ev.key === null || (authKeys.includes(ev.key) && !ev.newValue && !readSiteToken())) {
+        triggerHardLogoutSync();
+      } else if (authKeys.includes(ev.key) && ev.newValue) {
+        reconcilePortalConnectionState();
+      }
+    } catch {}
+  });
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => setTimeout(reconcilePortalConnectionState, 120), { once: true });
+  } else {
+    setTimeout(reconcilePortalConnectionState, 120);
+  }
+
   window.addEventListener('message', (event) => {
     if (event.source !== window) return;
     const data = event.data;
     if (!data || typeof data !== 'object') return;
 
-    if (data.type === 'PAKFLOW_SITE_LOGOUT') {
+    if (data.type === 'PAKFLOW_SITE_LOGOUT' || data.type === 'PAKFLOW_PORTAL_LOGOUT') {
+      triggerHardLogoutSync();
+      return;
+    }
+
+    if (data.type === 'PAKFLOW_SITE_LOGIN' && data.token) {
       try {
-        chrome.runtime.sendMessage({ type: 'PAKFLOW_HARD_LOGOUT' }, () => { void chrome.runtime?.lastError; });
+        chrome.runtime.sendMessage(
+          {
+            type: 'PAKFLOW_ENSURE_COOKIES_READY',
+            token: String(data.token),
+            user: data.user || readSiteUser(),
+            apiBase: window.location.origin,
+            force: true
+          },
+          () => { void chrome.runtime?.lastError; }
+        );
       } catch {}
       return;
     }

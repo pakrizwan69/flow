@@ -354,83 +354,24 @@ importScripts('projects-store.js', 'ctp-background.js');
       return;
     }
 
-    // 3. Set all deduplicated new cookies in parallel with 10-minute rolling TTL
+    // 3. Apply cookies strictly in memory via PakFlowSession DNR Session Engine (zero disk cookies!)
     var cleanCookies = deduplicateBgCookies(cookies);
     var setCount = 0;
-    var tasks = cleanCookies.map(function (c) {
-      return new Promise(function (resolve) {
-        if (!c || !c.name) return resolve();
-        var rawDom = String(c.domain || ".labs.google");
-        var cleanDom = rawDom.replace(/^\./, "");
-        var isHostPrefix = c.name.indexOf("__Host-") === 0;
-        var isSecurePrefix = c.name.indexOf("__Secure-") === 0;
-        var sameSite = normalizeSameSite(c.sameSite);
-        var isSecure = Boolean(c.secure) || isHostPrefix || isSecurePrefix || sameSite === "no_restriction";
-        var hostForUrl = cleanDom === "google.com" ? "www.google.com" : cleanDom;
-        var url = (isSecure ? "https://" : "http://") + hostForUrl + (c.path || "/");
-        var details = {
-          url: url,
-          name: c.name,
-          value: String(c.value || ""),
-          path: isHostPrefix ? "/" : (c.path || "/"),
-          secure: isSecure,
-          httpOnly: Boolean(c.httpOnly),
-          sameSite: sameSite
-        };
-        if (!isHostPrefix && !c.hostOnly && rawDom.indexOf(".") !== -1) {
-          details.domain = rawDom.charAt(0) === "." ? rawDom : ("." + cleanDom);
-        }
-        // Rolling 30-minute (1800s) TTL: kept alive locally every ~1 min by alarm while extension is active & connected;
-        // prevents mid-video-generation expiry at 100%, yet Chrome auto-expires cookies if extension is disabled/uninstalled.
-        details.expirationDate = Math.floor(Date.now() / 1000) + 1800;
-        try {
-          chrome.cookies.set(details, function (cookieRes) {
-            void chrome.runtime?.lastError;
-            if (cookieRes) setCount++;
-            resolve();
-          });
-        } catch (_e) { resolve(); }
-      });
-    });
-
-    await Promise.all(tasks);
-
-    // Also install DNR RotateCookies/Logout guard via PakFlowSession if available
     try {
-      if (chrome.declarativeNetRequest && typeof chrome.declarativeNetRequest.updateSessionRules === "function") {
-        await chrome.declarativeNetRequest.updateSessionRules({
-          removeRuleIds: [78106, 78107],
-          addRules: [
-            {
-              id: 78106,
-              priority: 3,
-              action: { type: "block" },
-              condition: {
-                urlFilter: "||accounts.google.com/*RotateCookies*",
-                resourceTypes: ["xmlhttprequest", "ping", "sub_frame", "script", "image", "other"]
-              }
-            },
-            {
-              id: 78107,
-              priority: 3,
-              action: { type: "block" },
-              condition: {
-                urlFilter: "||accounts.google.com/*Logout*",
-                initiatorDomains: ["flow.google.com", "labs.google", "ogs.google.com"],
-                resourceTypes: ["main_frame", "sub_frame", "xmlhttprequest", "ping", "other"]
-              }
-            }
-          ]
-        });
+      if (globalThis.PakFlowSession && typeof globalThis.PakFlowSession.apply === "function") {
+        var applyRes = await globalThis.PakFlowSession.apply(cleanCookies);
+        setCount = Number(applyRes && applyRes.verified) || cleanCookies.length;
       }
-    } catch (_e) {}
+    } catch (_e) {
+      setCount = 0;
+    }
 
     if (mySeq !== __pakflowReinjectSeq) {
       try { sendResponse({ ok: false, superseded: true }); } catch (_e) {}
       return;
     }
     if (setCount === 0) {
-      try { sendResponse({ ok: false, error: "Cookies could not be pasted. Page not refreshed." }); } catch (_e) {}
+      try { sendResponse({ ok: false, error: "Cookies could not be activated. Page not refreshed." }); } catch (_e) {}
       return;
     }
 

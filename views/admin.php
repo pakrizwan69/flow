@@ -710,6 +710,7 @@
                   <option value="all">All Plans</option>
                   <option value="pro">Pro</option>
                   <option value="max">Max</option>
+                  <option value="demo">Demo</option>
                   <option value="plus">Plus</option>
                   <option value="ultra">Ultra</option>
                   <option value="vibe">Vibe</option>
@@ -1053,8 +1054,8 @@
               <div class="card">
                 <div class="card-head">
                   <div>
-                    <h3 class="card-title">Default Reseller Plan Rates (PKR)</h3>
-                    <p class="card-desc">Wholesale charge per user created by resellers (unless custom rate is set per partner).</p>
+                    <h3 class="card-title">Default Reseller Rates &amp; Plan Credits</h3>
+                    <p class="card-desc">Wholesale PKR price &amp; default AI credits granted per user created by resellers (editable per partner too).</p>
                   </div>
                 </div>
                 <div class="grid-2">
@@ -1067,6 +1068,14 @@
                     <input id="rrMax" class="input" type="number" min="0" value="800" />
                   </div>
                   <div class="field">
+                    <label for="rcPro">PRO User Credits (Default 25k)</label>
+                    <input id="rcPro" class="input" type="number" min="100" step="100" value="25000" />
+                  </div>
+                  <div class="field">
+                    <label for="rcMax">MAX User Credits (Default 45k)</label>
+                    <input id="rcMax" class="input" type="number" min="100" step="100" value="45000" />
+                  </div>
+                  <div class="field">
                     <label for="rrPlus">PLUS Plan Rate (Rs.)</label>
                     <input id="rrPlus" class="input" type="number" min="0" value="500" />
                   </div>
@@ -1075,7 +1084,7 @@
                     <input id="rrUltra" class="input" type="number" min="0" value="800" />
                   </div>
                 </div>
-                <button id="saveResellerRatesBtn" type="button" class="btn btn-primary" style="margin-bottom:18px;">Save Default Rates</button>
+                <button id="saveResellerRatesBtn" type="button" class="btn btn-primary" style="margin-bottom:18px;">Save Rates &amp; Plan Credits</button>
 
                 <div style="border-top:1px solid var(--border);padding-top:16px;">
                   <div class="card-title" style="margin-bottom:8px;">Reseller Partner Notice Board</div>
@@ -1526,17 +1535,30 @@
             <div class="field">
               <label for="uPlan">Subscription Plan</label>
               <select id="uPlan" class="select">
-                <option value="pro">Pro (20 Days)</option>
-                <option value="max">Max (30 Days)</option>
+                <option value="pro">Pro (20 Days · 25k Credits)</option>
+                <option value="max">Max (30 Days · 45k Credits)</option>
+                <option value="demo">Demo (Timed Auto-Lock · 2h Default)</option>
                 <option value="plus">Plus</option>
                 <option value="ultra">Ultra</option>
                 <option value="vibe">Vibe</option>
                 <option value="basic">Basic (Free)</option>
               </select>
             </div>
-            <div class="field">
+            <div class="field" id="uDaysFieldWrap">
               <label for="uDays">Validity (Days)</label>
-              <input id="uDays" class="input" type="number" min="0" max="3650" value="30" />
+              <input id="uDays" class="input" type="number" min="0" max="3650" value="20" />
+            </div>
+            <div class="field hidden" id="uDemoHoursFieldWrap">
+              <label for="uDemoHours">Demo Duration (Hours — Auto-Closes)</label>
+              <input id="uDemoHours" class="input" type="number" min="0.05" max="720" step="any" value="2" placeholder="2" />
+              <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:6px;">
+                <button type="button" class="btn btn-ghost btn-xs" data-demo-hrs="0.5">30m</button>
+                <button type="button" class="btn btn-ghost btn-xs" data-demo-hrs="1">1h</button>
+                <button type="button" class="btn btn-ghost btn-xs" data-demo-hrs="2">2h</button>
+                <button type="button" class="btn btn-ghost btn-xs" data-demo-hrs="6">6h</button>
+                <button type="button" class="btn btn-ghost btn-xs" data-demo-hrs="12">12h</button>
+                <button type="button" class="btn btn-ghost btn-xs" data-demo-hrs="24">24h</button>
+              </div>
             </div>
           </div>
           <div class="grid-2">
@@ -1672,12 +1694,22 @@
           </div>
           <div class="grid-2">
             <div class="field">
-              <label for="rProRate">Custom Pro Rate (Rs., optional)</label>
+              <label for="rProRate">Assigned Pro Price (Rs. PKR)</label>
               <input id="rProRate" class="input" type="number" min="0" placeholder="Default (500)" />
             </div>
             <div class="field">
-              <label for="rMaxRate">Custom Max Rate (Rs., optional)</label>
+              <label for="rMaxRate">Assigned Max Price (Rs. PKR)</label>
               <input id="rMaxRate" class="input" type="number" min="0" placeholder="Default (800)" />
+            </div>
+          </div>
+          <div class="grid-2">
+            <div class="field">
+              <label for="rProCredits">Pro Plan Credits (Optional Override)</label>
+              <input id="rProCredits" class="input" type="number" min="100" step="100" placeholder="Default (25,000)" />
+            </div>
+            <div class="field">
+              <label for="rMaxCredits">Max Plan Credits (Optional Override)</label>
+              <input id="rMaxCredits" class="input" type="number" min="100" step="100" placeholder="Default (45,000)" />
             </div>
           </div>
           <div class="grid-2">
@@ -1983,17 +2015,25 @@
     function openShareLoginModal(user, headingText) {
       const tpl = (state.controls && state.controls.messageTemplate) || DEFAULT_TEMPLATE;
       const wa = (state.settings && (state.settings.whatsappSupport || state.settings.whatsappNumber || state.settings.whatsappPhone)) || '';
-      const msg = fillTemplate(tpl, {
+      const isDemo = String(user.plan || '').toLowerCase() === 'demo';
+      const demoHrsVal = Number(user.demoHours || 2);
+      const durationLabel = isDemo
+        ? ((demoHrsVal < 1 ? (Math.round(demoHrsVal * 60) + ' Mins') : (demoHrsVal + ' Hours')) + ' Demo')
+        : String(user.days ?? user.daysRemaining ?? 30);
+      let msg = fillTemplate(tpl, {
         site_link: window.location.origin,
         name: user.name || user.username || (user.email || '').split('@')[0],
         email: user.email || '',
         password: user.password || user.plainPasswordHint || '(Use your saved password)',
         plan: user.plan || 'pro',
-        days: user.days ?? user.daysRemaining ?? 30,
+        days: durationLabel,
         whatsapp: wa,
       });
+      if (isDemo) {
+        msg = msg.replace(/\(\s*([0-9.]+\s*(?:Hours|Mins)\s*Demo)\s*days\s*\)/gi, '($1)');
+      }
       $('welcomeModalHeading').textContent = headingText || 'Share Client Login';
-      $('welcomeCopySub').textContent = (user.email || '') + ' · ' + String(user.plan || 'pro').toUpperCase() + ' (' + (user.days ?? user.daysRemaining ?? 0) + ' days)';
+      $('welcomeCopySub').textContent = (user.email || '') + ' · ' + String(user.plan || 'pro').toUpperCase() + ' (' + (isDemo ? durationLabel : ((user.days ?? user.daysRemaining ?? 0) + ' days')) + ')';
       $('welcomeCopyText').value = msg;
       $('welcomeWaLink').href = 'https://wa.me/?text=' + encodeURIComponent(msg);
       $('welcomeCopyModal').classList.remove('hidden');
@@ -2296,16 +2336,34 @@
 
       tbody.innerHTML = rows.map((u) => {
         const plan = String(u.plan || 'basic').toUpperCase();
+        const isDemo = plan === 'DEMO' || Boolean(u.isDemo);
         const days = Number(u.daysRemaining || 0);
+        const expMs = u.planExpiresAt ? Date.parse(String(u.planExpiresAt)) : 0;
+        const remSec = expMs > Date.now() ? Math.floor((expMs - Date.now()) / 1000) : Number(u.remainingSeconds || 0);
+        const isDemoActive = isDemo && remSec > 0;
         const isSusp = String(u.status || '').toLowerCase() === 'suspended' || u.isLocked;
         const statusBadge = isSusp
           ? '<span class="badge badge-rose">Suspended</span>'
-          : (days > 0 || plan === 'BASIC'
-            ? '<span class="badge badge-emerald">Active</span>'
+          : ((isDemo ? isDemoActive : (days > 0 || plan === 'BASIC'))
+            ? '<span class="badge badge-emerald">' + (isDemo ? 'Demo Active' : 'Active') + '</span>'
             : '<span class="badge badge-amber">Expired</span>');
         const planBadge = plan === 'BASIC' || plan === 'FREE'
           ? '<span class="badge badge-muted">' + esc(plan) + '</span>'
-          : '<span class="badge badge-blue">' + esc(plan) + '</span>';
+          : (isDemo
+            ? '<span class="badge badge-amber">DEMO</span>'
+            : '<span class="badge badge-blue">' + esc(plan) + '</span>');
+        let validityLabel = days + 'd left';
+        if (isDemo) {
+          if (remSec <= 0) {
+            validityLabel = '0m (Ended)';
+          } else if (remSec < 3600) {
+            validityLabel = Math.max(1, Math.ceil(remSec / 60)) + 'm left';
+          } else {
+            const dh = Math.floor(remSec / 3600);
+            const dm = Math.floor((remSec % 3600) / 60);
+            validityLabel = dm > 0 ? (dh + 'h ' + dm + 'm left') : (dh + 'h left');
+          }
+        }
         const resellerTag = u.resellerName ? (' <span class="badge badge-muted" style="margin-left:4px;font-size:10px;">' + esc(u.resellerName) + '</span>') : '';
         const credNum = Number(u.credits ?? 0);
         return (
@@ -2313,7 +2371,7 @@
             '<td><div class="user-cell-name">' + esc(u.name || u.username || 'User') + resellerTag + '</div><div class="user-cell-email">' + esc(u.email) + '</div></td>' +
             '<td>' + planBadge + '<div style="font-size:11px;color:var(--text-muted);font-family:var(--font-mono);margin-top:3px;">' + credNum.toLocaleString() + ' cr</div></td>' +
             '<td>' +
-              '<div style="font-family:var(--font-mono);font-weight:700;margin-bottom:4px;">' + days + 'd left</div>' +
+              '<div style="font-family:var(--font-mono);font-weight:700;margin-bottom:4px;">' + validityLabel + '</div>' +
               '<div class="quick-ext-row">' +
                 '<button type="button" class="btn btn-ghost btn-xs" data-act="ext-days" data-days="7" data-id="' + u.id + '">+7d</button>' +
                 '<button type="button" class="btn btn-ghost btn-xs" data-act="ext-days" data-days="15" data-id="' + u.id + '">+15d</button>' +
@@ -2394,9 +2452,47 @@
     });
 
     // ── Add / Edit User Modal ──
+    function getDefaultCreditsForPlan(planKey) {
+      const p = String(planKey || 'pro').toLowerCase();
+      const rc = (state.resellerConfig && state.resellerConfig.planCredits) || (state.settings && state.settings.resellerPlanCredits) || {};
+      if (p === 'demo') return Number(rc.demo || 2000);
+      if (p === 'pro' || p === 'plus') return Number(rc.pro || 25000);
+      if (p === 'max' || p === 'ultra') return Number(rc.max || 45000);
+      if (p === 'vibe') return 10000;
+      if (p === 'basic' || p === 'free') return 0;
+      return 25000;
+    }
+
+    function syncUserPlanModeUI(applyDefaults) {
+      const p = String($('uPlan').value || 'pro').toLowerCase();
+      const isDemo = (p === 'demo');
+      $('uDaysFieldWrap').classList.toggle('hidden', isDemo);
+      $('uDemoHoursFieldWrap').classList.toggle('hidden', !isDemo);
+      if (applyDefaults) {
+        if (isDemo) {
+          $('uDemoHours').value = 2;
+        } else {
+          $('uDays').value = p === 'pro' ? 20 : 30;
+        }
+        $('uCredits').value = getDefaultCreditsForPlan(p);
+      }
+    }
+
+    $('uPlan').addEventListener('change', () => {
+      const isCreate = !$('uEditId').value.trim();
+      syncUserPlanModeUI(isCreate || $('uPlan').value === 'demo');
+    });
+
+    document.querySelectorAll('[data-demo-hrs]').forEach((chip) => {
+      chip.addEventListener('click', () => {
+        $('uDemoHours').value = chip.dataset.demoHrs;
+      });
+    });
+
     function openUserModal(user) {
       $('userForm').reset();
       if (user) {
+        const uPlanLow = String(user.plan || 'pro').toLowerCase();
         $('userModalTitle').textContent = 'Edit User';
         $('uEditId').value = user.id;
         $('uName').value = user.name || '';
@@ -2404,10 +2500,18 @@
         $('uPassword').value = '';
         $('uPassword').required = false;
         $('uPassHint').textContent = '(leave blank to keep current)';
-        $('uPlan').value = String(user.plan || 'pro').toLowerCase();
-        $('uDays').value = user.daysRemaining ?? 30;
+        $('uPlan').value = uPlanLow;
+        syncUserPlanModeUI(false);
+        if (uPlanLow === 'demo') {
+          const remHrs = user.planExpiresAt
+            ? Math.max(0.1, Math.round(((Date.parse(user.planExpiresAt) - Date.now()) / 3600000) * 10) / 10)
+            : (user.demoHours || 2);
+          $('uDemoHours').value = Number.isFinite(remHrs) && remHrs > 0 ? remHrs : (user.demoHours || 2);
+        } else {
+          $('uDays').value = user.daysRemaining ?? (uPlanLow === 'pro' ? 20 : 30);
+        }
         $('uStatus').value = String(user.status || 'active').toLowerCase() === 'suspended' ? 'suspended' : 'active';
-        $('uCredits').value = user.credits ?? 45000;
+        $('uCredits').value = user.credits ?? getDefaultCreditsForPlan(uPlanLow);
         $('uEditQuickTools').classList.remove('hidden');
         $('userFormSubmitBtn').textContent = 'Save Changes';
       } else {
@@ -2416,9 +2520,8 @@
         $('uPassword').required = true;
         $('uPassHint').textContent = '';
         $('uPlan').value = 'pro';
-        $('uDays').value = 30;
         $('uStatus').value = 'active';
-        $('uCredits').value = 45000;
+        syncUserPlanModeUI(true);
         $('uEditQuickTools').classList.add('hidden');
         $('userFormSubmitBtn').textContent = 'Create User';
       }
@@ -2450,15 +2553,23 @@
     $('userForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const editId = $('uEditId').value.trim();
+      const chosenPlan = $('uPlan').value;
+      const isDemo = String(chosenPlan || '').toLowerCase() === 'demo';
       const rawCredits = parseInt($('uCredits').value, 10);
+      const demoHrsVal = parseFloat($('uDemoHours').value);
+      const demoHours = Number.isFinite(demoHrsVal) && demoHrsVal > 0 ? demoHrsVal : 2;
       const payload = {
         name: $('uName').value.trim(),
         email: $('uEmail').value.trim(),
-        plan: $('uPlan').value,
-        days: parseInt($('uDays').value, 10) || 0,
+        plan: chosenPlan,
         status: $('uStatus').value,
-        credits: Number.isFinite(rawCredits) && rawCredits >= 0 ? rawCredits : 45000,
+        credits: Number.isFinite(rawCredits) && rawCredits >= 0 ? rawCredits : getDefaultCreditsForPlan(chosenPlan),
       };
+      if (isDemo) {
+        payload.demoHours = demoHours;
+      } else {
+        payload.days = parseInt($('uDays').value, 10) || 0;
+      }
       const pass = $('uPassword').value.trim();
       if (pass) payload.password = pass;
 
@@ -2472,14 +2583,15 @@
         } else {
           await api('/api/admin/users', { method: 'POST', body: JSON.stringify(payload) });
           $('userModal').classList.add('hidden');
-          showToast('User created');
+          showToast(isDemo ? ('Demo user created (' + demoHours + 'h auto-lock)') : 'User created');
           openShareLoginModal({
             name: payload.name,
             email: payload.email,
             password: pass,
             plan: payload.plan,
             days: payload.days,
-          }, 'User Created — Copy Welcome Message');
+            demoHours: isDemo ? demoHours : null,
+          }, isDemo ? 'Demo Account Created — Copy Login' : 'User Created — Copy Welcome Message');
         }
         await loadAll();
       } catch (err) { showToast(err.message, true); }
@@ -2954,6 +3066,9 @@
             : (due > 0
               ? '<span class="badge badge-amber">Due</span>'
               : '<span class="badge badge-emerald">Cleared</span>'));
+        const effProRate = Math.round(Number((r.rates && r.rates.pro) ?? r.proRate ?? 500));
+        const effMaxRate = Math.round(Number((r.rates && r.rates.max) ?? r.maxRate ?? 800));
+        const hasCustomRate = r.proRate != null || r.maxRate != null;
         return (
           '<tr>' +
             '<td><div class="user-cell-name">' + esc(r.name || 'Reseller') + '</div><div class="user-cell-email">' + esc(r.email) + '</div></td>' +
@@ -2966,6 +3081,7 @@
             '<td>' +
               '<div style="font-family:var(--font-mono);font-weight:700;color:' + dueColor + ';">Due: Rs. ' + Math.round(due).toLocaleString() + '</div>' +
               '<div style="font-size:11px;color:var(--text-muted);font-family:var(--font-mono);" title="Paid ' + esc(paidDisp.exact) + ' / Total Rs. ' + Math.round(charges).toLocaleString() + '">Paid ' + esc(paidDisp.text) + ' / Rs. ' + Math.round(charges).toLocaleString() + '</div>' +
+              '<div style="font-size:10.5px;color:' + (hasCustomRate ? '#c084fc' : 'var(--text-muted)') + ';font-family:var(--font-mono);margin-top:2px;">Pro: Rs. ' + effProRate.toLocaleString() + ' · Max: Rs. ' + effMaxRate.toLocaleString() + (hasCustomRate ? ' (Custom)' : '') + '</div>' +
             '</td>' +
             '<td>' + statusBadge + '</td>' +
             '<td><div class="actions-cell">' +
@@ -3051,6 +3167,10 @@
       $('rrPlus').value = rates.plus ?? 500;
       $('rrUltra').value = rates.ultra ?? 800;
 
+      const pc = cfg.planCredits || {};
+      if ($('rcPro')) $('rcPro').value = pc.pro ?? 25000;
+      if ($('rcMax')) $('rcMax').value = pc.max ?? 45000;
+
       const bc = cfg.broadcast || {};
       $('rbcEnabled').checked = Boolean(bc.enabled);
       $('rbcTitle').value = bc.title || '';
@@ -3090,9 +3210,12 @@
             plus: parseFloat($('rrPlus').value) || 0,
             ultra: parseFloat($('rrUltra').value) || 0,
             basic: 0,
+            proCredits: parseInt($('rcPro')?.value || '25000', 10) || 25000,
+            maxCredits: parseInt($('rcMax')?.value || '45000', 10) || 45000,
           }),
         });
-        showToast(res.message || 'Reseller rates updated');
+        if (state.resellerConfig && res.planCredits) state.resellerConfig.planCredits = res.planCredits;
+        showToast(res.message || 'Reseller rates & credits updated');
         await loadAll();
       } catch (err) { showToast(err.message, true); }
       finally { btn.disabled = false; }
@@ -3383,6 +3506,8 @@
       $('rStatus').value = 'active';
       $('rProRate').value = '';
       $('rMaxRate').value = '';
+      if ($('rProCredits')) $('rProCredits').value = '';
+      if ($('rMaxCredits')) $('rMaxCredits').value = '';
       $('rDiscount').value = 0;
       $('rDiscountPct').value = 0;
       $('rTotalPaidWrap').classList.add('hidden');
@@ -3413,6 +3538,8 @@
         $('rStatus').value = String(r.rawStatus || r.status || 'active').toLowerCase() === 'suspended' ? 'suspended' : 'active';
         $('rProRate').value = r.proRate != null ? r.proRate : '';
         $('rMaxRate').value = r.maxRate != null ? r.maxRate : '';
+        if ($('rProCredits')) $('rProCredits').value = r.proCredits != null ? r.proCredits : '';
+        if ($('rMaxCredits')) $('rMaxCredits').value = r.maxCredits != null ? r.maxCredits : '';
         $('rDiscount').value = r.discount ?? 0;
         $('rDiscountPct').value = r.discountPercent ?? 0;
         $('rTotalPaid').value = Math.round(Number(r.totalPaid || 0));
@@ -3439,6 +3566,8 @@
         status: $('rStatus').value,
         proRate: $('rProRate').value.trim() === '' ? null : parseFloat($('rProRate').value),
         maxRate: $('rMaxRate').value.trim() === '' ? null : parseFloat($('rMaxRate').value),
+        proCredits: ($('rProCredits') && $('rProCredits').value.trim() !== '') ? parseInt($('rProCredits').value, 10) : null,
+        maxCredits: ($('rMaxCredits') && $('rMaxCredits').value.trim() !== '') ? parseInt($('rMaxCredits').value, 10) : null,
         discount: Math.max(0, parseFloat($('rDiscount').value) || 0),
         discountPercent: Math.max(0, Math.min(100, parseFloat($('rDiscountPct').value) || 0)),
       };

@@ -282,6 +282,36 @@ public const ADMIN_PASSWORD = 'admin@123';
         }
     }
 
+    public static function isDemoUser(array $user): bool
+    {
+        $p = strtolower(trim((string)($user['plan'] ?? '')));
+        return $p === 'demo' || !empty($user['isDemo']);
+    }
+
+    public static function getResellerPlanCredits(?array $reseller = null, ?array $settings = null): array
+    {
+        $settings = $settings ?? Db::readSettings();
+        $cfg = is_array($settings['resellerPlanCredits'] ?? null) ? $settings['resellerPlanCredits'] : [];
+        $pro = isset($cfg['pro']) && (int)$cfg['pro'] > 0 ? (int)$cfg['pro'] : 25000;
+        $max = isset($cfg['max']) && (int)$cfg['max'] > 0 ? (int)$cfg['max'] : 45000;
+        $demo = isset($cfg['demo']) && (int)$cfg['demo'] > 0 ? (int)$cfg['demo'] : 2000;
+        if (is_array($reseller)) {
+            if (isset($reseller['proCredits']) && is_numeric($reseller['proCredits']) && (int)$reseller['proCredits'] > 0) {
+                $pro = (int)$reseller['proCredits'];
+            }
+            if (isset($reseller['maxCredits']) && is_numeric($reseller['maxCredits']) && (int)$reseller['maxCredits'] > 0) {
+                $max = (int)$reseller['maxCredits'];
+            }
+        }
+        return [
+            'pro' => $pro,
+            'max' => $max,
+            'plus' => $pro,
+            'ultra' => $max,
+            'demo' => $demo,
+        ];
+    }
+
     public static function isUserPlanExpired(array $user): bool
     {
         if (($user['status'] ?? '') === 'expired') {
@@ -506,14 +536,30 @@ public const ADMIN_PASSWORD = 'admin@123';
             ], 401);
         }
 
-        if ($isExtMeReq && self::isUserPlanExpired($user)) {
+        $isDemo = self::isDemoUser($user);
+        $isExpired = self::isUserPlanExpired($user);
+        if ($isExpired && ($isExtMeReq || $isDemo)) {
+            if ($isDemo && ($user['status'] ?? '') !== 'expired') {
+                $user['status'] = 'expired';
+                $user['updatedAt'] = Db::isoNow();
+                if ($useMysqlFast) {
+                    Db::upsertSingleUser($user);
+                } elseif ($userIdx >= 0 && is_array($users)) {
+                    $users[$userIdx] = $user;
+                    Db::writeUsers($users, ['immediate' => true]);
+                }
+            }
+            $expMsg = $isDemo
+                ? 'Your demo time has ended. Please upgrade to a Pro or Max plan to continue.'
+                : 'Your access plan has expired. Please renew your plan.';
             Http::json([
                 'authenticated' => false,
                 'locked' => true,
                 'forceLogout' => true,
                 'expired' => true,
-                'error' => 'Your access plan has expired. Please renew your plan.',
-                'message' => 'Your access plan has expired. Please renew your plan.',
+                'demoExpired' => $isDemo,
+                'error' => $expMsg,
+                'message' => $expMsg,
             ], 401);
         }
 
@@ -842,7 +888,7 @@ public const ADMIN_PASSWORD = 'admin@123';
                 return true;
             }
             self::recordActiveClientSession($user);
-            return self::isPlanBasicOrLocked($user['plan'] ?? 'basic');
+            return self::isPlanBasicOrLocked($user['plan'] ?? 'basic') || self::isUserPlanExpired($user);
         }
 
         $uaKey = self::getClientUaKey();
@@ -951,12 +997,15 @@ public const ADMIN_PASSWORD = 'admin@123';
         $myUsers = Db::getUserIndexes($allUsers)['byResellerId'][$rIdKey] ?? [];
 
         $rates = array_merge($baseRates, is_array($reseller['customRates'] ?? null) ? $reseller['customRates'] : []);
-        if (isset($reseller['proRate']) && $reseller['proRate'] !== null) {
+        if (isset($reseller['proRate']) && $reseller['proRate'] !== null && $reseller['proRate'] !== '') {
             $rates['pro'] = (float)$reseller['proRate'];
+            $rates['plus'] = (float)$reseller['proRate'];
         }
-        if (isset($reseller['maxRate']) && $reseller['maxRate'] !== null) {
+        if (isset($reseller['maxRate']) && $reseller['maxRate'] !== null && $reseller['maxRate'] !== '') {
             $rates['max'] = (float)$reseller['maxRate'];
+            $rates['ultra'] = (float)$reseller['maxRate'];
         }
+        $planCredits = self::getResellerPlanCredits($reseller, $settings);
 
         $now = (int)round(microtime(true) * 1000);
         $graceMs = 3 * 24 * 60 * 60 * 1000;
@@ -1047,6 +1096,8 @@ public const ADMIN_PASSWORD = 'admin@123';
 
             $effectiveStatus = $isUnpaidOverdue ? 'unpaid_suspended' : ($u['status'] ?? 'active');
 
+            $uPlanLower = strtolower((string)($u['plan'] ?? 'pro'));
+            $defaultTotalCr = ($uPlanLower === 'max' || $uPlanLower === 'ultra') ? $planCredits['max'] : $planCredits['pro'];
             $usersFormatted[] = [
                 'id' => $u['id'],
                 'name' => $u['name'] ?? '',
@@ -1054,6 +1105,8 @@ public const ADMIN_PASSWORD = 'admin@123';
                 'email' => $u['email'] ?? '',
                 'plainPasswordHint' => $u['plainPasswordHint'] ?? null,
                 'plan' => $u['plan'] ?? 'pro',
+                'credits' => (int)($u['credits'] ?? 0),
+                'creditsTotal' => (int)($u['creditsTotal'] ?? 0) ?: $defaultTotalCr,
                 'planExpiresAt' => $u['planExpiresAt'] ?? null,
                 'daysRemaining' => Db::calculateDaysRemaining($u['planExpiresAt'] ?? null),
                 'status' => $effectiveStatus,
@@ -1076,6 +1129,7 @@ public const ADMIN_PASSWORD = 'admin@123';
 
         return [
             'rates' => $rates,
+            'planCredits' => $planCredits,
             'myUsers' => $usersFormatted,
             'usersCount' => count($myUsers),
             'paidUsersCount' => $paidUsersCount,
@@ -1099,9 +1153,25 @@ public const ADMIN_PASSWORD = 'admin@123';
 
     public static function formatSafeUser(array $user): array
     {
+        $expTs = !empty($user['planExpiresAt']) ? (strtotime((string)$user['planExpiresAt']) ?: 0) : 0;
+        $remSec = $expTs > time() ? ($expTs - time()) : 0;
         $days = Db::calculateDaysRemaining($user['planExpiresAt'] ?? null);
-        $normalizedPlan = self::normalizeClientPlan($user['plan'] ?? 'basic', (string)($user['email'] ?? ''));
+        $isDemo = self::isDemoUser($user);
+        $normalizedPlan = $isDemo ? 'demo' : self::normalizeClientPlan($user['plan'] ?? 'basic', (string)($user['email'] ?? ''));
         $isHeavyUser = ($normalizedPlan === 'heavy');
+        if ($isDemo) {
+            if ($remSec <= 0) {
+                $statusText = 'Demo Expired';
+            } elseif ($remSec < 3600) {
+                $statusText = max(1, (int)ceil($remSec / 60)) . 'm Left';
+            } else {
+                $hrs = (int)floor($remSec / 3600);
+                $mins = (int)floor(($remSec % 3600) / 60);
+                $statusText = $mins > 0 ? "{$hrs}h {$mins}m Left" : "{$hrs}h Left";
+            }
+        } else {
+            $statusText = $days === 1 ? '1 Day Left' : "$days Days Left";
+        }
         return [
             'id' => $user['id'],
             'name' => $user['name'] ?? '',
@@ -1109,20 +1179,23 @@ public const ADMIN_PASSWORD = 'admin@123';
             'email' => $user['email'] ?? '',
             'plan' => $normalizedPlan,
             'rawPlan' => $isHeavyUser ? 'heavy' : ($user['plan'] ?? 'basic'),
-            'planLabel' => self::formatClientPlanLabel($normalizedPlan),
+            'planLabel' => $isDemo ? 'Demo Plan' : self::formatClientPlanLabel($normalizedPlan),
+            'isDemo' => $isDemo,
+            'demoHours' => isset($user['demoHours']) ? (float)$user['demoHours'] : ($isDemo ? 2.0 : null),
+            'remainingSeconds' => $remSec,
             'isHeavy' => $isHeavyUser,
             'heavyCredits' => $isHeavyUser ? ((int)($user['heavyCredits'] ?? 6200) ?: 6200) : 0,
             'ttsCredits' => (int)($user['ttsCredits'] ?? 45000) ?: 45000,
-            'planActive' => $days > 0 && ($user['status'] ?? 'active') !== 'suspended',
+            'planActive' => ($isDemo ? ($remSec > 0) : ($days > 0)) && !in_array(($user['status'] ?? 'active'), ['suspended', 'expired'], true),
             'credits' => $user['credits'] ?? 0,
             'creditsTotal' => $user['creditsTotal'] ?? ($user['credits'] ?? 0),
             'planExpiresAt' => $user['planExpiresAt'] ?? null,
             'daysRemaining' => $days,
             'daysLeft' => $days,
-            'statusText' => $days === 1 ? '1 Day Left' : "$days Days Left",
+            'statusText' => $statusText,
             'onboardingAccepted' => $user['onboardingAccepted'] ?? true,
             'emailVerified' => true,
-            'status' => $user['status'] ?? 'active',
+            'status' => ($isDemo && $remSec <= 0) ? 'expired' : ($user['status'] ?? 'active'),
             'createdAt' => $user['createdAt'] ?? null,
             'deviceSwitchCount' => (int)($user['deviceSwitchCount'] ?? 0),
             'isLocked' => !empty($user['isLocked']),

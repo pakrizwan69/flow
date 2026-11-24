@@ -14,7 +14,7 @@
     const plan = String(state.userPlan || '').trim().toLowerCase();
     const detached = state.flowSessionDetached === true || state.flowSessionDetached === 'true';
     const locked = Boolean(state.pf_flow_lock_state && state.pf_flow_lock_state.locked);
-    return loggedIn && !detached && !locked && !['basic', 'free', 'trial'].includes(plan);
+    return loggedIn && !detached && !locked && !['basic', 'free', 'trial', 'vibe', 'starter'].includes(plan);
   }
 
   function refreshCachedState(cb) {
