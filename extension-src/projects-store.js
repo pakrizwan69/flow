@@ -108,26 +108,23 @@ globalThis.PakFlowProjects = (() => {
 
   function response(ctx) {
     const ordered = sorted(ctx.all);
-    // Prioritize active server's projects at the top, followed by all other saved projects so
-    // projects never disappear after IP/VPN changes or automatic server shuffles.
+    // Strictly show ONLY this user's projects belonging to the currently active server/session
+    // so clicking any project opens cleanly without cross-server "Project not found" errors.
     const activeSlotList = [];
-    const otherSlotList = [];
     const seen = new Set();
     for (const p of ordered) {
       const id = String(p.id || '').toLowerCase();
       if (!id || seen.has(id)) continue;
       seen.add(id);
       if (normalize(p.slot) === ctx.slot) activeSlotList.push(p);
-      else otherSlotList.push(p);
     }
-    const projects = [...activeSlotList, ...otherSlotList];
     return {
       ip: ctx.ip,
       activeSlot: ctx.slot,
-      projects,
-      allProjects: projects,
+      projects: activeSlotList,
+      allProjects: ordered,
       activeSlotCount: activeSlotList.length,
-      ownedIds: projects.map(p => p.id)
+      ownedIds: activeSlotList.map(p => p.id)
     };
   }
 
@@ -188,7 +185,12 @@ globalThis.PakFlowProjects = (() => {
         ctx.owners[id] = target;
         const title = String(input.title || '').trim();
         const prompt = String(input.prompt || '').trim().slice(0, 180);
-        const generic = !title || /^(?:flow|google\s*flow|new\s*project)$/i.test(title) || /^flow\s*-\s*google/i.test(title);
+        const isGenericTitle = (t) => !t
+          || /^(?:flow|google\s*flow|new\s*project)$/i.test(t)
+          || /^flow\s*[-–—]\s*google/i.test(t)
+          || /^google\s*flow\s*[-–—]\s*ai\s*creative\s*studio/i.test(t)
+          || /page\s*not\s*found/i.test(t);
+        const generic = isGenericTitle(title);
         const number = ctx.all.length + 1;
         const now = Date.now();
         const project = {
@@ -207,7 +209,9 @@ globalThis.PakFlowProjects = (() => {
         } else if (!previous?.customTitle && !generic) {
           project.title = title;
         }
-        if (!project.title) project.title = prompt ? prompt.slice(0, 60) : 'Project #' + number;
+        if (!project.title || isGenericTitle(project.title)) {
+          project.title = prompt ? prompt.slice(0, 60) : 'Project #' + number;
+        }
         if (input.thumbnail && /^(?:https:\/\/|data:image\/)/i.test(String(input.thumbnail))) {
           project.thumbnail = String(input.thumbnail);
         } else if (previous?.thumbnail) {

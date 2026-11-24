@@ -150,7 +150,7 @@
   }
 
   async function clearConflictingGoogleCookies(storeIds, previousKeys) {
-    const domainsToClean = ['google.com', 'labs.google', 'flow.google.com', 'accounts.google.com', 'aisandbox-pa.googleapis.com'];
+    const domainsToClean = ['google.com', 'labs.google', 'flow.google.com', 'accounts.google.com', 'aisandbox-pa.googleapis.com', 'ogs.google.com'];
     // Fetch existing cookies across all stores and domains in parallel
     const queries = [];
     for (const storeId of storeIds) {
@@ -192,6 +192,40 @@
     }
   }
 
+  // Deduplicate uploaded cookies so Google-wide auth cookies (SIDCC, __Secure-1PSIDCC, __Secure-3PSIDCC, SID, etc.)
+  // are NEVER injected both as host-only (flow.google.com) and domain (.google.com) — duplicate SIDCC headers cause 401/stalled renders.
+  function deduplicateCookies(rawList) {
+    const byKey = new Map();
+    const googleWideAuth = new Set();
+    for (const ck of rawList) {
+      if (!ck || !ck.name) continue;
+      const name = String(ck.name).trim();
+      const rawDomain = String(ck.domain || '.google.com').trim().toLowerCase();
+      const cleanHost = rawDomain.replace(/^\.+/, '') || 'google.com';
+      if (AUTH_COOKIE_NAMES.has(name) && cleanHost === 'google.com') {
+        googleWideAuth.add(name);
+      }
+    }
+    for (const ck of rawList) {
+      if (!ck || !ck.name) continue;
+      const name = String(ck.name).trim();
+      const rawDomain = String(ck.domain || '.google.com').trim().toLowerCase();
+      const cleanHost = rawDomain.replace(/^\.+/, '') || 'google.com';
+      const path = String(ck.path || '/');
+      // Drop redundant subdomain/host-only copy of a .google.com auth cookie when a .google.com entry exists
+      if (AUTH_COOKIE_NAMES.has(name) && googleWideAuth.has(name) && cleanHost !== 'google.com' && cleanHost.endsWith('.google.com')) {
+        continue;
+      }
+      const key = `${cleanHost}|${path}|${name}`;
+      const prev = byKey.get(key);
+      // Prefer domain-scoped (.google.com) over host-only when duplicate key exists
+      if (!prev || (prev.hostOnly && !ck.hostOnly)) {
+        byKey.set(key, ck);
+      }
+    }
+    return Array.from(byKey.values());
+  }
+
   async function setSingleCookieSmart(rawCookie, storeId) {
     if (!rawCookie || !rawCookie.name) return false;
     const name = String(rawCookie.name).trim();
@@ -208,10 +242,11 @@
     const secure = Boolean(isSecurePrefix || sameSite === 'no_restriction' || rawCookie.secure !== false);
     const httpOnly = Boolean(rawCookie.httpOnly);
 
-    // Rolling 90-second TTL: extended locally every 30s + 1-min alarm ONLY while extension is installed, enabled & logged in.
-    // If user uninstalls or disables the extension, Chrome natively expires all Google Flow cookies within <= 90 seconds!
+    // Rolling 10-minute (600s) TTL: kept alive locally every ~1 min by alarm while extension is active & connected.
+    // Long enough that MV3 service-worker sleep or 2-minute video generations NEVER expire cookies at 100%,
+    // yet Chrome still auto-expires cookies if the extension is disabled or uninstalled.
     const nowSec = Math.floor(Date.now() / 1000);
-    const expirationDate = nowSec + 90;
+    const expirationDate = nowSec + 600;
 
     const baseUrl = buildCookieUrl(cleanHost, path, secure);
     const baseDetails = {
@@ -354,7 +389,8 @@
   }
 
   async function apply(inputCookies, isAllowedCheck) {
-    const list = Array.isArray(inputCookies) ? inputCookies : Array.from(inputCookies || []);
+    const rawList = Array.isArray(inputCookies) ? inputCookies : Array.from(inputCookies || []);
+    const list = deduplicateCookies(rawList);
     if (!list.length) {
       throw new Error('No Google Flow session cookies available.');
     }

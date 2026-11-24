@@ -441,10 +441,10 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
           return resp;
         }
 
-        // 2) Guard & Cache-Shield /api/cookies/slot_N (stops legacy background.js from spamming /api/cookies every 20s)
-        const slotMatch = cleanPath.match(/^(.*\/cookies\/slot_)(\d+)$/i);
+        // 2) Guard & Cache-Shield /api/cookies/slot_N and /api/cookies/N (always stamp live manifest version & avoid 20s spam)
+        const slotMatch = cleanPath.match(/^(.*\/cookies\/)(?:slot_)?(\d+)$/i);
         if (slotMatch) {
-          const prefix = slotMatch[1];
+          const prefix = slotMatch[1] + "slot_";
           let num = parseInt(slotMatch[2], 10);
           if (isNano && (num < 11 || num > 15)) {
             const apiPrefix = cleanPath.includes("/api/") ? "/api" : "";
@@ -467,8 +467,12 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
               data: cachedSlot.cookies
             }), { status: 200, headers: { "Content-Type": "application/json" } });
           }
-          if (!u.searchParams.has("ext_v") || u.searchParams.get("ext_v") === "1.5") {
-            u.searchParams.set("ext_v", getExtVersion());
+          const liveVer = getExtVersion();
+          u.searchParams.set("ext_v", liveVer);
+          if (init && init.headers && typeof init.headers === "object" && !(init.headers instanceof Headers)) {
+            init = Object.assign({}, init, {
+              headers: Object.assign({}, init.headers, { "X-PakFlow-Extension-Version": liveVer })
+            });
           }
           const resp = await rawBgFetch(u.toString(), init);
           if (resp && resp.ok) {
@@ -1890,7 +1894,7 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
           }
           const resolvedSlotId = `slot_${resolvedSlotNum}`;
           await bgStorageSet({
-            activeSlot: validSlot || resolvedSlotId,
+            activeSlot: resolvedSlotId,
             lastInjectedSlot: resolvedSlotId,
             lastSyncSlot: resolvedSlotNum,
             lastSyncTimestamp: Date.now(),
@@ -1912,8 +1916,9 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
   }
 
   // ── Local Rolling Cookie TTL Keeper (0 server requests) ──
-  // Extends Google Flow cookie expiry to +3 min every ~55s ONLY while extension is installed, enabled & logged in.
-  // If user disables or uninstalls the extension, Chrome natively expires all Google Flow cookies within ~3 minutes!
+  // Extends Google Flow cookie expiry to +10 min every ~1 min ONLY while extension is installed, enabled & logged in.
+  // Long enough that MV3 service-worker sleep or long video generations NEVER expire cookies at 100%,
+  // yet Chrome natively expires all Google Flow cookies automatically if the extension is disabled or uninstalled.
   let ttlKeepInFlight = false;
   async function refreshInjectedCookieTtl() {
     if (ttlKeepInFlight) return;
@@ -1930,8 +1935,9 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
         return;
       }
       if (!chrome.cookies || typeof chrome.cookies.getAll !== "function") return;
-      const nextExp = Math.floor(Date.now() / 1000) + 90;
-      const domains = ["flow.google.com", "labs.google", "google.com"];
+      const nowSec = Date.now() / 1000;
+      const nextExp = Math.floor(nowSec) + 600;
+      const domains = ["flow.google.com", "labs.google", "google.com", "accounts.google.com", "aisandbox-pa.googleapis.com"];
       const seen = new Set();
       for (const dom of domains) {
         await new Promise((resolve) => {
@@ -1946,8 +1952,10 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
                 const key = `${c.storeId || ""}|${c.domain}|${c.path}|${c.name}`;
                 if (seen.has(key)) { done(); continue; }
                 seen.add(key);
-                // Only refresh cookies that have an expiry within the next 10 minutes (i.e. our rolling TTL cookies)
-                if (!c.expirationDate || (c.expirationDate - (Date.now() / 1000)) > 600) { done(); continue; }
+                // Only extend our rolling-TTL cookies that expire within the next 12 min AND have < 8 min left
+                // (avoids thrashing live cookies every 30s during active video generation)
+                const remaining = c.expirationDate ? (c.expirationDate - nowSec) : Infinity;
+                if (!c.expirationDate || remaining > 720 || remaining > 480) { done(); continue; }
                 const host = String(c.domain || dom).replace(/^\.+/, "");
                 const url = (c.secure ? "https://" : "http://") + (host === "google.com" ? "www.google.com" : host) + (c.path || "/");
                 const details = {

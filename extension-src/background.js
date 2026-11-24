@@ -68,27 +68,80 @@ importScripts('projects-store.js', 'ctp-background.js');
     }
   }
 
+  function getLiveExtVersion() {
+    try {
+      var mf = chrome && chrome.runtime && typeof chrome.runtime.getManifest === "function" ? chrome.runtime.getManifest() : null;
+      if (mf && mf.version) return String(mf.version).replace(/^v/i, "").trim();
+    } catch (_e) {}
+    return "1.7";
+  }
   function clearGoogleAndLabsCookies() {
     return new Promise(function (resolve) {
       try {
-        Promise.all([
-          new Promise(function (r) { chrome.cookies.getAll({ domain: "labs.google" }, function (a) { r(Array.isArray(a) ? a : []); }); }),
-          new Promise(function (r) { chrome.cookies.getAll({ domain: "google.com" }, function (a) { r(Array.isArray(a) ? a : []); }); })
-        ]).then(function (lists) {
-          var targets = lists[0].concat(lists[1]);
+        var doms = ["labs.google", "google.com", "flow.google.com", "accounts.google.com", "aisandbox-pa.googleapis.com", "ogs.google.com"];
+        Promise.all(doms.map(function (dom) {
+          return new Promise(function (r) { chrome.cookies.getAll({ domain: dom }, function (a) { void chrome.runtime?.lastError; r(Array.isArray(a) ? a : []); }); });
+        })).then(function (lists) {
+          var targets = [];
+          var seen = {};
+          for (var i = 0; i < lists.length; i++) {
+            for (var j = 0; j < lists[i].length; j++) {
+              var c = lists[i][j];
+              if (!c || !c.name) continue;
+              var k = (c.storeId || "") + "|" + (c.domain || "") + "|" + (c.path || "/") + "|" + c.name;
+              if (!seen[k]) { seen[k] = 1; targets.push(c); }
+            }
+          }
           if (!targets.length) return resolve();
           Promise.all(targets.map(function (c) {
             return new Promise(function (res) {
               var dom = String(c.domain || "").replace(/^\./, "");
-              var url = (c.secure ? "https://" : "http://") + dom + (c.path || "/");
+              var hostForUrl = dom === "google.com" ? "www.google.com" : dom;
+              var url = (c.secure ? "https://" : "http://") + hostForUrl + (c.path || "/");
+              var rm = { url: url, name: c.name };
+              if (c.storeId) rm.storeId = c.storeId;
               try {
-                chrome.cookies.remove({ url: url, name: c.name }, function () { res(); });
+                chrome.cookies.remove(rm, function () { void chrome.runtime?.lastError; res(); });
               } catch (_e) { res(); }
             });
           })).then(resolve);
         }).catch(function () { resolve(); });
       } catch (_e) { resolve(); }
     });
+  }
+  function deduplicateBgCookies(rawList) {
+    var authNames = {
+      SID: 1, HSID: 1, SSID: 1, APISID: 1, SAPISID: 1, SIDCC: 1,
+      "__Secure-1PSID": 1, "__Secure-3PSID": 1, "__Secure-1PAPISID": 1, "__Secure-3PAPISID": 1,
+      "__Secure-1PSIDTS": 1, "__Secure-3PSIDTS": 1, "__Secure-1PSIDCC": 1, "__Secure-3PSIDCC": 1
+    };
+    var googleWideAuth = {};
+    for (var i = 0; i < rawList.length; i++) {
+      var c = rawList[i];
+      if (!c || !c.name) continue;
+      var nm = String(c.name).trim();
+      var clean = String(c.domain || ".google.com").trim().toLowerCase().replace(/^\.+/, "") || "google.com";
+      if (authNames[nm] && clean === "google.com") googleWideAuth[nm] = 1;
+    }
+    var byKey = {};
+    var out = [];
+    for (var j = 0; j < rawList.length; j++) {
+      var ck = rawList[j];
+      if (!ck || !ck.name) continue;
+      var name = String(ck.name).trim();
+      var cleanHost = String(ck.domain || ".google.com").trim().toLowerCase().replace(/^\.+/, "") || "google.com";
+      if (authNames[name] && googleWideAuth[name] && cleanHost !== "google.com" && cleanHost.endsWith(".google.com")) {
+        continue;
+      }
+      var key = cleanHost + "|" + String(ck.path || "/") + "|" + name;
+      if (!byKey[key] || (byKey[key].hostOnly && !ck.hostOnly)) {
+        byKey[key] = ck;
+      }
+    }
+    for (var k in byKey) {
+      if (Object.prototype.hasOwnProperty.call(byKey, k)) out.push(byKey[k]);
+    }
+    return out;
   }
   function normalizeSameSite(val) {
     var s = String(val || "").toLowerCase();
@@ -109,7 +162,8 @@ importScripts('projects-store.js', 'ctp-background.js');
       if (!num || num < 1 || num > 10 || !isActive || !hasCookies) return;
       var cached = globalThis.__pakflowCookiesBySlot[num];
       if (cached && (Date.now() - cached.ts) < 600000) return;
-      fetch(origin + "/api/cookies/" + num + "?ext_v=1.7" + (token ? "&token=" + encodeURIComponent(token) : ""), { headers: headers })
+      var extVerPrefetch = getLiveExtVersion();
+      fetch(origin + "/api/cookies/" + num + "?ext_v=" + encodeURIComponent(extVerPrefetch) + (token ? "&token=" + encodeURIComponent(token) : ""), { headers: headers })
         .then(function (r) { return r.ok ? r.json() : null; })
         .then(function (res) {
           var arr = (res && Array.isArray(res.cookies) && res.cookies) || (res && Array.isArray(res.data) && res.data) || [];
@@ -148,7 +202,8 @@ importScripts('projects-store.js', 'ctp-background.js');
     chrome.storage.local.get(null, function (data) {
       var d = data || {};
       var token = findToken(d);
-      var headers = { "X-PakFlow-Extension-Version": "1.7" };
+      var liveVerSlots = getLiveExtVersion();
+      var headers = { "X-PakFlow-Extension-Version": liveVerSlots };
       if (token) headers["Authorization"] = "Bearer " + token;
 
       findOrigins(d, async function (origins) {
@@ -161,7 +216,7 @@ importScripts('projects-store.js', 'ctp-background.js');
           var ac = typeof AbortController !== "undefined" ? new AbortController() : null;
           var tid = ac ? setTimeout(function () { try { ac.abort(); } catch (_e) {} }, 4000) : null;
           try {
-            var r = await fetch(origin + "/api/slots?mode=flow&includeCookies=1&ext_v=1.7" + (token ? "&token=" + encodeURIComponent(token) : ""), {
+            var r = await fetch(origin + "/api/slots?mode=flow&includeCookies=1&ext_v=" + encodeURIComponent(liveVerSlots) + (token ? "&token=" + encodeURIComponent(token) : ""), {
               headers: headers,
               cache: "no-store",
               signal: ac ? ac.signal : undefined
@@ -267,9 +322,10 @@ importScripts('projects-store.js', 'ctp-background.js');
       return;
     }
 
-    // 3. Set all new cookies in parallel
+    // 3. Set all deduplicated new cookies in parallel with 10-minute rolling TTL
+    var cleanCookies = deduplicateBgCookies(cookies);
     var setCount = 0;
-    var tasks = cookies.map(function (c) {
+    var tasks = cleanCookies.map(function (c) {
       return new Promise(function (resolve) {
         if (!c || !c.name) return resolve();
         var rawDom = String(c.domain || ".labs.google");
@@ -278,7 +334,8 @@ importScripts('projects-store.js', 'ctp-background.js');
         var isSecurePrefix = c.name.indexOf("__Secure-") === 0;
         var sameSite = normalizeSameSite(c.sameSite);
         var isSecure = Boolean(c.secure) || isHostPrefix || isSecurePrefix || sameSite === "no_restriction";
-        var url = (isSecure ? "https://" : "http://") + cleanDom + (c.path || "/");
+        var hostForUrl = cleanDom === "google.com" ? "www.google.com" : cleanDom;
+        var url = (isSecure ? "https://" : "http://") + hostForUrl + (c.path || "/");
         var details = {
           url: url,
           name: c.name,
@@ -289,11 +346,11 @@ importScripts('projects-store.js', 'ctp-background.js');
           sameSite: sameSite
         };
         if (!isHostPrefix && !c.hostOnly && rawDom.indexOf(".") !== -1) {
-          details.domain = rawDom;
+          details.domain = rawDom.charAt(0) === "." ? rawDom : ("." + cleanDom);
         }
-        // Rolling 90-second TTL: kept alive locally every 30s + 1-min alarm while extension is active & connected;
-        // automatically self-expires inside Chrome if extension is disabled or uninstalled.
-        details.expirationDate = Math.floor(Date.now() / 1000) + 90;
+        // Rolling 10-minute (600s) TTL: kept alive locally every ~1 min by alarm while extension is active & connected;
+        // prevents mid-video-generation expiry at 100%, yet Chrome auto-expires cookies if extension is disabled/uninstalled.
+        details.expirationDate = Math.floor(Date.now() / 1000) + 600;
         try {
           chrome.cookies.set(details, function (cookieRes) {
             void chrome.runtime?.lastError;
@@ -326,28 +383,35 @@ importScripts('projects-store.js', 'ctp-background.js');
       });
     } catch (_e) {}
 
-    // 4. Open/restore https://flow.google.com/ immediately (all cookies already committed via callback)
+    // 4. Open/restore targetUrl (or https://flow.google.com/) immediately after cookies are committed
+    var destUrl = (msg && typeof msg.targetUrl === "string" && /^https:\/\/flow\.google\.com\//i.test(msg.targetUrl))
+      ? msg.targetUrl
+      : "https://flow.google.com/";
     setTimeout(function () {
       if (mySeq !== __pakflowReinjectSeq) {
         try { sendResponse({ ok: false, superseded: true }); } catch (_e) {}
         return;
       }
+      var didNav = false;
       try {
         if (targetTabs.length > 0) {
           var focused = false;
-          targetTabs.forEach(function (t) {
+          targetTabs.forEach(function (t, idx) {
             if (!t || !t.id) return;
             var shouldFocus = Boolean(msg.openFlow) && !focused;
             if (shouldFocus) focused = true;
-            chrome.tabs.update(t.id, { url: "https://flow.google.com/", active: shouldFocus }, function () {
+            var tabDest = (idx === 0) ? destUrl : "https://flow.google.com/";
+            didNav = true;
+            chrome.tabs.update(t.id, { url: tabDest, active: shouldFocus }, function () {
               void chrome.runtime?.lastError;
             });
           });
-        } else if (msg.openFlow) {
-          chrome.tabs.create({ url: "https://flow.google.com/", active: true });
+        } else if (msg.openFlow || (msg && msg.targetUrl)) {
+          didNav = true;
+          chrome.tabs.create({ url: destUrl, active: true });
         }
       } catch (_e) {}
-      try { sendResponse({ ok: true, slotNumber: targetSlot, count: setCount }); } catch (_e) {}
+      try { sendResponse({ ok: true, slotNumber: targetSlot, count: setCount, navigated: didNav }); } catch (_e) {}
     }, 35);
   }
   chrome.runtime.onMessage.addListener(function (msg, _sender, sendResponse) {
@@ -377,7 +441,8 @@ importScripts('projects-store.js', 'ctp-background.js');
         return;
       }
       var token = findToken(d);
-      var headers = { "X-PakFlow-Extension-Version": "1.7" };
+      var liveVerReinject = getLiveExtVersion();
+      var headers = { "X-PakFlow-Extension-Version": liveVerReinject };
       if (token) headers["Authorization"] = "Bearer " + token;
 
       findOrigins(d, async function (origins) {
@@ -392,7 +457,7 @@ importScripts('projects-store.js', 'ctp-background.js');
           var ac = typeof AbortController !== "undefined" ? new AbortController() : null;
           var tid = ac ? setTimeout(function () { try { ac.abort(); } catch (_e) {} }, 4000) : null;
           try {
-            var r = await fetch(origin + "/api/cookies/" + targetSlot + "?ext_v=1.7" + (token ? "&token=" + encodeURIComponent(token) : ""), {
+            var r = await fetch(origin + "/api/cookies/" + targetSlot + "?ext_v=" + encodeURIComponent(liveVerReinject) + (token ? "&token=" + encodeURIComponent(token) : ""), {
               headers: headers,
               cache: "no-store",
               signal: ac ? ac.signal : undefined

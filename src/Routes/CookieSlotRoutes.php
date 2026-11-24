@@ -489,7 +489,10 @@ final class CookieSlotRoutes
 
         $poolSlots = $isNanoMode ? Db::readSlotsByRange(11, 15) : Db::readSlotsByRange(1, 10);
         usort($poolSlots, fn($a, $b) => ((int)$a['slotNumber']) <=> ((int)$b['slotNumber']));
-        $activeSlots = array_values(array_filter($poolSlots, fn($s) => ($s['status'] ?? '') === 'ACTIVE' && !empty($s['cookies'])));
+        $healthyActiveSlots = array_values(array_filter($poolSlots, fn($s) => ($s['status'] ?? '') === 'ACTIVE' && count($s['cookies'] ?? []) >= 3));
+        $activeSlots = !empty($healthyActiveSlots)
+            ? $healthyActiveSlots
+            : array_values(array_filter($poolSlots, fn($s) => ($s['status'] ?? '') === 'ACTIVE' && !empty($s['cookies'])));
 
         $activeSlot = null;
         $assignedIndex = 0;

@@ -1219,8 +1219,18 @@ public const ADMIN_PASSWORD = 'admin@123';
         $activeNums = [];
         foreach ($slots as $s) {
             $num = (int)($s['slotNumber'] ?? 0);
-            if ($num >= 1 && $num <= 10 && ($s['status'] ?? '') === 'ACTIVE' && (int)($s['cookieCount'] ?? count($s['cookies'] ?? [])) > 0) {
+            $cnt = (int)($s['cookieCount'] ?? count($s['cookies'] ?? []));
+            // Require >= 3 cookies so broken 1-cookie slots (e.g. partial paste) are never auto-assigned to users
+            if ($num >= 1 && $num <= 10 && ($s['status'] ?? '') === 'ACTIVE' && $cnt >= 3) {
                 $activeNums[] = $num;
+            }
+        }
+        if (empty($activeNums)) {
+            foreach ($slots as $s) {
+                $num = (int)($s['slotNumber'] ?? 0);
+                if ($num >= 1 && $num <= 10 && ($s['status'] ?? '') === 'ACTIVE' && (int)($s['cookieCount'] ?? count($s['cookies'] ?? [])) > 0) {
+                    $activeNums[] = $num;
+                }
             }
         }
         sort($activeNums);

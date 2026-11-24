@@ -37,22 +37,22 @@
   globalThis.PakFlowUI = {
     filterProjects(projects) {
       if (!isUserLoggedIn || !Array.isArray(projects) || projects.length === 0) return [];
-      const slot = currentSlot || 'slot_1';
-      // Strictly isolate My Projects to the currently logged-in PakFlow account so no user ever sees another user's projects.
+      const slot = normalizeSlot(currentSlot || 'slot_1');
+      // Strictly isolate My Projects to the currently logged-in PakFlow account AND currently active server/session
+      // so users ONLY see their own projects for this server and never hit cross-server "Project not found".
       const seen = new Set();
-      const activeFirst = [];
-      const others = [];
+      const activeOnly = [];
       for (const p of projects) {
         if (!p || !p.id) continue;
         const pOwner = String(p.ownerEmail || '').trim().toLowerCase();
         if (currentOwnerEmail && pOwner && pOwner !== currentOwnerEmail) continue;
+        if (normalizeSlot(p.slot) !== slot) continue;
         const id = String(p.id).toLowerCase();
         if (seen.has(id)) continue;
         seen.add(id);
-        if (normalizeSlot(p.slot) === slot) activeFirst.push(p);
-        else others.push(p);
+        activeOnly.push(p);
       }
-      return [...activeFirst, ...others];
+      return activeOnly;
     },
     setProjectRefresh(callback) { refreshProjects = callback; queueMicrotask(callback); },
     upgradeCard(card, project) {
@@ -60,7 +60,13 @@
       const info = card.children[0], actions = card.children[1];
       info.className = 'pakflow-project-info';
       const title = info.querySelector('span');
-      title.title = String(project.title || 'Flow Video Project');
+      const rawTitle = String(project.title || '').trim();
+      const isGeneric = !rawTitle || /^google\s*flow\s*[-–—]\s*ai\s*creative\s*studio/i.test(rawTitle) || /^(?:flow|google\s*flow|new\s*project)$/i.test(rawTitle);
+      const displayTitle = isGeneric
+        ? (project.prompt ? String(project.prompt).slice(0, 56) : ('Project ' + String(project.id || '').slice(0, 6).toUpperCase()))
+        : rawTitle;
+      title.textContent = displayTitle;
+      title.title = displayTitle;
       title.className = 'pakflow-project-title';
       const date = document.createElement('div');
       date.className = 'pakflow-project-date';
@@ -73,16 +79,20 @@
       info.append(date);
       const preview = document.createElement('div');
       preview.className = 'pakflow-project-preview';
+      preview.style.cursor = 'pointer';
       const play = document.createElement('span'); play.className = 'pakflow-preview-play'; play.textContent = '▶';
       const caption = document.createElement('span'); caption.textContent = 'Flow Video Project';
       preview.append(play, caption);
       const thumbnail = project.thumbnail || project.thumbnailUrl || project.imageUrl;
       if (typeof thumbnail === 'string' && /^(?:https:\/\/|data:image\/)/i.test(thumbnail)) {
-        const img = document.createElement('img'); img.alt = String(project.title || 'Flow Video Project');
+        const img = document.createElement('img'); img.alt = displayTitle;
         img.loading = 'lazy';
-        if (/^https:\/\//i.test(thumbnail)) img.referrerPolicy = 'no-referrer';
+        // Never strip Referer on same-origin flow.google.com/asb/... thumbnails!
+        if (/^https:\/\//i.test(thumbnail) && !/^https:\/\/flow\.google\.com\//i.test(thumbnail)) {
+          img.referrerPolicy = 'no-referrer';
+        }
         img.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:1;';
-        img.addEventListener('error', () => img.remove(), { once: true });
+        img.addEventListener('error', () => { img.remove(); caption.style.display = ''; }, { once: true });
         preview.style.position = 'relative';
         preview.style.overflow = 'hidden';
         play.style.position = 'relative';
@@ -95,6 +105,13 @@
       actions.className = 'pakflow-project-actions';
       const targetSlot = normalizeSlot(project.slot);
       const targetNum = parseInt(targetSlot.replace(/\D+/g, ''), 10) || 1;
+      const targetUrl = project.url || ('https://flow.google.com/project/' + project.id);
+      const rememberOpenedProject = () => {
+        try { sessionStorage.setItem('pf_last_opened_project_id', String(project.id || '').toLowerCase()); } catch {}
+      };
+      preview.addEventListener('click', () => { rememberOpenedProject(); open?.click(); });
+      info.addEventListener('click', rememberOpenedProject, true);
+      open.addEventListener('click', rememberOpenedProject, true);
       const isDifferentSlot = targetSlot !== normalizeSlot(currentSlot);
       open.className = 'pakflow-project-open';
       open.textContent = isDifferentSlot ? ('▶ Switch S' + targetNum + ' & Open') : '▶ Open This Project';
@@ -108,20 +125,18 @@
           if (targetSlot === activeNow) return;
           ev.preventDefault();
           ev.stopImmediatePropagation();
+          rememberOpenedProject();
           const prevLabel = open.textContent;
           open.disabled = true;
           open.textContent = 'Switching to S' + targetNum + '...';
-          const targetUrl = project.url || ('https://flow.google.com/project/' + project.id);
           try {
             chrome.runtime.sendMessage(
-              { type: 'PAKFLOW_REINJECT_CURRENT', slotNumber: targetNum, openFlow: false },
+              { type: 'PAKFLOW_REINJECT_CURRENT', slotNumber: targetNum, openFlow: false, targetUrl },
               (res) => {
                 void chrome.runtime?.lastError;
                 open.disabled = false;
                 open.textContent = prevLabel;
-                if (res && res.ok) {
-                  window.location.href = targetUrl;
-                } else {
+                if (!res || !res.navigated) {
                   window.location.href = targetUrl;
                 }
               }
@@ -225,20 +240,29 @@
   });
   function checkProjectNotFoundRecovery() {
     if (window.top !== window) return;
-    if (!/\/project\/([^/?#]+)/i.test(location.pathname)) {
+    const isProjectPath = /\/project\/([^/?#]+)/i.test(location.pathname);
+    const is404ProjectPath = /^\/404(?:\/|$)/i.test(location.pathname) && /reason=project/i.test(location.search || '');
+    if (!isProjectPath && !is404ProjectPath) {
       const old = $('pakflow-pnf-helper');
       if (old) old.remove();
       return;
     }
     const bodyText = (document.body && document.body.innerText) ? document.body.innerText : '';
-    if (!/\bproject\s+not\s+found\.?/i.test(bodyText)) {
+    if (!is404ProjectPath && !/\bproject\s+not\s+found\.?/i.test(bodyText)) {
       const old = $('pakflow-pnf-helper');
       if (old) old.remove();
       return;
     }
     if ($('pakflow-pnf-helper')) return;
     const mId = location.pathname.match(/\/project\/([^/?#]+)/i);
-    const projId = mId ? String(mId[1]).toLowerCase() : '';
+    let projId = mId ? String(mId[1]).toLowerCase() : '';
+    if (!projId) {
+      try {
+        const navEntry = performance.getEntriesByType && performance.getEntriesByType('navigation')[0];
+        const navMatch = navEntry && navEntry.name ? String(navEntry.name).match(/\/project\/([^/?#]+)/i) : null;
+        projId = (navMatch && navMatch[1]) ? String(navMatch[1]).toLowerCase() : String(sessionStorage.getItem('pf_last_opened_project_id') || '').toLowerCase();
+      } catch {}
+    }
     if (!projId) return;
 
     const mountHelper = (ownerSlot) => {
@@ -331,20 +355,50 @@
     } catch {}
   }
 
-  // ── Real Thumbnail Harvester for My Saved Projects History (zero extra network requests) ──
+  // ── Real Thumbnail + Title Harvester for My Saved Projects History (zero extra network requests) ──
   let lastThumbHarvestAt = 0;
+  function snapshotImageToDataUrl(im) {
+    try {
+      if (!im || !im.complete || !im.naturalWidth || !im.naturalHeight) return '';
+      const w = 280;
+      const h = Math.max(120, Math.min(240, Math.round((im.naturalHeight / im.naturalWidth) * w)));
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return '';
+      ctx.drawImage(im, 0, 0, w, h);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.68);
+      return (dataUrl && dataUrl.length > 200 && dataUrl.length < 55000) ? dataUrl : '';
+    } catch {
+      return '';
+    }
+  }
+
   function extractMediaThumbFromContainer(container) {
     if (!container || !container.querySelectorAll) return '';
-    // 1. Direct media <img> (skip tiny icons / avatars)
+    // 0. Exact Google Flow project thumbnail selector (works even when hidden on homepage!)
+    const flowThumb = container.querySelector('img.project-thumbnail, img[src*="/asb/"]');
+    if (flowThumb && !flowThumb.closest('#pakflow-my-projects-root')) {
+      const src = String(flowThumb.currentSrc || flowThumb.src || '').trim();
+      if (/^(?:https:\/\/|blob:|data:image\/)/i.test(src)) {
+        const snap = snapshotImageToDataUrl(flowThumb);
+        if (snap) return snap;
+        if (/^https:\/\//i.test(src)) return src;
+      }
+    }
+    // 1. Direct media <img> (supports /asb/, storage.googleapis.com, googleusercontent.com, blob:, data:image/)
     const imgs = container.querySelectorAll('img');
     for (const im of imgs) {
       if (im.closest('#pakflow-my-projects-root')) continue;
       const src = String(im.currentSrc || im.src || '').trim();
-      if (!/^https:\/\//i.test(src)) continue;
+      if (!/^(?:https:\/\/|blob:|data:image\/)/i.test(src)) continue;
       if (/googleusercontent\.com\/a\/|avatar|profile|favicon|logo/i.test(src)) continue;
       const r = im.getBoundingClientRect();
-      if ((im.naturalWidth >= 100 || r.width >= 100) && (im.naturalHeight >= 60 || r.height >= 60)) {
-        return src;
+      if ((im.naturalWidth >= 80 || r.width >= 80) && (im.naturalHeight >= 50 || r.height >= 50)) {
+        const snap = snapshotImageToDataUrl(im);
+        if (snap) return snap;
+        if (/^(?:https:\/\/|data:image\/)/i.test(src)) return src;
       }
     }
     // 2. <video poster="..."> or frame snapshot via canvas
@@ -354,17 +408,17 @@
       const poster = String(v.poster || '').trim();
       if (/^https:\/\//i.test(poster)) return poster;
       try {
-        if (v.readyState >= 2 && v.videoWidth >= 100 && v.videoHeight >= 60) {
+        if (v.readyState >= 2 && v.videoWidth >= 80 && v.videoHeight >= 50) {
           const w = 280;
-          const h = Math.max(120, Math.round((v.videoHeight / v.videoWidth) * w));
+          const h = Math.max(120, Math.min(240, Math.round((v.videoHeight / v.videoWidth) * w)));
           const canvas = document.createElement('canvas');
           canvas.width = w;
           canvas.height = h;
           const ctx = canvas.getContext('2d');
           if (ctx) {
             ctx.drawImage(v, 0, 0, w, h);
-            const dataUrl = canvas.toDataURL('image/jpeg', 0.62);
-            if (dataUrl && dataUrl.length > 200 && dataUrl.length < 65000) return dataUrl;
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.65);
+            if (dataUrl && dataUrl.length > 200 && dataUrl.length < 55000) return dataUrl;
           }
         }
       } catch {}
@@ -388,27 +442,36 @@
     lastThumbHarvestAt = now;
 
     const updates = new Map(); // id -> thumbnail
-    const titleUpdates = new Map(); // normalized title -> thumbnail
+    const realTitles = new Map(); // id -> real Flow title
 
     // Case A: Inside a specific project editor /project/<id>
     const mProj = location.pathname.match(/\/project\/([^/?#]+)/i);
     if (mProj && mProj[1]) {
       const pid = String(mProj[1]).toLowerCase();
+      try { sessionStorage.setItem('pf_last_opened_project_id', pid); } catch {}
       const thumb = extractMediaThumbFromContainer(document.body);
       if (thumb) updates.set(pid, thumb);
     } else {
-      // Case B: Google Flow home/projects grid — match ONLY exact /project/<id> links already owned by this user
-      const links = document.querySelectorAll('a[href*="/project/"]');
+      // Case B: Google Flow homepage grid — extract real thumbnails & titles ONLY for projects already owned by this user
+      const links = document.querySelectorAll('a.project-thumbnail-container[href*="/project/"], a[href*="/project/"]');
       for (const a of links) {
         if (a.closest('#pakflow-my-projects-root')) continue;
         const m = String(a.getAttribute('href') || '').match(/\/project\/([^/?#]+)/i);
         if (!m || !m[1]) continue;
-        const thumb = extractMediaThumbFromContainer(a) || extractMediaThumbFromContainer(a.parentElement);
-        if (thumb) updates.set(String(m[1]).toLowerCase(), thumb);
+        const pid = String(m[1]).toLowerCase();
+        const thumb = extractMediaThumbFromContainer(a) || extractMediaThumbFromContainer(a.closest('.project-card') || a.parentElement);
+        if (thumb) updates.set(pid, thumb);
+        const cardTitle = a.closest('.project-card')?.querySelector('.project-title-text')?.textContent?.trim();
+        if (cardTitle && cardTitle.length <= 120) realTitles.set(pid, cardTitle);
       }
     }
 
-    if (updates.size === 0) return;
+    if (updates.size === 0 && realTitles.size === 0) return;
+
+    const isGenericProjTitle = (t) => !t
+      || /^google\s*flow\s*[-–—]\s*ai\s*creative\s*studio/i.test(t)
+      || /^(?:flow|google\s*flow|new\s*project)$/i.test(t)
+      || /^project\s*#?\d+$/i.test(t);
 
     try {
       chrome.storage.local.get(['myProjectsUnified', 'myProjectsByIp'], (st) => {
@@ -420,12 +483,21 @@
           return arr.map((p) => {
             if (!p || !p.id) return p;
             const pid = String(p.id).toLowerCase();
+            let next = p;
             const nextThumb = updates.get(pid) || '';
-            if (nextThumb && p.thumbnail !== nextThumb) {
-              changed = true;
-              return { ...p, thumbnail: nextThumb };
+            if (nextThumb && next.thumbnail !== nextThumb) {
+              // Prefer durable data:image/jpeg over expiring https:// URLs
+              if (!next.thumbnail || !next.thumbnail.startsWith('data:image/') || nextThumb.startsWith('data:image/')) {
+                changed = true;
+                next = { ...next, thumbnail: nextThumb };
+              }
             }
-            return p;
+            const nextTitle = realTitles.get(pid) || '';
+            if (nextTitle && !next.customTitle && isGenericProjTitle(String(next.title || '').trim())) {
+              changed = true;
+              next = { ...next, title: nextTitle };
+            }
+            return next;
           });
         };
         const nextUnified = patchList(st.myProjectsUnified);
