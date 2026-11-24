@@ -179,6 +179,16 @@ final class Db
         return self::$deletedUsersCache;
     }
 
+    public static function isUserIdDeleted($userId): bool
+    {
+        if ($userId === null || $userId === '') {
+            return false;
+        }
+        $idKey = (string)$userId;
+        $tracker = self::readDeletedUserTracker();
+        return !empty($tracker['ids'][$idKey]);
+    }
+
     public static function markUserDeleted($userId, string $email = ''): void
     {
         $cleanE = self::sanitizeEmail($email);
@@ -512,28 +522,27 @@ final class Db
             return null;
         }
         $pdo = Database::pdo();
-        if ($userId !== null && $userId !== '' && ctype_digit((string)$userId)) {
+        if ($userId !== null && $userId !== '') {
+            // Never authenticate a deleted user ID, even if a new user is later created.
+            if (self::isUserIdDeleted($userId) || !ctype_digit((string)$userId)) {
+                return null;
+            }
             $stmt = $pdo->prepare('SELECT * FROM users WHERE id = ? LIMIT 1');
             $stmt->execute([(int)$userId]);
             $row = $stmt->fetch();
-            if (is_array($row)) {
-                $u = self::rowToUser($row);
-                if ($cleanEmail === '' || self::sanitizeEmail($u['email'] ?? '') === $cleanEmail) {
-                    return $u;
-                }
+            if (!is_array($row)) {
+                return null;
             }
+            $u = self::rowToUser($row);
+            // Strict identity match: if token carries an email, it MUST match this exact user row.
+            if ($cleanEmail !== '' && self::sanitizeEmail($u['email'] ?? '') !== $cleanEmail) {
+                return null;
+            }
+            return $u;
         }
         if ($cleanEmail !== '') {
             $stmt = $pdo->prepare('SELECT * FROM users WHERE email = ? LIMIT 1');
             $stmt->execute([$cleanEmail]);
-            $row = $stmt->fetch();
-            if (is_array($row)) {
-                return self::rowToUser($row);
-            }
-        }
-        if ($userId !== null && $userId !== '' && ctype_digit((string)$userId)) {
-            $stmt = $pdo->prepare('SELECT * FROM users WHERE id = ? LIMIT 1');
-            $stmt->execute([(int)$userId]);
             $row = $stmt->fetch();
             if (is_array($row)) {
                 return self::rowToUser($row);
@@ -696,7 +705,41 @@ final class Db
         if (!Database::isEnabled()) {
             return 1;
         }
-        return ((int)Database::pdo()->query('SELECT COALESCE(MAX(id), 0) FROM users')->fetchColumn()) + 1;
+        $pdo = Database::pdo();
+        $maxUsers = (int)$pdo->query('SELECT COALESCE(MAX(id), 0) FROM users')->fetchColumn();
+        $maxDeleted = 0;
+        try {
+            $maxDeleted = (int)$pdo->query("SELECT COALESCE(MAX(CAST(entry_val AS UNSIGNED)), 0) FROM deleted_users WHERE entry_type = 'id' AND entry_val REGEXP '^[0-9]+$'")->fetchColumn();
+        } catch (\Throwable $e) {
+            $tracker = self::readDeletedUserTracker();
+            foreach (array_keys($tracker['ids'] ?? []) as $did) {
+                if (ctype_digit((string)$did) && (int)$did > $maxDeleted) {
+                    $maxDeleted = (int)$did;
+                }
+            }
+        }
+        return max($maxUsers, $maxDeleted) + 1;
+    }
+
+    public static function nextUserId(array $users = []): int
+    {
+        if (Database::isEnabled()) {
+            return self::nextUserIdMysql();
+        }
+        $maxId = 0;
+        foreach ($users as $u) {
+            $uid = (int)($u['id'] ?? 0);
+            if ($uid > $maxId) {
+                $maxId = $uid;
+            }
+        }
+        $tracker = self::readDeletedUserTracker();
+        foreach (array_keys($tracker['ids'] ?? []) as $did) {
+            if (ctype_digit((string)$did) && (int)$did > $maxId) {
+                $maxId = (int)$did;
+            }
+        }
+        return $maxId + 1;
     }
 
     public static function readUsers(bool $forceRefresh = false): array

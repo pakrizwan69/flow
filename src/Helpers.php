@@ -243,6 +243,45 @@ public const ADMIN_PASSWORD = 'admin@123';
         self::writeSessionsByIp($map);
     }
 
+    public static function purgeActiveClientSessionsForUser($userId, string $email = ''): void
+    {
+        $uidInt = ($userId !== null && $userId !== '' && is_numeric($userId)) ? (int)$userId : null;
+        $cleanE = Db::sanitizeEmail($email);
+        if ($uidInt === null && $cleanE === '') {
+            return;
+        }
+        if (Database::isEnabled()) {
+            try {
+                $pdo = Database::pdo();
+                if ($uidInt !== null && $cleanE !== '') {
+                    $pdo->prepare('DELETE FROM sessions_by_ip WHERE user_id = ? OR LOWER(email) = ?')->execute([$uidInt, $cleanE]);
+                } elseif ($uidInt !== null) {
+                    $pdo->prepare('DELETE FROM sessions_by_ip WHERE user_id = ?')->execute([$uidInt]);
+                } else {
+                    $pdo->prepare('DELETE FROM sessions_by_ip WHERE LOWER(email) = ?')->execute([$cleanE]);
+                }
+            } catch (\Throwable $e) {
+            }
+            return;
+        }
+        $map = self::readSessionsByIp();
+        $changed = false;
+        foreach ($map as $k => $entry) {
+            if (!is_array($entry)) {
+                continue;
+            }
+            $entryUid = isset($entry['userId']) && is_numeric($entry['userId']) ? (int)$entry['userId'] : null;
+            $entryEmail = Db::sanitizeEmail($entry['email'] ?? '');
+            if (($uidInt !== null && $entryUid === $uidInt) || ($cleanE !== '' && $entryEmail === $cleanE)) {
+                unset($map[$k]);
+                $changed = true;
+            }
+        }
+        if ($changed) {
+            self::writeSessionsByIp($map);
+        }
+    }
+
     public static function isUserPlanExpired(array $user): bool
     {
         if (($user['status'] ?? '') === 'expired') {
@@ -300,29 +339,26 @@ public const ADMIN_PASSWORD = 'admin@123';
         $payloadEmail = Db::sanitizeEmail($payload['email'] ?? '');
         if (isset($payload['userId']) && $payload['userId'] !== '') {
             $idKey = (string)$payload['userId'];
-            if (isset($compact['byId'][$idKey])) {
-                $i = (int)$compact['byId'][$idKey];
-                $u = $users[$i] ?? null;
-                if (is_array($u) && ($payloadEmail === '' || Db::sanitizeEmail($u['email'] ?? '') === $payloadEmail)) {
-                    return ['user' => $u, 'index' => $i];
-                }
+            // Never authenticate a deleted user ID, even if another account was later created.
+            if (Db::isUserIdDeleted($idKey) || !isset($compact['byId'][$idKey])) {
+                return null;
             }
+            $i = (int)$compact['byId'][$idKey];
+            $u = $users[$i] ?? null;
+            if (!is_array($u)) {
+                return null;
+            }
+            // Strict identity match: if token carries an email, it MUST match this exact user row.
+            if ($payloadEmail !== '' && Db::sanitizeEmail($u['email'] ?? '') !== $payloadEmail) {
+                return null;
+            }
+            return ['user' => $u, 'index' => $i];
         }
         if ($payloadEmail !== '' && isset($compact['byEmail'][$payloadEmail])) {
             $i = (int)$compact['byEmail'][$payloadEmail];
             $u = $users[$i] ?? null;
             if (is_array($u)) {
                 return ['user' => $u, 'index' => $i];
-            }
-        }
-        if (isset($payload['userId']) && $payload['userId'] !== '') {
-            $idKey = (string)$payload['userId'];
-            if (isset($compact['byId'][$idKey])) {
-                $i = (int)$compact['byId'][$idKey];
-                $u = $users[$i] ?? null;
-                if (is_array($u)) {
-                    return ['user' => $u, 'index' => $i];
-                }
             }
         }
         return null;

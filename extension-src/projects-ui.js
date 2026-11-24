@@ -505,11 +505,13 @@
       if (btn.closest('#pakflow-my-projects-root') || btn.closest('#pakflow-access-lock-overlay')) continue;
       const txt = String(btn.innerText || btn.textContent || '').replace(/\s+/g, ' ').trim();
       if (txt.length <= 36 && /^(?:add\s*)?\+?\s*new\s+project$/i.test(txt)) {
-        if (btn.getAttribute('data-elevate-btn') !== 'true') {
-          btn.setAttribute('data-elevate-btn', 'true');
-        }
         if (btn.getAttribute('data-pakflow-elevated-new-btn') !== 'true') {
           btn.setAttribute('data-pakflow-elevated-new-btn', 'true');
+        }
+        // Only give the button position:relative if it is currently static; preserve Google's native fixed/absolute bottom positioning!
+        const btnCs = getComputedStyle(btn);
+        if (btnCs && btnCs.position === 'static') {
+          btn.style.setProperty('position', 'relative', 'important');
         }
         // Lift any ancestor stacking context (z-index / transform / filter / isolation) so "+ New project" sits on top of the black shield
         let anc = btn.parentElement;

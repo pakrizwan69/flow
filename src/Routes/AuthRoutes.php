@@ -855,16 +855,8 @@ final class AuthRoutes
         $nowIso = Db::isoNow();
         $planExpiresAt = Db::isoNow($trialDays * 86400);
 
-        $maxId = 0;
-        foreach ($users as $u) {
-            $uid = (int)($u['id'] ?? 0);
-            if ($uid > $maxId) {
-                $maxId = $uid;
-            }
-        }
-
         $newUser = [
-            'id' => $maxId + 1,
+            'id' => Db::nextUserId($users),
             'name' => $entry['name'],
             'username' => $entry['username'],
             'email' => $cleanEmail,
@@ -889,7 +881,7 @@ final class AuthRoutes
             'updatedAt' => $nowIso,
         ];
 
-        Db::unmarkUserDeleted($cleanEmail, $newUser['id']);
+        Db::unmarkUserDeleted($cleanEmail);
         $users[] = $newUser;
         Db::writeUsers($users, ['immediate' => true]);
         Helpers::recordActiveClientSession($newUser);
@@ -1109,6 +1101,7 @@ final class AuthRoutes
                 Http::json(['success' => false, 'message' => 'User not found'], 404);
             }
             Db::markUserDeleted($user['id'] ?? null, (string)($user['email'] ?? ''));
+            Helpers::purgeActiveClientSessionsForUser($user['id'] ?? null, (string)($user['email'] ?? ''));
             Db::deleteSingleUserMysql((int)$user['id']);
             Helpers::clearActiveClientSession();
             Http::json(['success' => true, 'message' => 'Your account has been deleted']);
@@ -1120,6 +1113,7 @@ final class AuthRoutes
             if (($u['id'] ?? null) === ($reqUser['id'] ?? null) && Db::sanitizeEmail($u['email'] ?? '') === Db::sanitizeEmail($reqUser['email'] ?? '')) {
                 $found = true;
                 Db::markUserDeleted($u['id'] ?? null, (string)($u['email'] ?? ''));
+                Helpers::purgeActiveClientSessionsForUser($u['id'] ?? null, (string)($u['email'] ?? ''));
                 continue;
             }
             $filtered[] = $u;

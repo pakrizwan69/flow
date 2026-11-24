@@ -32,11 +32,11 @@ html[data-pakflow-flow-home="true"] [data-pakflow-hidden-shared-card="true"] {
   pointer-events: none !important;
 }
 
-/* Keep Google Flow's genuine "+ New project" button elevated cleanly above the black privacy cover. */
+/* Keep Google Flow's genuine "+ New project" button elevated cleanly above the black privacy cover
+   WITHOUT overriding its native fixed/absolute bottom-center position. */
 html body button[data-elevate-btn='true'],
 button[data-elevate-btn='true'],
 [data-pakflow-elevated-new-btn="true"] {
-  position: relative !important;
   z-index: 2147483200 !important;
   visibility: visible !important;
   opacity: 1 !important;

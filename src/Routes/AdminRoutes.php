@@ -164,6 +164,7 @@ final class AdminRoutes
                         ->execute([(int)$u['resellerId']]);
                 }
                 Db::markUserDeleted($u['id'], (string)($u['email'] ?? ''));
+                Helpers::purgeActiveClientSessionsForUser($u['id'], (string)($u['email'] ?? ''));
                 Db::deleteSingleUserMysql($userId);
                 Db::clearCaches();
                 Http::json(['success' => true, 'message' => "User registration request for {$u['email']} has been rejected."]);
@@ -182,6 +183,7 @@ final class AdminRoutes
                         }
                     }
                     Db::markUserDeleted($u['id'], (string)($u['email'] ?? ''));
+                    Helpers::purgeActiveClientSessionsForUser($u['id'], (string)($u['email'] ?? ''));
                     array_splice($users, $i, 1);
                     Db::writeUsers($users, ['immediate' => true]);
                     Http::json(['success' => true, 'message' => "User registration request for {$u['email']} has been rejected."]);
@@ -865,7 +867,7 @@ final class AdminRoutes
                 'createdAt' => $nowIso,
                 'updatedAt' => $nowIso,
             ];
-            Db::unmarkUserDeleted($cleanEmail, $newUser['id']);
+            Db::unmarkUserDeleted($cleanEmail);
             Db::upsertSingleUser($newUser);
             $safe = $newUser;
             unset($safe['passwordHash']);
@@ -903,15 +905,8 @@ final class AdminRoutes
             }
         }
 
-        $maxId = 0;
-        foreach ($users as $u) {
-            $uid = (int)($u['id'] ?? 0);
-            if ($uid > $maxId) {
-                $maxId = $uid;
-            }
-        }
         $newUser = [
-            'id' => $maxId + 1,
+            'id' => Db::nextUserId($users),
             'name' => $name ? Db::sanitizeCredential($name) : $localPart,
             'username' => preg_replace('/[^a-zA-Z0-9_]/', '', $localPart),
             'email' => $cleanEmail,
@@ -930,7 +925,7 @@ final class AdminRoutes
             'updatedAt' => $nowIso,
         ];
 
-        Db::unmarkUserDeleted($cleanEmail, $newUser['id']);
+        Db::unmarkUserDeleted($cleanEmail);
         $users[] = $newUser;
         Db::writeUsers($users, ['immediate' => true]);
         $safe = $newUser;
@@ -963,7 +958,15 @@ final class AdminRoutes
             $user = $users[$index];
         }
         if (array_key_exists('name', $body)) $user['name'] = Db::sanitizeCredential($body['name']);
-        if (array_key_exists('email', $body)) $user['email'] = Db::sanitizeEmail($body['email']);
+        if (array_key_exists('email', $body)) {
+            $nextEmail = Db::sanitizeEmail($body['email']);
+            if ($nextEmail !== '' && $nextEmail !== Db::sanitizeEmail($user['email'] ?? '')) {
+                $user['email'] = $nextEmail;
+                $user['sessionVersion'] = (int)($user['sessionVersion'] ?? 1) + 1;
+            } elseif ($nextEmail !== '') {
+                $user['email'] = $nextEmail;
+            }
+        }
         if (array_key_exists('plan', $body)) $user['plan'] = strtolower((string)$body['plan']);
         if (array_key_exists('status', $body)) {
             $user['status'] = $body['status'];
@@ -1086,6 +1089,7 @@ final class AdminRoutes
                 Http::json(['error' => 'NotFound', 'message' => 'User not found'], 404);
             }
             Db::markUserDeleted($userId, (string)($target['email'] ?? ''));
+            Helpers::purgeActiveClientSessionsForUser($userId, (string)($target['email'] ?? ''));
             Db::deleteSingleUserMysql($userId);
             Http::json(['success' => true, 'message' => 'User deleted successfully']);
         }
@@ -1103,6 +1107,7 @@ final class AdminRoutes
             Http::json(['error' => 'NotFound', 'message' => 'User not found'], 404);
         }
         Db::markUserDeleted($userId, (string)($target['email'] ?? ''));
+        Helpers::purgeActiveClientSessionsForUser($userId, (string)($target['email'] ?? ''));
         Db::writeUsers($filtered, ['immediate' => true]);
         Http::json(['success' => true, 'message' => 'User deleted successfully']);
     }

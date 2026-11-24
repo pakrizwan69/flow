@@ -630,7 +630,7 @@ final class ResellerRoutes
                 'updatedAt' => $nowIso,
             ];
 
-            Db::unmarkUserDeleted($cleanEmail, $newUser['id']);
+            Db::unmarkUserDeleted($cleanEmail);
             Db::upsertSingleUser($newUser);
             \App\Database::pdo()->prepare('UPDATE resellers SET users_created = users_created + 1 WHERE id = ?')->execute([$resellerId]);
 
@@ -724,15 +724,8 @@ final class ResellerRoutes
             ], 200);
         }
 
-        $maxId = 0;
-        foreach ($users as $u) {
-            $uid = (int)($u['id'] ?? 0);
-            if ($uid > $maxId) {
-                $maxId = $uid;
-            }
-        }
         $newUser = [
-            'id' => $maxId + 1,
+            'id' => Db::nextUserId($users),
             'resellerId' => $reqReseller['id'],
             'resellerName' => $reqReseller['name'],
             'resellerEmail' => $reqReseller['email'],
@@ -755,7 +748,7 @@ final class ResellerRoutes
             'updatedAt' => $nowIso,
         ];
 
-        Db::unmarkUserDeleted($cleanEmail, $newUser['id']);
+        Db::unmarkUserDeleted($cleanEmail);
         $users[] = $newUser;
         Db::writeUsers($users, ['immediate' => true]);
 
@@ -858,6 +851,7 @@ final class ResellerRoutes
             }
         }
         Db::markUserDeleted($targetUser['id'], (string)($targetUser['email'] ?? ''));
+        Helpers::purgeActiveClientSessionsForUser($targetUser['id'], (string)($targetUser['email'] ?? ''));
         if ($useMysqlFast) {
             Db::deleteSingleUserMysql($userId);
             $remainingCount = Db::countUsersByResellerMysql((int)$reqReseller['id']);
