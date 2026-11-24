@@ -443,242 +443,34 @@
     } catch {}
   }
 
-  // ── Native Black Privacy Overlay + Guaranteed Bottom-Center "+ New project" on Google Flow Homepage (/) ──
-  // Uses #pakflow-home-privacy-shield (z-index: 2147483000) to hide ALL shared projects.
-  // Elevates Google Flow's real "+ New project" button directly to bottom-center whenever it is
-  // uncovered & properly positioned; otherwise shows #pakflow-new-project-trigger at bottom-center
-  // (mounted on body, z-index: 2147483400) which triggers Google Flow's real button underneath.
+  // ── Native Black Privacy Cover + 100% Genuine Google Flow "+ New project" Button on Homepage (/) ──
+  // Pure CSS hides all shared project cards/UI on flow.google.com/ while keeping Google Flow's
+  // own native "+ New project" <button> untouched in its original position, smooth and instant.
+  let cachedRealNewBtn = null;
+  let overlaySyncRaf = 0;
+
   function findRealGoogleNewProjectButton() {
-    const queue = [document];
-    const visited = new Set();
     let bestBtn = null;
     let bestScore = Infinity;
-    let fallbackMatch = null;
-    while (queue.length > 0) {
-      const rootNode = queue.shift();
-      if (!rootNode || visited.has(rootNode)) continue;
-      visited.add(rootNode);
-      let candidates = [];
-      try { candidates = rootNode.querySelectorAll('button, [role="button"], a'); } catch {}
-      for (const el of candidates) {
-        if (!el || el.id === 'pakflow-new-project-trigger') continue;
-        if (el.closest && (el.closest('#pakflow-my-projects-root') || el.closest('#pakflow-access-lock-overlay'))) continue;
-        if (el.disabled || (el.getAttribute && el.getAttribute('aria-disabled') === 'true')) continue;
-        const rawTxt = String(el.textContent || el.innerText || '').replace(/\s+/g, ' ').trim();
-        const aria = String((el.getAttribute && el.getAttribute('aria-label')) || '').replace(/\s+/g, ' ').trim();
-        const title = String((el.getAttribute && el.getAttribute('title')) || '').replace(/\s+/g, ' ').trim();
-        // NOTE: Do NOT use \b before "new" — Material Symbols ligatures glue directly to text
-        // (e.g. "addNew project", "add_2New project") where there is no word boundary before "New"!
-        const isExact = (rawTxt.length > 0 && rawTxt.length <= 80 && /new\s*project/i.test(rawTxt))
-          || (aria.length > 0 && aria.length <= 80 && /new\s*project/i.test(aria))
-          || (title.length > 0 && title.length <= 80 && /new\s*project/i.test(title));
-        if (isExact) {
-          const isButtonTag = el.tagName === 'BUTTON';
-          const score = (isButtonTag ? 0 : 100) + rawTxt.length;
-          if (score < bestScore) {
-            bestScore = score;
-            bestBtn = el;
-          }
-          continue;
-        }
-        if (!fallbackMatch && ((rawTxt.length > 0 && rawTxt.length <= 60 && /create/i.test(rawTxt) && /project/i.test(rawTxt))
-          || (aria.length > 0 && aria.length <= 60 && /create/i.test(aria) && /project/i.test(aria)))) {
-          fallbackMatch = el;
-        }
-      }
-      // Also traverse any open Shadow Roots
-      let allNodes = [];
-      try { allNodes = rootNode.querySelectorAll('*'); } catch {}
-      for (const n of allNodes) {
-        if (n && n.shadowRoot && !visited.has(n.shadowRoot)) {
-          queue.push(n.shadowRoot);
+    let candidates = [];
+    try { candidates = document.querySelectorAll('button, [role="button"]'); } catch {}
+    for (const el of candidates) {
+      if (!el) continue;
+      if (el.closest && (el.closest('#pakflow-my-projects-root') || el.closest('#pakflow-access-lock-overlay'))) continue;
+      if (el.disabled || (el.getAttribute && el.getAttribute('aria-disabled') === 'true')) continue;
+      const rawTxt = String(el.textContent || '').replace(/\s+/g, ' ').trim();
+      const aria = String((el.getAttribute && el.getAttribute('aria-label')) || '').replace(/\s+/g, ' ').trim();
+      // Match without \b before "new" so glued Material icon ligatures ("addNew project", "add_2New project") always match.
+      if ((rawTxt.length > 0 && rawTxt.length <= 80 && /new\s*project/i.test(rawTxt))
+        || (aria.length > 0 && aria.length <= 80 && /new\s*project/i.test(aria))) {
+        const score = (el.tagName === 'BUTTON' ? 0 : 100) + rawTxt.length;
+        if (score < bestScore) {
+          bestScore = score;
+          bestBtn = el;
         }
       }
     }
-    return bestBtn || fallbackMatch;
-  }
-
-  function clearElevatedRealButtonStyles() {
-    try {
-      document.querySelectorAll('[data-pakflow-elevated-new-btn="true"]').forEach((el) => {
-        el.removeAttribute('data-pakflow-elevated-new-btn');
-        ['position', 'top', 'bottom', 'left', 'right', 'transform', 'z-index', 'visibility', 'opacity', 'pointer-events'].forEach((prop) => {
-          el.style.removeProperty(prop);
-        });
-      });
-      document.querySelectorAll('[data-pakflow-lifted-anc="true"]').forEach((anc) => {
-        anc.removeAttribute('data-pakflow-lifted-anc');
-        anc.style.removeProperty('z-index');
-        if (anc.getAttribute('data-pakflow-lifted-pos') === 'true') {
-          anc.removeAttribute('data-pakflow-lifted-pos');
-          anc.style.removeProperty('position');
-        }
-      });
-    } catch {}
-  }
-
-  function clickRealGoogleButton(realBtn) {
-    if (!realBtn) return false;
-    try {
-      const rect = realBtn.getBoundingClientRect ? realBtn.getBoundingClientRect() : null;
-      const cx = rect && rect.width > 0 ? rect.left + rect.width / 2 : 0;
-      const cy = rect && rect.height > 0 ? rect.top + rect.height / 2 : 0;
-      const opts = { bubbles: true, cancelable: true, composed: true, view: window, clientX: cx, clientY: cy, button: 0, buttons: 1 };
-      if (typeof realBtn.focus === 'function') {
-        try { realBtn.focus({ preventScroll: true }); } catch {}
-      }
-      if (typeof PointerEvent === 'function') {
-        realBtn.dispatchEvent(new PointerEvent('pointerdown', { ...opts, pointerId: 1, pointerType: 'mouse', isPrimary: true }));
-      }
-      realBtn.dispatchEvent(new MouseEvent('mousedown', opts));
-      if (typeof PointerEvent === 'function') {
-        realBtn.dispatchEvent(new PointerEvent('pointerup', { ...opts, buttons: 0, pointerId: 1, pointerType: 'mouse', isPrimary: true }));
-      }
-      realBtn.dispatchEvent(new MouseEvent('mouseup', { ...opts, buttons: 0 }));
-      realBtn.click();
-      return true;
-    } catch {
-      try { realBtn.click(); return true; } catch { return false; }
-    }
-  }
-
-  function triggerRealGoogleNewProject(triggerBtn) {
-    const setBtnBusy = (busy, label) => {
-      if (!triggerBtn || !triggerBtn.isConnected) return;
-      triggerBtn.disabled = Boolean(busy);
-      const lbl = triggerBtn.querySelector('.pf-np-label');
-      if (lbl) lbl.textContent = label || 'New project';
-    };
-
-    const existing = findRealGoogleNewProjectButton();
-    if (existing) {
-      setBtnBusy(true, 'Opening...');
-      clickRealGoogleButton(existing);
-      // Reset label safely if SPA did not navigate away within 3s
-      setTimeout(() => {
-        if (location.pathname === '/' || location.pathname === '') {
-          setBtnBusy(false, 'New project');
-        }
-      }, 3000);
-      return;
-    }
-
-    // Google Flow SPA may still be hydrating — retry briefly until Google's real button mounts
-    setBtnBusy(true, 'Opening...');
-    let tries = 0;
-    const retryTimer = setInterval(() => {
-      tries++;
-      const found = findRealGoogleNewProjectButton();
-      if (found) {
-        clearInterval(retryTimer);
-        clickRealGoogleButton(found);
-        setTimeout(() => {
-          if (location.pathname === '/' || location.pathname === '') {
-            setBtnBusy(false, 'New project');
-          }
-        }, 3000);
-        return;
-      }
-      if (tries >= 16) {
-        clearInterval(retryTimer);
-        // If Google Flow never rendered a "+ New project" button, cookies/session may need refresh
-        try {
-          chrome.runtime.sendMessage({ type: 'SYNC_COOKIES_NOW' }, (res) => {
-            void chrome.runtime?.lastError;
-            if (res && (res.success === true || res.status === 'synced')) {
-              location.reload();
-              return;
-            }
-            setBtnBusy(false, 'New project');
-          });
-        } catch {
-          setBtnBusy(false, 'New project');
-        }
-      }
-    }, 250);
-  }
-
-  function tryElevateRealGoogleNewProjectButton(realBtn) {
-    if (!realBtn) return false;
-    try {
-      if (realBtn.__pfElevateFailedAt && (Date.now() - realBtn.__pfElevateFailedAt) < 2500) {
-        return false;
-      }
-      if (realBtn.getAttribute('data-pakflow-elevated-new-btn') !== 'true') {
-        realBtn.setAttribute('data-pakflow-elevated-new-btn', 'true');
-      }
-      if (realBtn.hasAttribute('data-pakflow-hidden-shared-card')) {
-        realBtn.removeAttribute('data-pakflow-hidden-shared-card');
-      }
-      realBtn.style.setProperty('position', 'fixed', 'important');
-      realBtn.style.setProperty('top', 'auto', 'important');
-      realBtn.style.setProperty('bottom', '32px', 'important');
-      realBtn.style.setProperty('left', '50%', 'important');
-      realBtn.style.setProperty('right', 'auto', 'important');
-      realBtn.style.setProperty('transform', 'translateX(-50%)', 'important');
-      realBtn.style.setProperty('z-index', '2147483400', 'important');
-      realBtn.style.setProperty('visibility', 'visible', 'important');
-      realBtn.style.setProperty('opacity', '1', 'important');
-      realBtn.style.setProperty('pointer-events', 'auto', 'important');
-
-      // Lift any stacking-context ancestors so the real button sits above #pakflow-home-privacy-shield
-      let anc = realBtn.parentElement;
-      for (let d = 0; d < 25 && anc && anc !== document.body && anc !== document.documentElement; d++) {
-        if (anc.hasAttribute('data-pakflow-hidden-shared-card')) {
-          anc.removeAttribute('data-pakflow-hidden-shared-card');
-        }
-        const cs = getComputedStyle(anc);
-        if (cs) {
-          const createsStack = cs.position === 'fixed'
-            || cs.position === 'sticky'
-            || cs.zIndex !== 'auto'
-            || (cs.opacity && cs.opacity !== '1')
-            || (cs.transform && cs.transform !== 'none')
-            || (cs.filter && cs.filter !== 'none')
-            || (cs.backdropFilter && cs.backdropFilter !== 'none')
-            || cs.isolation === 'isolate'
-            || (cs.contain && /(layout|paint|strict|content)/i.test(cs.contain))
-            || (cs.willChange && /(transform|opacity|filter|z-index|position|backdrop-filter)/i.test(cs.willChange));
-          if (createsStack) {
-            const zi = parseInt(cs.zIndex, 10);
-            if (!Number.isFinite(zi) || zi < 2147483400) {
-              if (cs.position === 'static') {
-                anc.style.setProperty('position', 'relative', 'important');
-                anc.setAttribute('data-pakflow-lifted-pos', 'true');
-              }
-              anc.style.setProperty('z-index', '2147483400', 'important');
-              anc.setAttribute('data-pakflow-lifted-anc', 'true');
-            }
-          }
-        }
-        anc = anc.parentElement;
-      }
-
-      // Verify the real button is ACTUALLY visible at bottom-center and uncovered by the black shield
-      const r = realBtn.getBoundingClientRect();
-      const inBottomHalf = r.width >= 60 && r.height >= 28
-        && r.bottom > window.innerHeight * 0.65
-        && r.bottom <= window.innerHeight + 4
-        && r.left >= 0 && r.right <= window.innerWidth + 4;
-      if (!inBottomHalf) {
-        realBtn.__pfElevateFailedAt = Date.now();
-        clearElevatedRealButtonStyles();
-        return false;
-      }
-      const cx = Math.min(window.innerWidth - 2, Math.max(2, r.left + r.width / 2));
-      const cy = Math.min(window.innerHeight - 2, Math.max(2, r.top + r.height / 2));
-      const hit = document.elementFromPoint(cx, cy);
-      if (hit && (hit === realBtn || realBtn.contains(hit))) {
-        realBtn.__pfElevateFailedAt = 0;
-        return true;
-      }
-      realBtn.__pfElevateFailedAt = Date.now();
-      clearElevatedRealButtonStyles();
-      return false;
-    } catch {
-      clearElevatedRealButtonStyles();
-      return false;
-    }
+    return bestBtn;
   }
 
   function syncFlowHomePrivacyOverlay() {
@@ -687,90 +479,61 @@
     const path = String(location.pathname || '/');
     const isHome = (host === 'flow.google.com' && (path === '/' || path === ''))
       || (/(?:^|\.)labs\.google$/i.test(host) && /^\/fx\/tools\/flow\/?$/i.test(path));
-    const shield = $('pakflow-home-privacy-shield');
-    const legacyOv = $('ct-blur-overlay');
-    const triggerBtn = $('pakflow-new-project-trigger');
 
     if (!isHome) {
-      if (document.documentElement) document.documentElement.removeAttribute('data-pakflow-flow-home');
-      if (shield) shield.remove();
-      if (legacyOv) legacyOv.remove();
-      if (triggerBtn) triggerBtn.remove();
-      clearElevatedRealButtonStyles();
+      if (document.documentElement && document.documentElement.hasAttribute('data-pakflow-flow-home')) {
+        document.documentElement.removeAttribute('data-pakflow-flow-home');
+      }
+      if (cachedRealNewBtn) {
+        try { cachedRealNewBtn.removeAttribute('data-pakflow-real-new-btn'); } catch {}
+        cachedRealNewBtn = null;
+      }
+      return;
+    }
+
+    // Fast path: already active and Google's genuine button is tagged & connected (0 DOM scans)
+    if (cachedRealNewBtn && cachedRealNewBtn.isConnected && cachedRealNewBtn.getAttribute('data-pakflow-real-new-btn') === 'true') {
+      if (document.documentElement && document.documentElement.getAttribute('data-pakflow-flow-home') !== 'true') {
+        document.documentElement.setAttribute('data-pakflow-flow-home', 'true');
+      }
       return;
     }
 
     const realNewBtn = findRealGoogleNewProjectButton();
     const hasProjLinks = Boolean(document.querySelector('a[href*="/project/"]'));
 
-    // Do not cover Google's sign-in / landing page if genuinely signed out
-    const hasSignInCta = Boolean(document.querySelector(
-      'a[href*="accounts.google.com/ServiceLogin"], a[href*="accounts.google.com/v3/signin"], button[aria-label*="Sign in" i]'
-    ));
-    if (hasSignInCta && !hasProjLinks && !realNewBtn) {
-      if (document.documentElement) document.documentElement.removeAttribute('data-pakflow-flow-home');
-      if (shield) shield.remove();
-      if (legacyOv) legacyOv.remove();
-      if (triggerBtn) triggerBtn.remove();
-      clearElevatedRealButtonStyles();
-      return;
+    // Do not cover Google's sign-in screen if genuinely signed out
+    if (!realNewBtn && !hasProjLinks) {
+      const hasSignInCta = Boolean(document.querySelector(
+        'a[href*="accounts.google.com/ServiceLogin"], a[href*="accounts.google.com/v3/signin"], button[aria-label*="Sign in" i]'
+      ));
+      if (hasSignInCta) {
+        if (document.documentElement) document.documentElement.removeAttribute('data-pakflow-flow-home');
+        return;
+      }
     }
 
-    if (document.documentElement) {
+    if (document.documentElement && document.documentElement.getAttribute('data-pakflow-flow-home') !== 'true') {
       document.documentElement.setAttribute('data-pakflow-flow-home', 'true');
     }
 
-    const targetParent = document.body || document.documentElement;
-    if (targetParent) {
-      if (!shield) {
-        const ov = document.createElement('div');
-        ov.id = 'pakflow-home-privacy-shield';
-        ov.setAttribute('aria-hidden', 'true');
-        targetParent.appendChild(ov);
-      } else if (document.body && shield.parentElement !== document.body) {
-        document.body.appendChild(shield);
+    if (realNewBtn) {
+      if (cachedRealNewBtn && cachedRealNewBtn !== realNewBtn) {
+        try { cachedRealNewBtn.removeAttribute('data-pakflow-real-new-btn'); } catch {}
       }
-    }
-
-    // Remove legacy #ct-blur-overlay so it cannot interfere
-    if (legacyOv) legacyOv.remove();
-
-    // 1) Try to elevate Google Flow's genuine "+ New project" button directly to bottom-center.
-    //    If verified uncovered at bottom-center, user clicks Google's own native trusted button directly!
-    //    Otherwise keep our guaranteed bottom-center #pakflow-new-project-trigger visible and proxy clicks to Google's real button.
-    const realBtnVisibleAtBottom = realNewBtn ? tryElevateRealGoogleNewProjectButton(realNewBtn) : false;
-    if (realBtnVisibleAtBottom) {
-      if (triggerBtn) triggerBtn.remove();
-    } else {
-      if (realNewBtn) clearElevatedRealButtonStyles();
-      if (targetParent) {
-        if (!triggerBtn) {
-          const np = document.createElement('button');
-          np.id = 'pakflow-new-project-trigger';
-          np.type = 'button';
-          np.setAttribute('aria-label', 'New project');
-          np.innerHTML = '<span class="pf-np-plus">+</span><span class="pf-np-label">New project</span>';
-          np.addEventListener('click', (ev) => {
-            ev.preventDefault();
-            ev.stopPropagation();
-            triggerRealGoogleNewProject(np);
-          });
-          targetParent.appendChild(np);
-        } else if (document.body && triggerBtn.parentElement !== document.body) {
-          document.body.appendChild(triggerBtn);
-        }
+      if (realNewBtn.getAttribute('data-pakflow-real-new-btn') !== 'true') {
+        realNewBtn.setAttribute('data-pakflow-real-new-btn', 'true');
       }
+      cachedRealNewBtn = realNewBtn;
     }
+  }
 
-    // 2) Mark & hide every shared account project card in the background grid (never hiding the real "+ New project" button)
-    const projLinks = document.querySelectorAll('a[href*="/project/"]');
-    for (const link of projLinks) {
-      if (link.closest('#pakflow-my-projects-root')) continue;
-      if (realNewBtn && (link === realNewBtn || link.contains(realNewBtn))) continue;
-      if (link.getAttribute('data-pakflow-hidden-shared-card') !== 'true') {
-        link.setAttribute('data-pakflow-hidden-shared-card', 'true');
-      }
-    }
+  function scheduleFlowHomeOverlaySync() {
+    if (overlaySyncRaf) return;
+    overlaySyncRaf = requestAnimationFrame(() => {
+      overlaySyncRaf = 0;
+      syncFlowHomePrivacyOverlay();
+    });
   }
 
   try {
@@ -793,7 +556,7 @@
     window.addEventListener('popstate', () => setTimeout(syncFlowHomePrivacyOverlay, 0));
   } catch {}
 
-  new MutationObserver(() => { schedule(); checkProjectNotFoundRecovery(); syncFlowHomePrivacyOverlay(); }).observe(document, { childList: true, characterData: true, subtree: true });
+  new MutationObserver(() => { schedule(); checkProjectNotFoundRecovery(); scheduleFlowHomeOverlaySync(); }).observe(document, { childList: true, characterData: true, subtree: true });
   setInterval(() => { checkProjectNotFoundRecovery(); harvestProjectThumbnails(); syncFlowHomePrivacyOverlay(); }, 1500);
   syncFlowHomePrivacyOverlay();
   schedule();

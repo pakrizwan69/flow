@@ -1,112 +1,36 @@
-/* Solid black privacy cover on Google Flow homepage (hides all other shared users' projects). */
-html[data-pakflow-flow-home="true"] {
+/* Solid black privacy cover on Google Flow homepage (hides all other shared users' projects)
+   while keeping Google Flow's 100% genuine native "+ New project" button untouched, smooth, and fast. */
+html[data-pakflow-flow-home="true"],
+html[data-pakflow-flow-home="true"] body {
   background: #050608 !important;
+  background-color: #050608 !important;
+  min-height: 100vh !important;
+  overflow: hidden !important;
 }
 
-html body #ct-blur-overlay,
-#ct-blur-overlay,
-html body #pakflow-home-privacy-shield,
-#pakflow-home-privacy-shield {
-  display: block !important;
-  visibility: visible !important;
-  opacity: 1 !important;
-  position: fixed !important;
-  inset: 0 !important;
-  top: 0 !important;
-  left: 0 !important;
-  width: 100vw !important;
-  height: 100vh !important;
-  background: #050608 !important;
-  -webkit-backdrop-filter: none !important;
-  backdrop-filter: none !important;
-  filter: none !important;
-  pointer-events: auto !important;
-  z-index: 2147483000 !important;
-}
-
-/* Hide every shared account project card/link on the homepage so no other user's video can ever show or be clicked. */
-html[data-pakflow-flow-home="true"] a[href*="/project/"]:not([data-pakflow-elevated-new-btn="true"]),
-html[data-pakflow-flow-home="true"] [data-pakflow-hidden-shared-card="true"] {
+/* Hide every shared project card, thumbnail, header, and grid item on the Flow homepage.
+   Does NOT touch #pakflow-my-projects-root or #pakflow-access-lock-overlay. */
+html[data-pakflow-flow-home="true"] body > *:not(#pakflow-my-projects-root):not(#pakflow-access-lock-overlay):not([data-pakflow-real-new-btn="true"]),
+html[data-pakflow-flow-home="true"] body > *:not(#pakflow-my-projects-root):not(#pakflow-access-lock-overlay):not([data-pakflow-real-new-btn="true"]) * {
   visibility: hidden !important;
-  opacity: 0 !important;
   pointer-events: none !important;
 }
 
-/* Keep Google Flow's genuine "+ New project" button pinned cleanly at bottom-center above the black privacy cover. */
-html[data-pakflow-flow-home="true"] [data-pakflow-elevated-new-btn="true"] {
-  position: fixed !important;
-  top: auto !important;
-  bottom: 32px !important;
-  left: 50% !important;
-  right: auto !important;
-  transform: translateX(-50%) !important;
-  z-index: 2147483400 !important;
+/* Reveal ONLY Google Flow's genuine native "+ New project" button and its icon/label.
+   Position, size, transform, hover, and ripple stay 100% native Google Flow. */
+html[data-pakflow-flow-home="true"] body > [data-pakflow-real-new-btn="true"],
+html[data-pakflow-flow-home="true"] body > [data-pakflow-real-new-btn="true"] *,
+html[data-pakflow-flow-home="true"] body > *:not(#pakflow-my-projects-root):not(#pakflow-access-lock-overlay):not([data-pakflow-real-new-btn="true"]) [data-pakflow-real-new-btn="true"],
+html[data-pakflow-flow-home="true"] body > *:not(#pakflow-my-projects-root):not(#pakflow-access-lock-overlay):not([data-pakflow-real-new-btn="true"]) [data-pakflow-real-new-btn="true"] * {
   visibility: visible !important;
-  opacity: 1 !important;
   pointer-events: auto !important;
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.22), 0 18px 44px rgba(0, 0, 0, 0.72) !important;
 }
 
-/* Guaranteed bottom-center "+ New project" trigger mounted directly above the black privacy cover.
-   Clicks Google Flow's real hidden "+ New project" button underneath so it NEVER disappears behind React/Shadow DOM stacking contexts. */
-#pakflow-new-project-trigger {
-  position: fixed !important;
-  top: auto !important;
-  bottom: 32px !important;
-  left: 50% !important;
-  right: auto !important;
-  transform: translateX(-50%) !important;
-  z-index: 2147483400 !important;
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  gap: 10px !important;
-  min-width: 216px !important;
-  height: 104px !important;
-  padding: 0 30px !important;
-  border-radius: 28px !important;
-  border: 1px solid rgba(255, 255, 255, 0.18) !important;
-  background: rgba(58, 60, 68, 0.92) !important;
-  color: #f3f4f6 !important;
-  font-family: "Google Sans", "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
-  font-size: 16px !important;
-  font-weight: 500 !important;
-  letter-spacing: 0.01em !important;
-  cursor: pointer !important;
-  visibility: visible !important;
-  opacity: 1 !important;
-  pointer-events: auto !important;
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.10), 0 18px 44px rgba(0, 0, 0, 0.72) !important;
-  backdrop-filter: blur(14px) !important;
-  -webkit-backdrop-filter: blur(14px) !important;
-  transition: transform 0.15s ease, background-color 0.15s ease, border-color 0.15s ease !important;
-}
-
-#pakflow-new-project-trigger:hover {
-  background: rgba(74, 77, 88, 0.96) !important;
-  border-color: rgba(255, 255, 255, 0.30) !important;
-  transform: translateX(-50%) translateY(-2px) !important;
-}
-
-#pakflow-new-project-trigger:active {
-  transform: translateX(-50%) scale(0.98) !important;
-}
-
-#pakflow-new-project-trigger .pf-np-plus {
-  font-size: 22px !important;
-  line-height: 1 !important;
-  font-weight: 400 !important;
-  color: #ffffff !important;
-}
-
-@media (max-width: 768px) {
-  #pakflow-new-project-trigger {
-    bottom: 78px !important;
-    min-width: 190px !important;
-    height: 72px !important;
-    border-radius: 22px !important;
-    font-size: 15px !important;
-  }
+/* Suppress legacy #ct-blur-overlay from core_module.js so it never covers or dims Google's native button. */
+#ct-blur-overlay {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
 }
 
 [data-pakflow-hide-reset="true"] {
