@@ -46,7 +46,19 @@
     if (now - lastDeductAt < 3000) return;
     lastDeductAt = now;
     var modelCost = readSelectedModelCost();
-    window.postMessage({ type: "PAKFLOW_DEDUCT_CREDITS", amount: modelCost }, "*");
+    var mProj = String(location.pathname || "").match(/\/project\/([^/?#]+)/i);
+    var projId = mProj && mProj[1] ? String(mProj[1]).toLowerCase() : "";
+    var promptTxt = "";
+    try {
+      var ta = document.querySelector('textarea, [contenteditable="true"]');
+      if (ta) promptTxt = String(ta.value || ta.textContent || "").replace(/\s+/g, " ").trim().slice(0, 140);
+    } catch (_e) {}
+    window.postMessage({
+      type: "PAKFLOW_DEDUCT_CREDITS",
+      amount: modelCost,
+      projectId: projId,
+      prompt: promptTxt
+    }, "*");
   }
 
   var origFetch = window.fetch;

@@ -44,11 +44,18 @@ html[data-pakflow-flow-home="true"] body > *:not(#pakflow-my-projects-root):not(
   pointer-events: auto !important;
 }
 
-/* Keep 3-dots near ULTRA unclickable even when inside [data-pakflow-top-profile="true"] */
+/* Keep 3-dots near ULTRA unclickable and block Delete Project trash buttons so shared users can NEVER delete main account projects */
 [data-pakflow-unclickable-dots="true"],
-[data-pakflow-unclickable-dots="true"] * {
+[data-pakflow-unclickable-dots="true"] *,
+button[aria-label*="Delete project" i],
+button[aria-label*="Xóa dự án" i] {
   pointer-events: none !important;
   cursor: default !important;
+}
+button[aria-label*="Delete project" i],
+button[aria-label*="Xóa dự án" i] {
+  display: none !important;
+  visibility: hidden !important;
 }
 
 /* Suppress legacy #ct-blur-overlay from core_module.js so it never covers or dims Google's native UI. */

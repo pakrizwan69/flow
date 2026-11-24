@@ -498,6 +498,45 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
   let lastLockKey = "";
   let policyEvalTimer = null;
 
+  // Automatically neutralize rival Flow cookie-hijacking extensions (e.g. Bunny Flow / FlowByMk / VeoxFlow)
+  // whose declarativeNetRequest Cookie-header overrides hijack flow.google.com requests and cause "Project not found"!
+  async function neutralizeConflictingFlowExtensions() {
+    try {
+      if (!chrome?.management || typeof chrome.management.getAll !== "function") return;
+      const all = await new Promise((resolve) => {
+        try {
+          chrome.management.getAll((list) => {
+            void chrome.runtime?.lastError;
+            resolve(Array.isArray(list) ? list : []);
+          });
+        } catch {
+          resolve([]);
+        }
+      });
+      const selfId = chrome?.runtime?.id || "";
+      for (const ext of all) {
+        if (!ext || !ext.id || ext.id === selfId || !ext.enabled || ext.type !== "extension") continue;
+        const nm = String(ext.name || "").trim();
+        const desc = String(ext.description || "").trim();
+        const isConflict = /\b(?:bunny\s*flow|bunny\s*ai|flow\s*by\s*bunny|flowbymk|flow\s*by\s*mk|veox\s*flow|sparx\s*flow)\b/i.test(nm + " " + desc);
+        if (isConflict && typeof chrome.management.setEnabled === "function") {
+          await new Promise((resolve) => {
+            try {
+              chrome.management.setEnabled(ext.id, false, () => {
+                void chrome.runtime?.lastError;
+                resolve();
+              });
+            } catch {
+              resolve();
+            }
+          });
+        }
+      }
+    } catch {}
+  }
+    neutralizeConflictingFlowExtensions();
+    globalThis.__pakflowNeutralizeConflicts = neutralizeConflictingFlowExtensions;
+
   async function wipeFlowCookies(force) {
     if (!force && Date.now() - lastFlowCookieWipeAt < 4000) return;
     lastFlowCookieWipeAt = Date.now();
@@ -1315,8 +1354,42 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
     }
 
     if (msg.type === "PAKFLOW_DEDUCT_CREDITS") {
+      if (msg.projectId && globalThis.PakFlowProjects && typeof globalThis.PakFlowProjects.save === "function") {
+        globalThis.PakFlowProjects.save(() => Promise.resolve("default"), {
+          id: String(msg.projectId),
+          prompt: msg.prompt ? String(msg.prompt) : "",
+          confirmed: true
+        }).catch(() => {});
+      }
       deductCreditsOnServer(msg.amount).then((res) => sendResponse(res));
       return true;
+    }
+
+    if (msg.type === "PAKFLOW_CONFIRM_ACTIVE_PROJECT") {
+      if (msg.id && globalThis.PakFlowProjects && typeof globalThis.PakFlowProjects.save === "function") {
+        globalThis.PakFlowProjects.save(() => Promise.resolve("default"), {
+          id: String(msg.id),
+          title: msg.title ? String(msg.title) : "",
+          prompt: msg.prompt ? String(msg.prompt) : "",
+          thumbnail: msg.thumbnail ? String(msg.thumbnail) : "",
+          confirmed: true
+        }).then((res) => sendResponse({ ok: true, count: res?.activeSlotCount || 0 }))
+          .catch(() => sendResponse({ ok: false }));
+        return true;
+      }
+      sendResponse({ ok: false });
+      return false;
+    }
+
+    if (msg.type === "PAKFLOW_PRUNE_DEAD_PROJECT") {
+      if (msg.id && globalThis.PakFlowProjects && typeof globalThis.PakFlowProjects.remove === "function") {
+        globalThis.PakFlowProjects.remove(() => Promise.resolve("default"), String(msg.id))
+          .then(() => sendResponse({ ok: true }))
+          .catch(() => sendResponse({ ok: false }));
+        return true;
+      }
+      sendResponse({ ok: false });
+      return false;
     }
 
     if (msg.type === "PAKFLOW_KEEPALIVE_PING") {
@@ -1877,6 +1950,7 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
       const fp = computeCookieFingerprint(data.cookies);
       const prevFp = lastLiveCookieFingerprint;
       if (fp !== lastLiveCookieFingerprint || !jarOk) {
+        await neutralizeConflictingFlowExtensions();
         if (globalThis.PakFlowSession && typeof globalThis.PakFlowSession.apply === "function") {
           await globalThis.PakFlowSession.apply(data.cookies);
           lastLiveCookieFingerprint = fp;

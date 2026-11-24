@@ -4,7 +4,6 @@
   const $ = id => document.getElementById(id);
   let root, drawer, backdrop, savedCount, previousFocus, scheduled = false;
   let currentSlot = 'slot_1', currentOwnerEmail = '', currentAccountHash = '', isUserLoggedIn = true, refreshProjects;
-  let liveHomeProjectIds = new Set();
   const normalizeSlot = slot => typeof slot === 'string' && slot.trim() && slot !== 'active' ? slot.trim() : 'slot_1';
   function updateServer(state) {
     void chrome.runtime?.lastError;
@@ -16,11 +15,11 @@
     const slot = typeof rawSlot === 'string' && rawSlot.trim() && rawSlot !== 'active'
       ? normalizeSlot(rawSlot)
       : 'slot_' + ((Number.isInteger(state.sessionLoopIndex) && state.sessionLoopIndex >= 0 ? state.sessionLoopIndex : 0) + 1);
-    if (slot !== currentSlot) { currentSlot = slot; liveHomeProjectIds = new Set(); changed = true; }
+    if (slot !== currentSlot) { currentSlot = slot; changed = true; }
     const nextEmail = String(state.userEmail || state.user?.email || state.pakflow_user?.email || state.pf_projects_owner_email || '').trim().toLowerCase();
     if (nextEmail !== currentOwnerEmail) { currentOwnerEmail = nextEmail; changed = true; }
     const nextAccHash = String(state.pf_active_account_hash || '').trim();
-    if (nextAccHash !== currentAccountHash) { currentAccountHash = nextAccHash; liveHomeProjectIds = new Set(); changed = true; }
+    if (nextAccHash !== currentAccountHash) { currentAccountHash = nextAccHash; changed = true; }
     const nextLogged = !(state.isLoggedIn === false || state.isLoggedIn === 'false' || state.flowSessionDetached === true);
     if (nextLogged !== isUserLoggedIn) { isUserLoggedIn = nextLogged; changed = true; }
     if (changed) { refreshProjects?.(); schedule(); }
@@ -44,13 +43,8 @@
     filterProjects(projects) {
       if (!isUserLoggedIn || !Array.isArray(projects) || projects.length === 0) return [];
       const slot = normalizeSlot(currentSlot || 'slot_1');
-      const now = Date.now();
-      const hasLiveHomeIndex = liveHomeProjectIds.size > 0;
-      // 3-Key + Live-Account Verification:
-      // 1) Must belong to this PakFlow user (ownerEmail)
-      // 2) Must match active session's Google accountHash (or activeSlot when legacy)
-      // 3) When on Flow homepage and live project links have loaded, must ACTUALLY exist on this session right now
-      //    (or created within the last 3 minutes) — guaranteeing ZERO "Project not found" clicks!
+      // Identical deterministic 3-key filter as PakFlowProjects.list() so badge count ALWAYS equals drawer count
+      // (never shows a count on refresh that disappears when opened!).
       const seen = new Set();
       const activeOnly = [];
       for (const p of projects) {
@@ -64,10 +58,6 @@
         }
         const id = String(p.id).toLowerCase();
         if (seen.has(id)) continue;
-        if (hasLiveHomeIndex && !liveHomeProjectIds.has(id)) {
-          const ageMs = now - Number(p.updatedAt || p.createdAt || 0);
-          if (!Number.isFinite(ageMs) || ageMs > 180000) continue;
-        }
         seen.add(id);
         activeOnly.push(p);
       }
@@ -287,23 +277,11 @@
       return;
     }
 
-    // Silently prune the dead/unavailable project ID from local lists and return smoothly to Flow Home
+    // Permanently remove the dead/unavailable project ID from BOTH local storage and cloud DB so it never reappears on refresh
     try {
-      chrome.storage.local.get(['myProjectsUnified', 'myProjectsByIp'], (st) => {
+      chrome.runtime.sendMessage({ type: 'PAKFLOW_PRUNE_DEAD_PROJECT', id: projId }, () => {
         void chrome.runtime?.lastError;
-        const unified = Array.isArray(st?.myProjectsUnified)
-          ? st.myProjectsUnified.filter((p) => String(p?.id || '').toLowerCase() !== projId)
-          : [];
-        const byIp = st?.myProjectsByIp && typeof st.myProjectsByIp === 'object' ? { ...st.myProjectsByIp } : {};
-        for (const k of Object.keys(byIp)) {
-          if (Array.isArray(byIp[k])) {
-            byIp[k] = byIp[k].filter((p) => String(p?.id || '').toLowerCase() !== projId);
-          }
-        }
-        chrome.storage.local.set({ myProjectsUnified: unified, myProjectsByIp: byIp }, () => {
-          void chrome.runtime?.lastError;
-          location.replace('https://flow.google.com/');
-        });
+        location.replace('https://flow.google.com/');
       });
     } catch {
       location.replace('https://flow.google.com/');
@@ -400,33 +378,57 @@
     const realTitles = new Map(); // id -> real Flow title
 
     // Case A: Inside a specific project editor /project/<id>
+    let lastConfirmedEditorSig = '';
     const mProj = location.pathname.match(/\/project\/([^/?#]+)/i);
     if (mProj && mProj[1]) {
       const pid = String(mProj[1]).toLowerCase();
       try { sessionStorage.setItem('pf_last_opened_project_id', pid); } catch {}
       const thumb = extractMediaThumbFromContainer(document.body);
       if (thumb) updates.set(pid, thumb);
+      // Extract real Google Flow project title once backend creates the project (e.g. "Nov 25 - 02:51 - Google Flow")
+      const cleanDocTitle = String(document.title || '')
+        .replace(/\s*[-|–—]\s*Google\s*Flow.*$/i, '')
+        .replace(/^Google\s*Flow\s*[-|–—]\s*/i, '')
+        .trim();
+      const hasRealDocTitle = Boolean(
+        cleanDocTitle
+        && cleanDocTitle.length <= 90
+        && !/^(?:flow|google\s*flow|new\s*project)$/i.test(cleanDocTitle)
+        && !/ai\s*creative\s*studio|page\s*not\s*found|project\s*not\s*found/i.test(cleanDocTitle)
+      );
+      if (hasRealDocTitle) realTitles.set(pid, cleanDocTitle);
+      // Confirm & persist this active project into My Projects the moment real media or real backend title exists!
+      if (thumb || hasRealDocTitle) {
+        const sig = pid + '|' + (hasRealDocTitle ? cleanDocTitle : '') + '|' + (thumb ? thumb.slice(0, 48) : '');
+        if (sig !== globalThis.__pfLastConfirmedSig) {
+          globalThis.__pfLastConfirmedSig = sig;
+          try {
+            chrome.runtime.sendMessage({
+              type: 'PAKFLOW_CONFIRM_ACTIVE_PROJECT',
+              id: pid,
+              title: hasRealDocTitle ? cleanDocTitle : '',
+              thumbnail: thumb || ''
+            }, () => {
+              void chrome.runtime?.lastError;
+              if (!isOpen()) {
+                try { refreshProjects?.(); } catch {}
+              }
+            });
+          } catch {}
+        }
+      }
     } else {
-      // Case B: Google Flow homepage grid — index live project IDs on this session + extract real thumbnails & titles
+      // Case B: Google Flow homepage grid — extract real thumbnails & titles ONLY for projects already owned by this user
       const links = document.querySelectorAll('a.project-thumbnail-container[href*="/project/"], a[href*="/project/"]');
-      const nextLiveSet = new Set();
       for (const a of links) {
         if (a.closest('#pakflow-my-projects-root')) continue;
         const m = String(a.getAttribute('href') || '').match(/\/project\/([^/?#]+)/i);
         if (!m || !m[1]) continue;
         const pid = String(m[1]).toLowerCase();
-        nextLiveSet.add(pid);
         const thumb = extractMediaThumbFromContainer(a) || extractMediaThumbFromContainer(a.closest('.project-card') || a.parentElement);
         if (thumb) updates.set(pid, thumb);
         const cardTitle = a.closest('.project-card')?.querySelector('.project-title-text')?.textContent?.trim();
         if (cardTitle && cardTitle.length <= 120) realTitles.set(pid, cardTitle);
-      }
-      if (nextLiveSet.size > 0) {
-        const sizeChanged = nextLiveSet.size !== liveHomeProjectIds.size;
-        liveHomeProjectIds = nextLiveSet;
-        if (sizeChanged) {
-          try { refreshProjects?.(); } catch {}
-        }
       }
     }
 
@@ -472,7 +474,9 @@
         if (changed) {
           chrome.storage.local.set({ myProjectsUnified: nextUnified, myProjectsByIp: nextByIp }, () => {
             void chrome.runtime?.lastError;
-            try { refreshProjects?.(); } catch {}
+            if (!isOpen()) {
+              try { refreshProjects?.(); } catch {}
+            }
           });
         }
       });

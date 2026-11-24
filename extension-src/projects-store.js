@@ -20,6 +20,8 @@
 })();
 globalThis.PakFlowProjects = (() => {
   let pending = Promise.resolve();
+  // Hold ungenerated "+ New project" draft URLs in memory until actual generation/media/title confirms the project exists on Google's server
+  const pendingDrafts = new Map();
   const normalize = value => typeof value === 'string' && value.trim() && value !== 'active' ? value.trim() : 'slot_1';
   const selected = state => {
     // Prefer lastInjectedSlot (actual cookies active in Chrome) over stale UI activeSlot so projects NEVER save under the wrong server
@@ -70,6 +72,7 @@ globalThis.PakFlowProjects = (() => {
             ...newer,
             ownerEmail: cleanOwner || newer.ownerEmail || older.ownerEmail || undefined,
             accountHash: newer.accountHash || older.accountHash || undefined,
+            confirmed: Boolean(prev.confirmed || item.confirmed),
             thumbnail: newer.thumbnail || older.thumbnail || newer.thumbnailUrl || older.thumbnailUrl || '',
             title: prev.customTitle ? prev.title : (item.customTitle ? item.title : (newer.title || older.title)),
             customTitle: Boolean(prev.customTitle || item.customTitle),
@@ -192,30 +195,55 @@ globalThis.PakFlowProjects = (() => {
         if (!id) return response(ctx);
         const index = ctx.all.findIndex(p => String(p.id || '').toLowerCase() === id);
         const previous = index >= 0 ? ctx.all[index] : null;
-        // Preserve original server attribution if already known; otherwise use requested or active slot
+        const draft = pendingDrafts.get(id) || null;
+        // Preserve original server attribution if already known; otherwise use actual injected slot
         const target = previous?.slot
           ? normalize(previous.slot)
-          : (input.slot ? normalize(input.slot) : ctx.slot);
-        ctx.owners[id] = target;
+          : (draft?.slot ? normalize(draft.slot) : (ctx.slot || (input.slot ? normalize(input.slot) : 'slot_1')));
         const title = String(input.title || '').trim();
         const prompt = String(input.prompt || '').trim().slice(0, 180);
+        const hasValidThumb = Boolean(input.thumbnail && /^(?:https:\/\/|data:image\/)/i.test(String(input.thumbnail)));
         const isGenericTitle = (t) => !t
           || /^(?:flow|google\s*flow|new\s*project)$/i.test(t)
           || /^flow\s*[-–—]\s*google/i.test(t)
           || /^google\s*flow\s*[-–—]\s*ai\s*creative\s*studio/i.test(t)
-          || /page\s*not\s*found/i.test(t);
+          || /^project\s*#?\d+$/i.test(t)
+          || /page\s*not\s*found|project\s*not\s*found/i.test(t);
         const generic = isGenericTitle(title);
-        const number = ctx.all.length + 1;
+        const isRealConfirmed = Boolean(
+          previous
+          || input.confirmed === true
+          || input.customTitle === true
+          || !generic
+          || prompt.length >= 2
+          || hasValidThumb
+        );
         const now = Date.now();
+        // Do NOT save brand-new empty "+ New project" draft URLs until user actually generates or names the project!
+        // Google Flow does NOT create empty draft URLs on its backend, so saving empty drafts causes 404 "Project not found".
+        if (!isRealConfirmed) {
+          pendingDrafts.set(id, {
+            id,
+            slot: target,
+            accountHash: ctx.accountHash || draft?.accountHash || undefined,
+            ownerEmail: ctx.ownerEmail || draft?.ownerEmail || undefined,
+            createdAt: draft?.createdAt || now
+          });
+          return response(ctx);
+        }
+        pendingDrafts.delete(id);
+        ctx.owners[id] = target;
+        const number = ctx.all.length + 1;
         const project = {
           ...previous,
           id,
-          ownerEmail: ctx.ownerEmail || previous?.ownerEmail || undefined,
-          accountHash: ctx.accountHash || previous?.accountHash || undefined,
+          confirmed: true,
+          ownerEmail: ctx.ownerEmail || previous?.ownerEmail || draft?.ownerEmail || undefined,
+          accountHash: ctx.accountHash || previous?.accountHash || draft?.accountHash || undefined,
           url: 'https://flow.google.com/project/' + id,
-          slot: ctx.slot || target,
+          slot: target,
           ip: ctx.ip,
-          createdAt: previous?.createdAt || now,
+          createdAt: previous?.createdAt || draft?.createdAt || now,
           updatedAt: now
         };
         if (input.customTitle && title) {
@@ -227,7 +255,7 @@ globalThis.PakFlowProjects = (() => {
         if (!project.title || isGenericTitle(project.title)) {
           project.title = prompt ? prompt.slice(0, 60) : 'Project #' + number;
         }
-        if (input.thumbnail && /^(?:https:\/\/|data:image\/)/i.test(String(input.thumbnail))) {
+        if (hasValidThumb) {
           project.thumbnail = String(input.thumbnail);
         } else if (previous?.thumbnail) {
           project.thumbnail = previous.thumbnail;

@@ -485,6 +485,11 @@ importScripts('projects-store.js', 'ctp-background.js');
     var targetSlot = Number(msg.slotNumber) || 1;
     globalThis.__pakflowSwitchLockUntil = Date.now() + 10000;
     try {
+      if (typeof globalThis.__pakflowNeutralizeConflicts === "function") {
+        globalThis.__pakflowNeutralizeConflicts();
+      }
+    } catch (_e) {}
+    try {
       if (typeof globalThis.__pakflowMarkManualSlot === "function") {
         globalThis.__pakflowMarkManualSlot("slot_" + targetSlot);
       }

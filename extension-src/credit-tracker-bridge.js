@@ -9,6 +9,8 @@
       chrome.runtime.sendMessage({
         type: "PAKFLOW_DEDUCT_CREDITS",
         amount: Math.round(amt),
+        projectId: ev.data.projectId ? String(ev.data.projectId) : "",
+        prompt: ev.data.prompt ? String(ev.data.prompt) : ""
       });
     } catch (_e) {}
   });
