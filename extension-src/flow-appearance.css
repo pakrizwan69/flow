@@ -1,6 +1,12 @@
 /* Solid black privacy cover on Google Flow homepage (hides all other shared users' projects). */
+html[data-pakflow-flow-home="true"] {
+  background: #050608 !important;
+}
+
 html body #ct-blur-overlay,
-#ct-blur-overlay {
+#ct-blur-overlay,
+html body #pakflow-home-privacy-shield,
+#pakflow-home-privacy-shield {
   display: block !important;
   visibility: visible !important;
   opacity: 1 !important;
@@ -15,14 +21,25 @@ html body #ct-blur-overlay,
   backdrop-filter: none !important;
   filter: none !important;
   pointer-events: auto !important;
-  z-index: 99990 !important;
+  z-index: 2147483000 !important;
+}
+
+/* Hide every shared account project card/link on the homepage so no other user's video can ever show or be clicked. */
+html[data-pakflow-flow-home="true"] a[href*="/project/"],
+html[data-pakflow-flow-home="true"] [data-pakflow-hidden-shared-card="true"] {
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
 }
 
 /* Keep Google Flow's genuine "+ New project" button elevated cleanly above the black privacy cover. */
 html body button[data-elevate-btn='true'],
-button[data-elevate-btn='true'] {
+button[data-elevate-btn='true'],
+[data-pakflow-elevated-new-btn="true"] {
   position: relative !important;
-  z-index: 100001 !important;
+  z-index: 2147483200 !important;
+  visibility: visible !important;
+  opacity: 1 !important;
   pointer-events: auto !important;
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.24), 0 12px 32px rgba(0, 0, 0, 0.65) !important;
 }

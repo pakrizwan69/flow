@@ -436,38 +436,70 @@
   }
 
   // ── Native Black Privacy Overlay Safeguard on Google Flow Homepage (/) ──
-  // Ensures other shared users' projects on flow.google.com/ are ALWAYS covered by
-  // the solid black #ct-blur-overlay while keeping ONLY genuine "+ New project" and
-  // bottom-left "My Saved Projects" accessible. Removed immediately inside /project/<id>.
+  // Uses a dedicated #pakflow-home-privacy-shield (so core_module.js cannot remove it) +
+  // hides all shared /project/ cards on flow.google.com/ while keeping ONLY Google Flow's
+  // genuine "+ New project" button and bottom-left "My Saved Projects" accessible.
+  // Removed immediately inside /project/<id> and never shown on /about.
   function syncFlowHomePrivacyOverlay() {
     if (window.top !== window) return;
     const host = String(location.hostname || '').toLowerCase();
     const path = String(location.pathname || '/');
     const isHome = (host === 'flow.google.com' && (path === '/' || path === ''))
       || (/(?:^|\.)labs\.google$/i.test(host) && /^\/fx\/tools\/flow\/?$/i.test(path));
-    const existing = $('ct-blur-overlay');
+    const shield = $('pakflow-home-privacy-shield');
+    const legacyOv = $('ct-blur-overlay');
 
     if (!isHome) {
-      if (existing) existing.remove();
+      if (document.documentElement) document.documentElement.removeAttribute('data-pakflow-flow-home');
+      if (shield) shield.remove();
+      if (legacyOv) legacyOv.remove();
       return;
     }
 
-    // Do not cover Google's sign-in / landing page if not signed in
+    // Do not cover Google's sign-in page if genuinely signed out
     const hasSignInCta = Boolean(document.querySelector('a[href*="accounts.google.com/ServiceLogin"], a[href*="accounts.google.com/v3/signin"]'));
     if (hasSignInCta && !document.querySelector('a[href*="/project/"]')) {
-      if (existing) existing.remove();
+      if (document.documentElement) document.documentElement.removeAttribute('data-pakflow-flow-home');
+      if (shield) shield.remove();
+      if (legacyOv) legacyOv.remove();
       return;
     }
 
-    const hostNode = document.body || document.documentElement;
-    if (!existing && hostNode) {
-      const ov = document.createElement('div');
-      ov.id = 'ct-blur-overlay';
-      ov.setAttribute('aria-hidden', 'true');
-      hostNode.appendChild(ov);
+    if (document.documentElement) {
+      document.documentElement.setAttribute('data-pakflow-flow-home', 'true');
     }
 
-    // Ensure Google Flow's genuine "+ New project" button is always elevated above #ct-blur-overlay
+    // Mount shield on document.body once ready (or documentElement at document_start to prevent any flash)
+    const targetParent = document.body || document.documentElement;
+    if (targetParent) {
+      if (!shield) {
+        const ov = document.createElement('div');
+        ov.id = 'pakflow-home-privacy-shield';
+        ov.setAttribute('aria-hidden', 'true');
+        targetParent.appendChild(ov);
+      } else if (document.body && shield.parentElement !== document.body) {
+        document.body.appendChild(shield);
+      }
+    }
+
+    // Mark & hide every shared account project card in the background grid
+    const projLinks = document.querySelectorAll('a[href*="/project/"]');
+    for (const link of projLinks) {
+      if (link.closest('#pakflow-my-projects-root')) continue;
+      if (link.getAttribute('data-pakflow-hidden-shared-card') !== 'true') {
+        link.setAttribute('data-pakflow-hidden-shared-card', 'true');
+      }
+      // Also hide the immediate card container if it does NOT contain the "+ New project" button
+      const card = link.parentElement;
+      if (card && card !== document.body && card !== document.documentElement && !card.querySelector('[data-elevate-btn="true"], [data-pakflow-elevated-new-btn="true"]')) {
+        const cardLinks = card.querySelectorAll('a[href*="/project/"]');
+        if (cardLinks.length === 1 && card.getAttribute('data-pakflow-hidden-shared-card') !== 'true') {
+          card.setAttribute('data-pakflow-hidden-shared-card', 'true');
+        }
+      }
+    }
+
+    // Elevate Google Flow's genuine "+ New project" button cleanly above the black shield
     const buttons = document.querySelectorAll('button, [role="button"]');
     for (const btn of buttons) {
       if (btn.closest('#pakflow-my-projects-root') || btn.closest('#pakflow-access-lock-overlay')) continue;
@@ -476,14 +508,25 @@
         if (btn.getAttribute('data-elevate-btn') !== 'true') {
           btn.setAttribute('data-elevate-btn', 'true');
         }
-        // Make sure no ancestor creates a lower stacking context trapping the button under #ct-blur-overlay
+        if (btn.getAttribute('data-pakflow-elevated-new-btn') !== 'true') {
+          btn.setAttribute('data-pakflow-elevated-new-btn', 'true');
+        }
+        // Lift any ancestor stacking context (z-index / transform / filter / isolation) so "+ New project" sits on top of the black shield
         let anc = btn.parentElement;
-        for (let d = 0; d < 6 && anc && anc !== document.body; d++) {
+        for (let d = 0; d < 10 && anc && anc !== document.body && anc !== document.documentElement; d++) {
           const cs = getComputedStyle(anc);
-          if (cs && cs.position !== 'static' && cs.zIndex !== 'auto') {
-            const zi = parseInt(cs.zIndex, 10);
-            if (Number.isFinite(zi) && zi < 100001) {
-              anc.style.setProperty('z-index', '100001', 'important');
+          if (cs) {
+            const createsStack = (cs.position !== 'static' && cs.zIndex !== 'auto')
+              || (cs.transform && cs.transform !== 'none')
+              || (cs.filter && cs.filter !== 'none')
+              || (cs.backdropFilter && cs.backdropFilter !== 'none')
+              || cs.isolation === 'isolate';
+            if (createsStack) {
+              const zi = parseInt(cs.zIndex, 10);
+              if (!Number.isFinite(zi) || zi < 2147483200) {
+                if (cs.position === 'static') anc.style.setProperty('position', 'relative', 'important');
+                anc.style.setProperty('z-index', '2147483200', 'important');
+              }
             }
           }
           anc = anc.parentElement;

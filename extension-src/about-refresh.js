@@ -6,6 +6,29 @@
 
   const AUTO_KEY = 'pakflow_about_auto_enter';
   let handling = false;
+  let cachedCanEnter = false;
+
+  function computeCanEnter(state) {
+    if (!state || typeof state !== 'object') return false;
+    const loggedIn = state.isLoggedIn === true || state.isLoggedIn === 'true';
+    const plan = String(state.userPlan || '').trim().toLowerCase();
+    const detached = state.flowSessionDetached === true || state.flowSessionDetached === 'true';
+    const locked = Boolean(state.pf_flow_lock_state && state.pf_flow_lock_state.locked);
+    return loggedIn && !detached && !locked && !['basic', 'free', 'trial'].includes(plan);
+  }
+
+  function refreshCachedState(cb) {
+    try {
+      chrome.storage.local.get(['isLoggedIn', 'flowSessionDetached', 'userPlan', 'activeSlot', 'pf_flow_lock_state'], (s) => {
+        void chrome.runtime?.lastError;
+        cachedCanEnter = computeCanEnter(s || {});
+        if (typeof cb === 'function') cb(s || {});
+      });
+    } catch {
+      cachedCanEnter = false;
+      if (typeof cb === 'function') cb({});
+    }
+  }
 
   function isAboutUrl() {
     const host = location.hostname.toLowerCase();
@@ -57,13 +80,37 @@
 
   function getState() {
     return new Promise(resolve => {
-      try {
-        chrome.storage.local.get(['isLoggedIn', 'flowSessionDetached', 'userPlan', 'activeSlot'], s => resolve(s || {}));
-      } catch {
-        resolve({});
-      }
+      refreshCachedState(resolve);
     });
   }
+
+  refreshCachedState();
+
+  // Auto-enter Google Flow the instant the user connects / logs in on the portal while this tab is on /about
+  try {
+    if (chrome?.storage?.onChanged) {
+      chrome.storage.onChanged.addListener((changes, area) => {
+        if (area !== 'local') return;
+        if (
+          changes.isLoggedIn ||
+          changes.flowSessionDetached ||
+          changes.userToken ||
+          changes.pakflow_token ||
+          changes.flow_token ||
+          changes.lastSyncTimestamp ||
+          changes.activeSlot ||
+          changes.pf_flow_lock_state
+        ) {
+          refreshCachedState(() => {
+            if (cachedCanEnter && (isAboutUrl() || isLabsLandingUrl())) {
+              try { sessionStorage.removeItem(AUTO_KEY); } catch {}
+              tryAutoEnterStudio();
+            }
+          });
+        }
+      });
+    }
+  } catch {}
 
   async function tryAutoEnterStudio() {
     if (handling || !isAboutUrl()) return;
@@ -133,23 +180,24 @@
   } catch {}
 
   // Intercept clicks on "Create with Google Flow" / "Create with Flow" on /about or labs.google
-  document.addEventListener('click', async event => {
+  // MUST call preventDefault / stopImmediatePropagation synchronously so flow-create-switch.js cannot hijack the server!
+  document.addEventListener('click', event => {
     if (!isAboutUrl() && !isLabsLandingUrl()) return;
+    if (!cachedCanEnter) return;
     const btn = event.target && event.target.closest ? event.target.closest('a,button,[role="button"]') : null;
     if (!btn) return;
     const label = String(btn.textContent || btn.getAttribute('aria-label') || '').replace(/\s+/g, ' ').trim();
     if (!/create with (?:google )?flow|try (?:google )?flow|launch flow|open flow/i.test(label)) return;
 
-    const state = await getState();
-    const loggedIn = state.isLoggedIn === true || state.isLoggedIn === 'true';
-    const plan = String(state.userPlan || '').trim().toLowerCase();
-    if (!loggedIn || state.flowSessionDetached || ['basic', 'free', 'trial'].includes(plan)) return;
-
     event.preventDefault();
     event.stopPropagation();
     if (typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
 
-    await sendMsg({ type: 'SYNC_COOKIES_NOW' });
-    location.replace('https://flow.google.com/');
+    (async () => {
+      try {
+        await sendMsg({ type: 'SYNC_COOKIES_NOW' });
+      } catch {}
+      location.replace('https://flow.google.com/');
+    })();
   }, true);
 })();

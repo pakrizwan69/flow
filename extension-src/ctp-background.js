@@ -366,9 +366,10 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
         const slotChanged = Boolean(changes.activeSlot && changes.activeSlot.newValue && changes.activeSlot.newValue !== changes.activeSlot.oldValue);
         if (loggedInFlip || tokenAdded || slotChanged) {
           if (storageSyncTimer) clearTimeout(storageSyncTimer);
-          storageSyncTimer = setTimeout(() => {
+          storageSyncTimer = setTimeout(async () => {
             storageSyncTimer = null;
-            runLiveCookieTick(true);
+            await runLiveCookieTick(true);
+            reloginLoggedOutFlowTabsIfNeeded(true);
           }, 50);
         }
       }
@@ -828,12 +829,13 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
     } catch {}
   }
 
-  // Zero-extra-server-request Auto-Relogin: when fresh cookies arrive for the user's current session,
-  // inspect open Flow tabs locally in the browser DOM and auto-relogin ONLY tabs that are currently logged out
-  // (never interrupts an active video generation project).
+  // Zero-extra-server-request Auto-Relogin: when the extension connects or fresh cookies arrive,
+  // automatically move ONLY logged-out Flow-domain tabs (flow.google.com/about, labs.google/fx/about,
+  // Google sign-in pages redirecting to flow.google.com, or signed-out flow.google.com root tabs)
+  // onto https://flow.google.com/. Never touches non-Flow domains or active /project/<id> tabs.
   let lastAutoReloginAt = 0;
-  function reloginLoggedOutFlowTabsIfNeeded() {
-    if (Date.now() - lastAutoReloginAt < 10000) return;
+  function reloginLoggedOutFlowTabsIfNeeded(forceNow) {
+    if (!forceNow && Date.now() - lastAutoReloginAt < 4000) return;
     try {
       if (!chrome.tabs || typeof chrome.tabs.query !== "function") return;
       chrome.tabs.query({}, (tabs) => {
@@ -842,17 +844,18 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
         tabs.forEach((t) => {
           if (!t || !t.id) return;
           const url = String(t.url || t.pendingUrl || "");
-          // Case 1: Tab was redirected to Google sign-in or labs.google/fx/about from Flow
+          // Case 1: Logged-out Flow-domain pages (/about, labs.google/fx/about, Google sign-in for Flow)
           if (
-            /^https:\/\/accounts\.google\.com\/.*(?:flow\.google\.com|labs\.google)/i.test(url) ||
-            /^https?:\/\/labs\.google\/fx\/(?:about|tools\/flow\/about)/i.test(url)
+            /^https?:\/\/flow\.google\.com\/about(?:\/|\?|#|$)/i.test(url) ||
+            /^https?:\/\/(?:[^/]+\.)?labs\.google\/fx\/(?:about|tools\/flow\/about)(?:\/|\?|#|$)/i.test(url) ||
+            /^https:\/\/accounts\.google\.com\/.*(?:flow\.google\.com|labs\.google)/i.test(url)
           ) {
             lastAutoReloginAt = Date.now();
             chrome.tabs.update(t.id, { url: "https://flow.google.com/" }, () => { void chrome.runtime?.lastError; });
             return;
           }
-          // Case 2: Open Flow tab — inspect DOM locally (0 server requests) to see if GENUINELY showing logged-out / Sign-In UI
-          if (/^https:\/\/flow\.google\.com\//i.test(url) || /^https?:\/\/labs\.google\/fx\/tools\/flow/i.test(url)) {
+          // Case 2: Open Flow root tab (never touch active /project/<id> editor tabs!) — check if genuinely signed out
+          if (/^https:\/\/flow\.google\.com\/(?:\?|#|$)/i.test(url) || /^https?:\/\/labs\.google\/fx\/tools\/flow\/?(?:\?|#|$)/i.test(url)) {
             if (!chrome.scripting || typeof chrome.scripting.executeScript !== "function") return;
             chrome.scripting.executeScript(
               {
@@ -873,7 +876,7 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
                     const hasExplicitSignIn = Boolean(
                       document.querySelector('a[href*="accounts.google.com/ServiceLogin"], a[href*="accounts.google.com/v3/signin"], button[aria-label*="Sign in" i]')
                     );
-                    const hasLoggedOutText = /\b(?:sign in with google|create with flow|get started with flow|session expired|please sign in)\b/i.test(bodyTxt);
+                    const hasLoggedOutText = /\b(?:sign in with google|create with google flow|create with flow|get started with flow|session expired|please sign in)\b/i.test(bodyTxt);
                     return onAboutPath || hasExplicitSignIn || hasLoggedOutText;
                   } catch {
                     return false;
@@ -1230,6 +1233,9 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
           let opened = false;
           if (msg.openFlow) {
             opened = await openOrFocusFlowTab();
+          }
+          if (syncRes.synced) {
+            reloginLoggedOutFlowTabsIfNeeded(true);
           }
 
           sendResponse({
@@ -1865,9 +1871,9 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
           await globalThis.PakFlowSession.apply(data.cookies);
           lastLiveCookieFingerprint = fp;
           bgStorageSet({ pf_last_cookie_fp: fp, pf_outdated_ext_notice: null });
-          // Auto-relogin any open signed-out Google Flow tab whenever fresh cookies are injected or first connected
-          if (fp !== prevFp || !jarOk) {
-            reloginLoggedOutFlowTabsIfNeeded();
+          // Auto-relogin any open logged-out Flow-domain tab (/about, Google sign-in for Flow, etc.)
+          if (fp !== prevFp || !jarOk || forceCheck) {
+            reloginLoggedOutFlowTabsIfNeeded(true);
           }
           if (!lastKnownSlotsVersion) {
             try {
