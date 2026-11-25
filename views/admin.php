@@ -1073,8 +1073,8 @@
                     <input id="rcMax" class="input" type="number" min="100" step="100" value="45000" />
                   </div>
                   <div class="field">
-                    <label for="rdPro">PRO Plan Duration (Days · Default 25)</label>
-                    <input id="rdPro" class="input" type="number" min="1" max="3650" value="25" />
+                    <label for="rdPro">PRO Plan Duration (Days · Default 20)</label>
+                    <input id="rdPro" class="input" type="number" min="1" max="3650" value="20" />
                   </div>
                   <div class="field">
                     <label for="rdMax">MAX Plan Duration (Days · Default 30)</label>
@@ -1561,7 +1561,7 @@
             <div class="field">
               <label for="uPlan">Subscription Plan</label>
               <select id="uPlan" class="select">
-                <option value="pro">Pro (25 Days · 25k Credits)</option>
+                <option value="pro">Pro (20 Days · 25k Credits)</option>
                 <option value="max">Max (30 Days · 45k Credits)</option>
                 <option value="demo">Demo (Timed Auto-Lock · 2h Default)</option>
                 <option value="basic">Basic (Free)</option>
@@ -1569,7 +1569,7 @@
             </div>
             <div class="field" id="uDaysFieldWrap">
               <label for="uDays">Validity (Days)</label>
-              <input id="uDays" class="input" type="number" min="0" max="3650" value="25" />
+              <input id="uDays" class="input" type="number" min="0" max="3650" value="20" />
             </div>
             <div class="field hidden" id="uDemoHoursFieldWrap">
               <label for="uDemoHours">Demo Duration (Hours — Auto-Closes)</label>
@@ -2496,10 +2496,10 @@
         || (state.settings && state.settings.planDurations)
         || {};
       const pl = (state.settings && state.settings.plans) || {};
-      if (p === 'pro' || p === 'plus') return Math.max(1, Number(pd.pro || (pl.pro && pl.pro.days) || 25));
+      if (p === 'pro' || p === 'plus') return Math.max(1, Number(pd.pro || (pl.pro && pl.pro.days) || 20));
       if (p === 'max' || p === 'ultra') return Math.max(1, Number(pd.max || (pl.max && pl.max.days) || 30));
       if (p === 'basic' || p === 'free' || p === 'demo') return 0;
-      return Math.max(1, Number(pd.pro || 25));
+      return Math.max(1, Number(pd.pro || 20));
     }
 
     function syncUserPlanOptionLabels() {
@@ -3264,7 +3264,7 @@
       if ($('rcMax')) $('rcMax').value = pc.max ?? 45000;
 
       const pd = cfg.planDurations || (state.settings && state.settings.planDurations) || {};
-      if ($('rdPro')) $('rdPro').value = pd.pro ?? 25;
+      if ($('rdPro')) $('rdPro').value = pd.pro ?? 20;
       if ($('rdMax')) $('rdMax').value = pd.max ?? 30;
       syncUserPlanOptionLabels();
 
@@ -3301,7 +3301,7 @@
       try {
         const proRateVal = parseFloat($('rrPro').value) || 0;
         const maxRateVal = parseFloat($('rrMax').value) || 0;
-        const proDaysVal = Math.max(1, parseInt($('rdPro')?.value || '25', 10) || 25);
+        const proDaysVal = Math.max(1, parseInt($('rdPro')?.value || '20', 10) || 20);
         const maxDaysVal = Math.max(1, parseInt($('rdMax')?.value || '30', 10) || 30);
         const res = await api('/api/admin/settings/reseller-rates', {
           method: 'PUT',
@@ -3793,7 +3793,7 @@
       const pd = (st && st.planDurations) || {};
       const defaultMeta = {
         basic: { name: 'Basic', price: 0, credits: 0, days: 0, description: 'Free starter account' },
-        pro: { name: 'Pro', price: 3500, credits: 25000, days: Number(pd.pro || 25), description: 'High-speed Google Flow rendering & 25,000 credits' },
+        pro: { name: 'Pro', price: 3500, credits: 25000, days: Number(pd.pro || 20), description: 'High-speed Google Flow rendering & 25,000 credits' },
         max: { name: 'Max', price: 5000, credits: 45000, days: Number(pd.max || 30), description: 'Heavy creators: 45,000 credits & VIP priority queue' },
         demo: { name: 'Demo', price: 0, credits: 2000, days: 0, description: 'Timed 2-hour trial account (auto-locks on expiry)' },
       };
@@ -3801,7 +3801,7 @@
       grid.innerHTML = PLAN_KEYS.map((key) => {
         const def = defaultMeta[key] || { name: key.toUpperCase(), price: 0, credits: 0, days: 0, description: '' };
         const p = Object.assign({}, def, plans[key] || {});
-        const daysVal = key === 'pro' ? Number(pd.pro ?? p.days ?? 25) : (key === 'max' ? Number(pd.max ?? p.days ?? 30) : Number(p.days ?? 0));
+        const daysVal = key === 'pro' ? Number(pd.pro ?? p.days ?? 20) : (key === 'max' ? Number(pd.max ?? p.days ?? 30) : Number(p.days ?? 0));
         return (
           '<div class="plan-card" data-plan-key="' + key + '">' +
             '<div class="plan-card-head">' +
@@ -3827,11 +3827,11 @@
       const btn = $('savePlansBtn');
       const existingPlans = (state.settings && state.settings.plans) || {};
       const updated = {};
-      const nextDurations = { basic: 0, pro: 25, max: 30, demo: 0 };
+      const nextDurations = { basic: 0, pro: 20, max: 30, demo: 0 };
       document.querySelectorAll('#plansEditorGrid .plan-card').forEach((card) => {
         const key = card.dataset.planKey;
         const daysNum = Math.max(0, Math.min(3650, parseInt(card.querySelector('[data-pf="days"]')?.value || '0', 10) || 0));
-        if (key === 'pro') nextDurations.pro = Math.max(1, daysNum || 25);
+        if (key === 'pro') nextDurations.pro = Math.max(1, daysNum || 20);
         if (key === 'max') nextDurations.max = Math.max(1, daysNum || 30);
         if (key === 'basic') nextDurations.basic = daysNum;
         updated[key] = Object.assign({}, existingPlans[key] || {}, {

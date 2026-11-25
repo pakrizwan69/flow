@@ -945,7 +945,7 @@ final class ResellerRoutes
                 $planDur = Helpers::getPlanDurations($curSettings);
                 $proCr = (int)$planCr['pro'];
                 $maxCr = (int)$planCr['max'];
-                $proDays = max(1, (int)($planDur['pro'] ?? 25));
+                $proDays = max(1, (int)($planDur['pro'] ?? 20));
                 $maxDays = max(1, (int)($planDur['max'] ?? 30));
                 $nowTs = time();
                 $curExpTs = !empty($user['planExpiresAt']) ? (strtotime((string)$user['planExpiresAt']) ?: 0) : 0;
@@ -965,7 +965,7 @@ final class ResellerRoutes
                     $user['createdAt'] = Db::isoNow();
                     $wasDemoBefore = false;
                 } elseif ($nextPlan === 'max') {
-                    // Upgrading Pro -> Max: top up credits AND adjust validity days to Max plan duration
+                    // Upgrading Pro -> Max: top up credits AND add difference days (capped strictly at maxDays)
                     $deltaCr = max(0, $maxCr - $proCr);
                     $user['credits'] = min($maxCr, max(0, (int)($user['credits'] ?? 0)) + $deltaCr);
                     $user['creditsTotal'] = $maxCr;
@@ -976,7 +976,7 @@ final class ResellerRoutes
                     }
                     $deltaDays = max(0, $maxDays - $prevDays);
                     if ($curExpTs > $nowTs) {
-                        $newExpTs = $curExpTs + ($deltaDays * 86400);
+                        $newExpTs = min($curExpTs + ($deltaDays * 86400), $nowTs + ($maxDays * 86400));
                     } else {
                         $newExpTs = $nowTs + ($maxDays * 86400);
                         $user['status'] = 'active';

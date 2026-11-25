@@ -381,7 +381,7 @@ public const ADMIN_PASSWORD = 'admin@123';
         $maxRaw = $cfg['max'] ?? ($plans['max']['days'] ?? ($plans['max']['durationDays'] ?? null));
         $basicRaw = $cfg['basic'] ?? ($plans['basic']['days'] ?? 0);
 
-        $pro = (is_numeric($proRaw) && (int)$proRaw > 0) ? max(1, min(3650, (int)$proRaw)) : 25;
+        $pro = (is_numeric($proRaw) && (int)$proRaw > 0) ? max(1, min(3650, (int)$proRaw)) : 20;
         $max = (is_numeric($maxRaw) && (int)$maxRaw > 0) ? max(1, min(3650, (int)$maxRaw)) : 30;
         $basic = (is_numeric($basicRaw) && (int)$basicRaw >= 0) ? min(3650, (int)$basicRaw) : 0;
 

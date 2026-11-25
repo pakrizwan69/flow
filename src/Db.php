@@ -1187,13 +1187,13 @@ final class Db
             ],
             'plans' => [
                 'basic' => ['name' => 'Basic', 'price' => 0, 'credits' => 0, 'days' => 0, 'visible' => true, 'description' => 'Free starter account (upgrade to Pro or Max for Google Flow access)'],
-                'pro' => ['name' => 'Pro', 'price' => 3500, 'credits' => 25000, 'days' => 25, 'visible' => true, 'description' => 'High-speed Google Flow rendering, 25,000 credits & 25 days validity'],
+                'pro' => ['name' => 'Pro', 'price' => 3500, 'credits' => 25000, 'days' => 20, 'visible' => true, 'description' => 'High-speed Google Flow rendering, 25,000 credits & 20 days validity'],
                 'max' => ['name' => 'Max', 'price' => 5000, 'credits' => 45000, 'days' => 30, 'visible' => true, 'description' => 'Heavy creators: 45,000 credits, VIP priority queue & 30 days validity'],
                 'demo' => ['name' => 'Demo', 'price' => 0, 'credits' => 2000, 'days' => 0, 'demoHours' => 2, 'visible' => true, 'description' => 'Timed 2-hour trial account (auto-locks on expiry)'],
             ],
             'planDurations' => [
                 'basic' => 0,
-                'pro' => 25,
+                'pro' => 20,
                 'max' => 30,
                 'demo' => 0,
             ],
