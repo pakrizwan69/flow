@@ -2467,94 +2467,86 @@ $__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
       font-weight: 700;
     }
 
-    /* Electric Purple 3D Hero */
+    /* Electric Purple 3D Hero (Matched to Reference Composition) */
     .pf-hero-band {
       position: relative;
       width: 100%;
       overflow: hidden;
       background:
-        radial-gradient(ellipse 65% 75% at 78% 45%, rgba(168, 85, 247, 0.42), transparent 62%),
-        radial-gradient(ellipse 55% 60% at 18% 20%, rgba(124, 58, 237, 0.45), transparent 65%),
-        linear-gradient(135deg, #1e0842 0%, #3b0f7a 46%, #5b21b6 100%);
-      padding: clamp(40px, 6vw, 76px) 24px clamp(44px, 6vw, 72px);
-      border-bottom: 1px solid rgba(255, 255, 255, 0.10);
+        radial-gradient(circle at 74% 52%, rgba(168, 85, 247, 0.78) 0%, rgba(124, 58, 237, 0.52) 26%, rgba(46, 16, 101, 0.85) 58%, #150734 100%),
+        linear-gradient(105deg, #12062d 0%, #240c59 48%, #4c1d95 100%);
+      padding: clamp(36px, 5.5vw, 68px) 24px clamp(38px, 5.5vw, 64px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     }
     .pf-hero-inner {
-      max-width: 1200px;
+      max-width: 1180px;
       margin: 0 auto;
       display: grid;
-      grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+      grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr);
       align-items: center;
-      gap: clamp(28px, 4vw, 56px);
+      gap: clamp(20px, 3vw, 40px);
     }
     .pf-hero-eyebrow {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 6px 14px;
-      border-radius: 999px;
-      background: rgba(255, 255, 255, 0.10);
-      border: 1px solid rgba(255, 255, 255, 0.20);
-      color: #f3e8ff;
-      font-size: 11.5px;
-      font-weight: 700;
-      letter-spacing: 0.08em;
+      display: inline-block;
+      color: rgba(233, 213, 255, 0.78);
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.14em;
       text-transform: uppercase;
-      margin-bottom: 20px;
-      backdrop-filter: blur(8px);
+      margin-bottom: 16px;
     }
     .pf-hero-left h1 {
-      font-size: clamp(38px, 5.4vw, 68px);
+      font-size: clamp(40px, 5.6vw, 74px);
       font-weight: 800;
-      line-height: 1.02;
+      line-height: 0.98;
       letter-spacing: -0.035em;
       color: #ffffff;
       text-transform: uppercase;
-      margin-bottom: 18px;
-      min-height: 2.15em;
+      margin-bottom: 20px;
+      min-height: 3.02em;
     }
     .pf-hero-sub {
-      font-size: clamp(14.5px, 1.5vw, 17px);
-      line-height: 1.62;
-      color: rgba(243, 232, 255, 0.86);
-      max-width: 520px;
-      margin-bottom: 28px;
+      font-size: clamp(15px, 1.6vw, 18px);
+      line-height: 1.52;
+      color: rgba(243, 232, 255, 0.90);
+      max-width: 440px;
+      margin-bottom: 26px;
+      font-weight: 500;
     }
-    .pf-hero-sub strong { color: #ffffff; }
     .pf-hero-cta-row {
       display: flex;
       align-items: center;
       flex-wrap: wrap;
       gap: 12px;
-      margin-bottom: 34px;
+      margin-bottom: 30px;
     }
     .pf-hero-white-btn {
       display: inline-flex;
       align-items: center;
       gap: 8px;
-      padding: 13px 26px;
-      border-radius: 10px;
+      padding: 13px 24px;
+      border-radius: 12px;
       border: 0;
       background: #ffffff;
-      color: #1e0842;
+      color: #140730;
       font-size: 13.5px;
       font-weight: 800;
       letter-spacing: 0.03em;
       text-transform: uppercase;
       cursor: pointer;
       text-decoration: none;
-      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.28);
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.25);
       transition: transform 0.15s ease, box-shadow 0.15s ease;
     }
-    .pf-hero-white-btn:hover { transform: translateY(-2px); box-shadow: 0 16px 38px rgba(0, 0, 0, 0.36); }
+    .pf-hero-white-btn:hover { transform: translateY(-2px); box-shadow: 0 14px 34px rgba(0, 0, 0, 0.34); }
     .pf-hero-outline-btn {
       display: inline-flex;
       align-items: center;
       gap: 8px;
       padding: 12px 22px;
-      border-radius: 10px;
-      border: 1px solid rgba(255, 255, 255, 0.30);
-      background: rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      border: 1.5px solid rgba(255, 255, 255, 0.42);
+      background: rgba(255, 255, 255, 0.06);
       color: #ffffff;
       font-size: 13px;
       font-weight: 700;
@@ -2564,41 +2556,20 @@ $__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
       backdrop-filter: blur(8px);
       transition: background 0.15s ease, border-color 0.15s ease;
     }
-    .pf-hero-outline-btn:hover { background: rgba(255, 255, 255, 0.16); border-color: rgba(255, 255, 255, 0.55); }
-    .pf-hero-rating {
-      display: inline-flex;
-      flex-direction: column;
-      gap: 1px;
-      padding-left: 6px;
-      font-size: 11px;
-      color: rgba(243, 232, 255, 0.85);
+    .pf-hero-outline-btn:hover { background: rgba(255, 255, 255, 0.14); border-color: rgba(255, 255, 255, 0.72); }
+    .pf-hero-stats-inline {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px 16px;
+      font-size: clamp(13.5px, 1.35vw, 16px);
       font-weight: 700;
-    }
-    .pf-hero-rating b { color: #fbbf24; letter-spacing: 1px; font-size: 13px; }
-    .pf-hero-stats {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 18px;
-      max-width: 480px;
-      padding-top: 20px;
-      border-top: 1px solid rgba(255, 255, 255, 0.16);
-    }
-    .pf-hstat strong {
-      display: block;
-      font-size: clamp(20px, 2.4vw, 28px);
-      font-weight: 800;
       color: #ffffff;
-      letter-spacing: -0.02em;
-      line-height: 1.15;
+      letter-spacing: -0.01em;
     }
-    .pf-hstat span {
-      display: block;
-      font-size: 10.5px;
-      font-weight: 700;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-      color: rgba(233, 213, 255, 0.78);
-      margin-top: 3px;
+    .pf-hero-stats-inline .sep {
+      color: rgba(255, 255, 255, 0.34);
+      font-weight: 400;
     }
     .pf-hero-right {
       display: flex;
@@ -2609,23 +2580,27 @@ $__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
     .pf-hero-robot-wrap {
       position: relative;
       width: 100%;
-      max-width: 470px;
+      max-width: 500px;
       border: 0;
       box-shadow: none;
-      background: radial-gradient(circle at 52% 48%, rgba(168, 85, 247, 0.42) 0%, rgba(124, 58, 237, 0.16) 44%, transparent 72%);
+      background: transparent;
     }
     .pf-hero-robot-wrap img {
       width: 100%;
       height: auto;
       display: block;
       object-fit: contain;
-      filter: drop-shadow(0 22px 46px rgba(12, 4, 32, 0.58));
+      filter: drop-shadow(0 20px 44px rgba(15, 4, 38, 0.50));
     }
     @media (max-width: 920px) {
+      .pf-hero-band {
+        background:
+          radial-gradient(circle at 50% 78%, rgba(168, 85, 247, 0.68) 0%, rgba(109, 40, 217, 0.42) 34%, #150734 88%);
+      }
       .pf-hero-inner { grid-template-columns: 1fr; text-align: center; }
       .pf-hero-sub { margin-left: auto; margin-right: auto; }
       .pf-hero-cta-row { justify-content: center; }
-      .pf-hero-stats { margin: 0 auto; }
+      .pf-hero-stats-inline { justify-content: center; }
       .pf-hero-robot-wrap { max-width: 340px; margin: 0 auto; }
     }
 
@@ -3080,25 +3055,23 @@ $__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
     <div class="pf-hero-band">
       <div class="pf-hero-inner">
         <div class="pf-hero-left">
-          <div class="pf-hero-eyebrow">&#10022; World-Class AI Video Platform</div>
+          <div class="pf-hero-eyebrow">World-Class AI Video Platform</div>
           <h1 aria-label="AI VIDEO. UNLIMITED. CREATION."><span id="heroTypedText"></span><span class="tw-cursor"></span></h1>
           <p class="pf-hero-sub">
-            PakFlow gives you direct 1-click access to <strong>Google Flow (Veo 3.1)</strong> &amp; <strong>Nano Banana Pro</strong> — turn simple prompts into cinematic AI videos that stand out.
+            Create cinema-grade AI videos powered by Google Flow Veo 3.1.
           </p>
           <div class="pf-hero-cta-row">
             <button type="button" class="pf-hero-white-btn" id="heroCreateBtn">
               Get Started Free <span>&#8599;</span>
             </button>
             <a href="/pricing" class="pf-hero-outline-btn">View Pricing</a>
-            <div class="pf-hero-rating">
-              <b>&#9733;&#9733;&#9733;&#9733;&#9733;</b>
-              <span>600+ Creator Ratings</span>
-            </div>
           </div>
-          <div class="pf-hero-stats">
-            <div class="pf-hstat"><strong>1-Click</strong><span>Chrome Sync</span></div>
-            <div class="pf-hstat"><strong>Veo 3.1</strong><span>Ultra Video</span></div>
-            <div class="pf-hstat"><strong>45,000</strong><span>AI Credits</span></div>
+          <div class="pf-hero-stats-inline">
+            <span>1-Click Sync</span>
+            <span class="sep">|</span>
+            <span>Veo 3.1 Ultra</span>
+            <span class="sep">|</span>
+            <span>45K+ Credits</span>
           </div>
         </div>
         <div class="pf-hero-right">
