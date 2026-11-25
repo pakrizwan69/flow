@@ -3581,7 +3581,7 @@ $__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
         </div>
         <div class="pf-footer-bottom">
           <span>&copy; 2026 PakFlow Studio. All rights reserved.</span>
-          <span class="pf-footer-dev">Developed by <a href="https://wa.me/923430641457?text=I%20want%20a%20website%20for%20my%20business" target="_blank" rel="noopener noreferrer">Aivrasol Softwares</a></span>
+          <span class="pf-footer-dev">Developed by <strong style="color:#c4b5fd;font-weight:700;">Aivrasol Softwares</strong></span>
         </div>
       </div>
     </footer>
@@ -3623,7 +3623,7 @@ $__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
           <div class="about-badge">✦ About PakFlow</div>
           <h2>What is <span>PakFlow?</span></h2>
           <p>
-            PakFlow, developed by <a href="https://wa.me/923430641457?text=I%20want%20a%20website%20for%20my%20business" target="_blank" rel="noopener noreferrer" style="color:inherit;text-decoration:none;border-bottom:1px dashed rgba(196,181,253,0.45);"><strong>Aivrasol Softwares</strong></a>, is a Pakistan-based platform that gives creators direct access to <strong>Google Flow (Veo 3.1)</strong> with our <strong>1-Click Extension</strong> — without the complicated billing setup, expensive per-video costs, or technical hassle.
+            PakFlow, developed by <strong>Aivrasol Softwares</strong>, is a Pakistan-based platform that gives creators direct access to <strong>Google Flow (Veo 3.1)</strong> with our <strong>1-Click Extension</strong> — without the complicated billing setup, expensive per-video costs, or technical hassle.
           </p>
           <p style="margin-top:-12px;margin-bottom:26px;font-size:14px;">
             Need help? Contact Support: <a href="mailto:support@flowbypak.com" style="color:#c4b5fd;font-weight:600;text-decoration:none;">support@flowbypak.com</a>
@@ -3635,7 +3635,7 @@ $__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
           <div class="about-dev-box" style="justify-content:center;text-align:center;">
             <div class="about-dev-info" style="align-items:center;">
               <span class="about-dev-label">Designed &amp; Engineered By</span>
-              <a class="about-dev-name" href="https://wa.me/923430641457?text=I%20want%20a%20website%20for%20my%20business" target="_blank" rel="noopener noreferrer">Aivrasol Softwares</a>
+              <span class="about-dev-name">Aivrasol Softwares</span>
             </div>
           </div>
         </div>
@@ -3693,7 +3693,7 @@ $__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
         </div>
         <div class="pf-footer-bottom">
           <span>&copy; 2026 PakFlow Studio. All rights reserved.</span>
-          <span class="pf-footer-dev">Developed by <a href="https://wa.me/923430641457?text=I%20want%20a%20website%20for%20my%20business" target="_blank" rel="noopener noreferrer">Aivrasol Softwares</a></span>
+          <span class="pf-footer-dev">Developed by <strong style="color:#c4b5fd;font-weight:700;">Aivrasol Softwares</strong></span>
         </div>
       </div>
     </footer>
@@ -4179,7 +4179,7 @@ $__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
         </div>
         <div class="pf-footer-bottom">
           <span>&copy; 2026 PakFlow Studio. All rights reserved.</span>
-          <span class="pf-footer-dev">Developed by <a href="https://wa.me/923430641457?text=I%20want%20a%20website%20for%20my%20business" target="_blank" rel="noopener noreferrer">Aivrasol Softwares</a></span>
+          <span class="pf-footer-dev">Developed by <strong style="color:#c4b5fd;font-weight:700;">Aivrasol Softwares</strong></span>
         </div>
       </div>
     </footer>

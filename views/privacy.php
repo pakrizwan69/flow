@@ -346,7 +346,7 @@ $__pfUpdated = 'November 25, 2026';
       </div>
       <div class="pf-footer-bottom">
         <span>&copy; <?= date('Y') ?> PakFlow Studio. All rights reserved.</span>
-        <span class="pf-footer-dev">Developed by <a href="https://wa.me/923430641457?text=I%20want%20a%20website%20for%20my%20business" target="_blank" rel="noopener noreferrer">Aivrasol Softwares</a></span>
+        <span class="pf-footer-dev">Developed by <strong style="color:#c4b5fd;font-weight:700;">Aivrasol Softwares</strong></span>
       </div>
     </div>
   </footer>
