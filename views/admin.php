@@ -275,7 +275,10 @@
       gap: 12px;
     }
     .kpi-grid.kpi-grid-5 {
-      grid-template-columns: repeat(5, minmax(0, 1fr));
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+    }
+    @media (max-width: 1380px) {
+      .kpi-grid.kpi-grid-5 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     }
     @media (max-width: 1279px) {
       .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -687,11 +690,19 @@
             </div>
             <div class="kpi-card">
               <div class="kpi-top">
-                <span>Active Demo</span>
-                <span class="kpi-icon amber"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></span>
+                <span>Site Free Trial</span>
+                <span class="kpi-icon emerald"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></span>
               </div>
-              <div class="kpi-val" id="kpiActiveDemo" style="color:#a78bfa;">0</div>
-              <div class="kpi-sub" id="kpiActiveDemoSub">Live demo users</div>
+              <div class="kpi-val" id="kpiSiteTrial" style="color:#38bdf8;">0</div>
+              <div class="kpi-sub" id="kpiSiteTrialSub">0 total · Auto Slot</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-top">
+                <span>Reseller Demo</span>
+                <span class="kpi-icon amber"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+              </div>
+              <div class="kpi-val" id="kpiResellerDemo" style="color:#a78bfa;">0</div>
+              <div class="kpi-sub" id="kpiResellerDemoSub">0 total reseller demos</div>
             </div>
           </div>
 
@@ -1215,51 +1226,66 @@
 
         <!-- VIEW 5: SUBSCRIPTION PLANS & PRICING (RESTORED FROM OLD ADMIN PANEL) -->
         <section id="view-plans" class="view-pane hidden">
-          <!-- Public Self-Service Demo Control Card -->
+          <!-- Public Self-Service Free Trial Control Card (Separate from Reseller Demo) -->
           <div class="card" style="margin-bottom:16px;border-color:rgba(139,92,246,0.32);">
             <div class="card-head">
               <div>
-                <h3 class="card-title">Public Free Demo Control <span id="demoStatusBadge" class="badge badge-muted" style="margin-left:8px;">OFF</span></h3>
-                <p class="card-desc">Turn Free Demo ON/OFF on the site pricing page. When ON, new users can self-activate 1 Demo per IP &amp; Device ID.</p>
+                <h3 class="card-title">Public Site Free Trial Control <span id="demoStatusBadge" class="badge badge-muted" style="margin-left:8px;">OFF</span></h3>
+                <p class="card-desc">Controls the Free Trial on your main Pricing/Home page (completely separate from Reseller 2h Demo). Set any duration in Hours or Days &amp; lock all Site Trial users to a specific Cookie Slot.</p>
               </div>
-              <button id="saveDemoConfigBtn" type="button" class="btn btn-emerald">Save Demo Settings</button>
+              <button id="saveDemoConfigBtn" type="button" class="btn btn-emerald">Save Trial Settings</button>
             </div>
             <div class="toggle-row" style="margin-bottom:14px;">
               <div>
-                <strong>Enable Free Demo on Site (Plans &amp; Self-Activation)</strong>
-                <span id="demoToggleSub">When OFF, Free Demo card is hidden from Home &amp; Pricing pages and self-activation is blocked.</span>
+                <strong>Enable Free Trial on Site (Home &amp; Pricing Self-Activation)</strong>
+                <span id="demoToggleSub">When OFF, Free Trial card is hidden from Home &amp; Pricing pages and self-activation is blocked.</span>
               </div>
               <input id="demoEnabledToggle" type="checkbox" class="switch" />
             </div>
-            <div class="grid-3">
+            <div class="grid-2" style="margin-bottom:8px;">
               <div class="field">
-                <label for="demoDurationVal">Demo Duration</label>
-                <input id="demoDurationVal" class="input" type="number" min="0.5" max="365" step="any" value="2" />
+                <label for="demoDurationVal">Trial Duration (Any Hours or Days)</label>
+                <div style="display:flex;gap:8px;">
+                  <input id="demoDurationVal" class="input" type="number" min="0.5" max="365" step="any" value="2" style="flex:1;" />
+                  <select id="demoDurationUnit" class="select" style="width:130px;">
+                    <option value="hours">Hours</option>
+                    <option value="days">Days</option>
+                  </select>
+                </div>
               </div>
               <div class="field">
-                <label for="demoDurationUnit">Duration Unit (Hours / Days)</label>
-                <select id="demoDurationUnit" class="select">
-                  <option value="hours">Hours</option>
-                  <option value="days">Days</option>
-                </select>
-              </div>
-              <div class="field">
-                <label for="demoCreditsVal">Demo AI Credits</label>
+                <label for="demoCreditsVal">Site Trial AI Credits</label>
                 <input id="demoCreditsVal" class="input" type="number" min="50" step="100" value="2000" />
               </div>
+            </div>
+            <div class="field" style="margin-bottom:12px;">
+              <label for="demoAssignedSlot">Dedicated Cookie Session Slot (Site Trial Users ONLY)</label>
+              <select id="demoAssignedSlot" class="select">
+                <option value="0">Auto / Normal Server Pool (No Lock)</option>
+                <option value="1">Lock Site Trial Users to Slot 1 ONLY</option>
+                <option value="2">Lock Site Trial Users to Slot 2 ONLY</option>
+                <option value="3">Lock Site Trial Users to Slot 3 ONLY</option>
+                <option value="4">Lock Site Trial Users to Slot 4 ONLY</option>
+                <option value="5">Lock Site Trial Users to Slot 5 ONLY</option>
+                <option value="6">Lock Site Trial Users to Slot 6 ONLY</option>
+                <option value="7">Lock Site Trial Users to Slot 7 ONLY</option>
+                <option value="8">Lock Site Trial Users to Slot 8 ONLY</option>
+                <option value="9">Lock Site Trial Users to Slot 9 ONLY</option>
+                <option value="10">Lock Site Trial Users to Slot 10 ONLY</option>
+              </select>
             </div>
             <div class="grid-2" style="margin-top:4px;">
               <div class="toggle-row" style="margin-bottom:0;">
                 <div>
-                  <strong>1 IP = 1 Demo Account</strong>
-                  <span>Blocks repeat demo claims from the same IP address.</span>
+                  <strong>1 IP = 1 Free Trial</strong>
+                  <span>Blocks repeat trial claims from the same IP address.</span>
                 </div>
                 <input id="demoOnePerIp" type="checkbox" class="switch" checked />
               </div>
               <div class="toggle-row" style="margin-bottom:0;">
                 <div>
-                  <strong>1 Device ID = 1 Demo Account</strong>
-                  <span>Tracks browser/device ID to block multiple demos on same PC/phone.</span>
+                  <strong>1 Device ID = 1 Free Trial</strong>
+                  <span>Tracks browser/device ID to block multiple trials on same PC/phone.</span>
                 </div>
                 <input id="demoOnePerDevice" type="checkbox" class="switch" checked />
               </div>
@@ -2281,6 +2307,8 @@
           activeDemo: Number(data.stats.activeDemo || 0),
           activeDemoSite: Number(data.stats.activeDemoSite || 0),
           activeDemoReseller: Number(data.stats.activeDemoReseller || 0),
+          totalDemoSite: Number(data.stats.totalDemoSite || 0),
+          totalDemoReseller: Number(data.stats.totalDemoReseller || 0),
           totalDemo: Number(data.stats.totalDemo || 0),
           expired: Number(data.stats.expired || 0),
           suspended: Number(data.stats.suspended || 0),
@@ -2411,18 +2439,23 @@
 
     // ── Render: Users ──
     function renderUsers() {
-      const stStats = state.usersStats || { total: 0, active: 0, activeDemo: 0, activeDemoSite: 0, activeDemoReseller: 0, totalDemo: 0, expired: 0, suspended: 0 };
-      const activeDemoCount = Number(stStats.activeDemo ?? (state.stats && state.stats.activeDemoUsers) ?? 0);
+      const stStats = state.usersStats || { total: 0, active: 0, activeDemo: 0, activeDemoSite: 0, activeDemoReseller: 0, totalDemoSite: 0, totalDemoReseller: 0, totalDemo: 0, expired: 0, suspended: 0 };
       const activeDemoSite = Number(stStats.activeDemoSite ?? 0);
       const activeDemoRes = Number(stStats.activeDemoReseller ?? 0);
-      const totalDemoCount = Number(stStats.totalDemo ?? (state.stats && state.stats.totalDemoUsers) ?? 0);
+      const totalDemoSite = Number(stStats.totalDemoSite ?? 0);
+      const totalDemoRes = Number(stStats.totalDemoReseller ?? 0);
+      const assignedTrialSlot = Number((state.settings && state.settings.demoConfig && state.settings.demoConfig.assignedSlot) || 0);
       $('kpiTotal').textContent = stStats.total.toLocaleString();
       $('kpiActive').textContent = stStats.active.toLocaleString();
       $('kpiExpired').textContent = stStats.expired.toLocaleString();
       $('kpiSuspended').textContent = stStats.suspended.toLocaleString();
-      if ($('kpiActiveDemo')) $('kpiActiveDemo').textContent = activeDemoCount.toLocaleString();
-      if ($('kpiActiveDemoSub')) {
-        $('kpiActiveDemoSub').textContent = 'Site: ' + activeDemoSite.toLocaleString() + ' · Reseller: ' + activeDemoRes.toLocaleString() + ' (' + totalDemoCount.toLocaleString() + ' total)';
+      if ($('kpiSiteTrial')) $('kpiSiteTrial').textContent = activeDemoSite.toLocaleString();
+      if ($('kpiSiteTrialSub')) {
+        $('kpiSiteTrialSub').textContent = totalDemoSite.toLocaleString() + ' total · ' + (assignedTrialSlot >= 1 ? ('Slot ' + assignedTrialSlot) : 'Auto Slot');
+      }
+      if ($('kpiResellerDemo')) $('kpiResellerDemo').textContent = activeDemoRes.toLocaleString();
+      if ($('kpiResellerDemoSub')) {
+        $('kpiResellerDemoSub').textContent = totalDemoRes.toLocaleString() + ' total reseller demos';
       }
       $('navUsersCount').textContent = stStats.total.toLocaleString();
 
@@ -3898,11 +3931,13 @@
           ? Math.max(1, Math.min(365, Math.round(Number.isFinite(rawVal) ? rawVal : 1)))
           : Math.max(0.5, Math.min(720, Math.round((Number.isFinite(rawVal) ? rawVal : 2) * 10) / 10));
         const credits = Math.max(50, parseInt($('demoCreditsVal')?.value || '2000', 10) || 2000);
+        const assignedSlot = Math.max(0, Math.min(10, parseInt($('demoAssignedSlot')?.value || '0', 10) || 0));
         const demoConfig = {
           enabled: Boolean($('demoEnabledToggle')?.checked),
           durationValue: val,
           durationUnit: unit,
           credits,
+          assignedSlot,
           onePerIp: Boolean($('demoOnePerIp')?.checked),
           onePerDevice: Boolean($('demoOnePerDevice')?.checked),
         };
@@ -3915,7 +3950,8 @@
           }
           syncDemoStatusBadge();
           renderPlansEditor(state.settings || { demoConfig });
-          showToast('Demo settings saved (' + (demoConfig.enabled ? 'ON' : 'OFF') + ' · ' + val + ' ' + unit + ')');
+          renderUsers();
+          showToast('Site Trial settings saved (' + (demoConfig.enabled ? 'ON' : 'OFF') + ' · ' + val + ' ' + unit + (assignedSlot ? ' · Slot ' + assignedSlot : '') + ')');
         } catch (err) { showToast(err.message, true); }
         finally { btn.disabled = false; }
       });
@@ -3929,6 +3965,7 @@
       if ($('demoDurationVal')) $('demoDurationVal').value = dc.durationValue ?? 2;
       if ($('demoDurationUnit')) $('demoDurationUnit').value = dc.durationUnit === 'days' ? 'days' : 'hours';
       if ($('demoCreditsVal')) $('demoCreditsVal').value = dc.credits ?? (plans.demo && plans.demo.credits) ?? 2000;
+      if ($('demoAssignedSlot')) $('demoAssignedSlot').value = String(dc.assignedSlot ?? 0);
       if ($('demoOnePerIp')) $('demoOnePerIp').checked = dc.onePerIp !== false;
       if ($('demoOnePerDevice')) $('demoOnePerDevice').checked = dc.onePerDevice !== false;
       syncDemoStatusBadge();

@@ -496,6 +496,12 @@ final class CookieSlotRoutes
 
         $activeSlot = null;
         $assignedIndex = 0;
+        $forcedTrialSlot = !$isNanoMode ? Helpers::getSiteTrialAssignedSlot($access['user'] ?? null) : 0;
+        if ($forcedTrialSlot >= 1 && $forcedTrialSlot <= 10) {
+            $requestedNum = $forcedTrialSlot;
+            $forceRotate = false;
+            $activeSlots = array_values(array_filter($poolSlots, fn($s) => (int)$s['slotNumber'] === $forcedTrialSlot));
+        }
         if (!$forceRotate && $requestedNum !== null) {
             foreach ($poolSlots as $s) {
                 if ((int)$s['slotNumber'] === $requestedNum && !empty($s['cookies'])) {
@@ -647,6 +653,12 @@ final class CookieSlotRoutes
         }
 
         $num = str_starts_with($id, 'slot_') ? (int)substr($id, 5) : (ctype_digit($id) ? (int)$id : 0);
+        if ($num >= 1 && $num <= 10) {
+            $forcedTrialSlot = Helpers::getSiteTrialAssignedSlot($access['user'] ?? null);
+            if ($forcedTrialSlot >= 1 && $forcedTrialSlot <= 10) {
+                $num = $forcedTrialSlot;
+            }
+        }
         $targetSlot = ($num >= 1 && $num <= 15) ? Db::readSlotByNumber($num) : null;
         if ($targetSlot) {
             $resolvedSlot = $targetSlot;

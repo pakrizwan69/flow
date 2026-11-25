@@ -437,6 +437,8 @@ public const ADMIN_PASSWORD = 'admin@123';
         }
         $rawCr = $cfg['credits'] ?? ($demoPlan['credits'] ?? ($settings['resellerPlanCredits']['demo'] ?? 2000));
         $credits = is_numeric($rawCr) ? max(50, min(1000000, (int)$rawCr)) : 2000;
+        $rawSlot = $cfg['assignedSlot'] ?? 0;
+        $assignedSlot = (is_numeric($rawSlot) && (int)$rawSlot >= 1 && (int)$rawSlot <= 10) ? (int)$rawSlot : 0;
 
         return [
             'enabled' => $enabled,
@@ -445,9 +447,35 @@ public const ADMIN_PASSWORD = 'admin@123';
             'durationSeconds' => $seconds,
             'durationLabel' => $label,
             'credits' => $credits,
+            'assignedSlot' => $assignedSlot,
             'onePerIp' => !array_key_exists('onePerIp', $cfg) || !empty($cfg['onePerIp']),
             'onePerDevice' => !array_key_exists('onePerDevice', $cfg) || !empty($cfg['onePerDevice']),
         ];
+    }
+
+    public static function isSiteTrialUser(?array $user): bool
+    {
+        if (!is_array($user)) {
+            return false;
+        }
+        if (!self::isDemoUser($user)) {
+            return false;
+        }
+        // Reseller demos have resellerId set; public site trials have no resellerId (or explicit demoSource === 'site')
+        if (strtolower((string)($user['demoSource'] ?? '')) === 'site') {
+            return true;
+        }
+        return empty($user['resellerId']);
+    }
+
+    public static function getSiteTrialAssignedSlot(?array $user, ?array $settings = null): int
+    {
+        if (!self::isSiteTrialUser($user)) {
+            return 0;
+        }
+        $dc = self::getDemoConfig($settings);
+        $slot = (int)($dc['assignedSlot'] ?? 0);
+        return ($slot >= 1 && $slot <= 10) ? $slot : 0;
     }
 
     public static function isUserPlanExpired(array $user): bool
@@ -1487,6 +1515,27 @@ public const ADMIN_PASSWORD = 'admin@123';
             $nextShuffleTs = ($bucket + 1) * $intervalSec;
         }
         $period = $enabled ? ($bucket + ($epoch * 100000)) : $epoch;
+
+        $forcedTrialSlot = self::getSiteTrialAssignedSlot($user, $settings);
+        if ($forcedTrialSlot >= 1 && $forcedTrialSlot <= 10) {
+            return [
+                'defaultSlot' => $forcedTrialSlot,
+                'defaultSlotId' => 'slot_' . $forcedTrialSlot,
+                'shuffleEnabled' => false,
+                'shuffleIntervalMinutes' => $intervalMin,
+                'shuffleEpoch' => $epoch,
+                'shufflePeriod' => 'trial-' . $forcedTrialSlot,
+                'shuffleAnchorTs' => $now,
+                'serverTime' => $now,
+                'nextShuffleTs' => $nextShuffleTs,
+                'remainingSeconds' => 0,
+                'nextShuffleAt' => null,
+                'lastShuffledAt' => $cfg['lastShuffledAt'] ?? null,
+                'poolSlots' => [$forcedTrialSlot],
+                'activePoolCount' => 1,
+                'lockedToTrialSlot' => true,
+            ];
+        }
 
         $assigned = $fallbackDefault;
         if ($enabled && !empty($pool)) {

@@ -1468,6 +1468,7 @@ final class AuthRoutes
 
         $user['plan'] = 'demo';
         $user['isDemo'] = true;
+        $user['demoSource'] = 'site';
         $user['status'] = 'active';
         $user['demoHours'] = $demoHours;
         $user['demoDurationValue'] = $demoCfg['durationValue'];

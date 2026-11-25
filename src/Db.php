@@ -1202,6 +1202,7 @@ final class Db
                 'durationValue' => 2,
                 'durationUnit' => 'hours',
                 'credits' => 2000,
+                'assignedSlot' => 0,
                 'onePerIp' => true,
                 'onePerDevice' => true,
             ],
