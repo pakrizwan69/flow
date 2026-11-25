@@ -3105,7 +3105,7 @@ $__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
         </div>
         <div class="pf-hero-right">
           <div class="pf-hero-robot-wrap">
-            <img src="/assets/pakflow-hero-robot.jpg" alt="PakFlow 3D AI Cinema Studio" fetchpriority="high" />
+            <img src="/assets/pakflow-hero-robot.jpg?v=2" alt="PakFlow 3D AI Cinema Studio" fetchpriority="high" />
           </div>
         </div>
       </div>
