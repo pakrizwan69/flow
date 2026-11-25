@@ -846,6 +846,26 @@
       if (homeUltraMenuOpen) refreshHomeUltraAccountData();
     };
 
+    const tagNativeDialogCloseButtons = () => {
+      try {
+        const dialogs = document.querySelectorAll('[data-radix-popper-content-wrapper], .cdk-overlay-pane, [role="dialog"]:not(#pakflow-home-ultra-popover)');
+        for (const dlg of dialogs) {
+          const dlgRect = dlg.getBoundingClientRect();
+          if (dlgRect.width < 120 || dlgRect.height < 120) continue;
+          const btns = dlg.querySelectorAll('button');
+          for (const b of btns) {
+            const br = b.getBoundingClientRect();
+            const txt = String(b.textContent || '').trim().toLowerCase();
+            const aria = String(b.getAttribute('aria-label') || '').trim().toLowerCase();
+            const isSmallTopRight = br.width > 0 && br.width <= 52 && br.height <= 52 && (br.top - dlgRect.top) <= 64 && (dlgRect.right - br.right) <= 64;
+            if (isSmallTopRight || txt === 'close' || txt === '×' || txt === 'x' || aria.includes('close') || aria.includes('đóng')) {
+              b.setAttribute('data-pakflow-allow-close', 'true');
+            }
+          }
+        }
+      } catch {}
+    };
+
     pillBtn?.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -863,8 +883,11 @@
           setMenuOpen(false);
           const hadDialogBefore = Boolean(document.querySelector('[data-radix-popper-content-wrapper], .cdk-overlay-pane, [role="dialog"]:not(#pakflow-home-ultra-popover)'));
           nativeBtn.click();
+          setTimeout(tagNativeDialogCloseButtons, 40);
+          setTimeout(tagNativeDialogCloseButtons, 160);
           if (!hadDialogBefore) {
             setTimeout(() => {
+              tagNativeDialogCloseButtons();
               const hasNativeOpen = Boolean(document.querySelector('[data-radix-popper-content-wrapper], .cdk-overlay-pane, [role="dialog"]:not(#pakflow-home-ultra-popover)'));
               if (!hasNativeOpen) setMenuOpen(true);
             }, 180);

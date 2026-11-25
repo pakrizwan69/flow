@@ -42,13 +42,59 @@ html[data-pakflow-flow-home="true"] body > *:not(#pakflow-my-projects-root):not(
   pointer-events: none !important;
 }
 html[data-pakflow-flow-home="true"] body > .cdk-overlay-container,
-html[data-pakflow-flow-home="true"] body > .cdk-overlay-container *,
 html[data-pakflow-flow-home="true"] body > [data-radix-popper-content-wrapper],
+html[data-pakflow-flow-home="true"] body [role="dialog"]:not(#pakflow-home-ultra-popover) {
+  visibility: visible !important;
+  z-index: 2147483645 !important;
+}
+html[data-pakflow-flow-home="true"] body > .cdk-overlay-container *,
 html[data-pakflow-flow-home="true"] body > [data-radix-popper-content-wrapper] *,
-html[data-pakflow-flow-home="true"] body [role="dialog"]:not(#pakflow-home-ultra-popover),
 html[data-pakflow-flow-home="true"] body [role="dialog"]:not(#pakflow-home-ultra-popover) * {
   visibility: visible !important;
+}
+/* Backdrop click closes native dialog cleanly */
+html[data-pakflow-flow-home="true"] body > .cdk-overlay-container .cdk-overlay-backdrop {
   pointer-events: auto !important;
+}
+/* Match 2nd-screen behavior: keep all links & account buttons inside homepage native dialog unclickable... */
+html[data-pakflow-flow-home="true"] body > .cdk-overlay-container a,
+html[data-pakflow-flow-home="true"] body > .cdk-overlay-container button,
+html[data-pakflow-flow-home="true"] body > [data-radix-popper-content-wrapper] a,
+html[data-pakflow-flow-home="true"] body > [data-radix-popper-content-wrapper] button,
+html[data-pakflow-flow-home="true"] body [role="dialog"]:not(#pakflow-home-ultra-popover) a,
+html[data-pakflow-flow-home="true"] body [role="dialog"]:not(#pakflow-home-ultra-popover) button {
+  pointer-events: none !important;
+  cursor: default !important;
+}
+/* ...EXCEPT the Close (X) button and the Visible Watermarking toggle switch! */
+html[data-pakflow-flow-home="true"] body [role="dialog"]:not(#pakflow-home-ultra-popover) button[aria-label*="close" i],
+html[data-pakflow-flow-home="true"] body [role="dialog"]:not(#pakflow-home-ultra-popover) button[aria-label*="dismiss" i],
+html[data-pakflow-flow-home="true"] body [role="dialog"]:not(#pakflow-home-ultra-popover) button[mat-dialog-close],
+html[data-pakflow-flow-home="true"] body [role="dialog"]:not(#pakflow-home-ultra-popover) [data-pakflow-allow-close="true"],
+html[data-pakflow-flow-home="true"] body [role="dialog"]:not(#pakflow-home-ultra-popover) [role="switch"],
+html[data-pakflow-flow-home="true"] body [role="dialog"]:not(#pakflow-home-ultra-popover) [aria-checked],
+html[data-pakflow-flow-home="true"] body [role="dialog"]:not(#pakflow-home-ultra-popover) mat-slide-toggle,
+html[data-pakflow-flow-home="true"] body [role="dialog"]:not(#pakflow-home-ultra-popover) mat-slide-toggle *,
+html[data-pakflow-flow-home="true"] body [role="dialog"]:not(#pakflow-home-ultra-popover) .mdc-switch,
+html[data-pakflow-flow-home="true"] body [role="dialog"]:not(#pakflow-home-ultra-popover) .mdc-switch *,
+html[data-pakflow-flow-home="true"] body [role="dialog"]:not(#pakflow-home-ultra-popover) input[type="checkbox"],
+html[data-pakflow-flow-home="true"] body > .cdk-overlay-container button[aria-label*="close" i],
+html[data-pakflow-flow-home="true"] body > .cdk-overlay-container button[mat-dialog-close],
+html[data-pakflow-flow-home="true"] body > .cdk-overlay-container [data-pakflow-allow-close="true"],
+html[data-pakflow-flow-home="true"] body > .cdk-overlay-container [role="switch"],
+html[data-pakflow-flow-home="true"] body > .cdk-overlay-container [aria-checked],
+html[data-pakflow-flow-home="true"] body > .cdk-overlay-container mat-slide-toggle,
+html[data-pakflow-flow-home="true"] body > .cdk-overlay-container mat-slide-toggle *,
+html[data-pakflow-flow-home="true"] body > .cdk-overlay-container .mdc-switch,
+html[data-pakflow-flow-home="true"] body > .cdk-overlay-container .mdc-switch *,
+html[data-pakflow-flow-home="true"] body > .cdk-overlay-container input[type="checkbox"],
+html[data-pakflow-flow-home="true"] body > [data-radix-popper-content-wrapper] button[aria-label*="close" i],
+html[data-pakflow-flow-home="true"] body > [data-radix-popper-content-wrapper] [data-pakflow-allow-close="true"],
+html[data-pakflow-flow-home="true"] body > [data-radix-popper-content-wrapper] [role="switch"],
+html[data-pakflow-flow-home="true"] body > [data-radix-popper-content-wrapper] [aria-checked],
+html[data-pakflow-flow-home="true"] body > [data-radix-popper-content-wrapper] input[type="checkbox"] {
+  pointer-events: auto !important;
+  cursor: pointer !important;
 }
 
 /* Keep 3-dots near ULTRA unclickable and block Delete Project trash buttons so shared users can NEVER delete main account projects */
