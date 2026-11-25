@@ -615,6 +615,7 @@ if (
         Http::json([
             'status' => 'ok',
             'app' => 'flowbypak-frontend',
+            'deployBuild' => 'kvm2-live-v1',
             'runtime' => 'php-' . PHP_VERSION,
             'timestamp' => \App\Db::isoNow(),
             'backendConfigured' => $backendUrl !== '',
