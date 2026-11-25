@@ -2345,6 +2345,554 @@ $__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
       .topbar { padding: 14px 16px; }
       .dropdown { right: 16px; }
     }
+
+    /* ── Option B Theme: Electric Purple 3D Hero + Alternating Light/Dark SaaS + Responsive Hamburger ── */
+    .landing-nav-outer {
+      background: rgba(8, 7, 14, 0.90) !important;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+    }
+    .landing-nav { padding: 13px 24px !important; }
+    .btn-pill-sm {
+      background: linear-gradient(135deg, #8b5cf6, #6d28d9) !important;
+      color: #ffffff !important;
+      box-shadow: 0 6px 20px rgba(124, 58, 237, 0.35);
+    }
+    .mob-menu-btn {
+      display: none;
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      background: rgba(255, 255, 255, 0.05);
+      color: #ffffff;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: background 0.15s ease, border-color 0.15s ease;
+    }
+    .mob-menu-btn:hover { background: rgba(139, 92, 246, 0.22); border-color: rgba(167, 139, 250, 0.45); }
+    @media (max-width: 860px) {
+      .landing-links,
+      .landing-actions { display: none !important; }
+      .mob-menu-btn { display: inline-flex; }
+    }
+    .mob-drawer-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(4, 3, 10, 0.72);
+      backdrop-filter: blur(6px);
+      z-index: 9998;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+    .mob-drawer-backdrop.open { opacity: 1; pointer-events: auto; }
+    .mob-drawer {
+      position: fixed;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      width: min(320px, 86vw);
+      background: #0b0914;
+      border-left: 1px solid rgba(139, 92, 246, 0.28);
+      box-shadow: -20px 0 60px rgba(0, 0, 0, 0.75);
+      z-index: 9999;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      transform: translateX(102%);
+      transition: transform 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .mob-drawer.open { transform: translateX(0); }
+    .mob-drawer-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-bottom: 14px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .mob-drawer-close {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(255, 255, 255, 0.05);
+      color: #e4e4e7;
+      font-size: 20px;
+      line-height: 1;
+      cursor: pointer;
+    }
+    .mob-drawer-links {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .mob-drawer-links a {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 14px;
+      border-radius: 12px;
+      color: #e4e4e7;
+      text-decoration: none;
+      font-size: 14.5px;
+      font-weight: 600;
+      border: 1px solid transparent;
+      transition: background 0.15s ease, border-color 0.15s ease;
+    }
+    .mob-drawer-links a:hover,
+    .mob-drawer-links a.active {
+      background: rgba(139, 92, 246, 0.16);
+      border-color: rgba(167, 139, 250, 0.32);
+      color: #ffffff;
+    }
+    .mob-drawer-actions {
+      margin-top: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding-top: 14px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .mob-drawer-actions button,
+    .mob-drawer-actions a {
+      width: 100%;
+      text-align: center;
+      text-decoration: none;
+      padding: 12px 16px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    /* Electric Purple 3D Hero */
+    .pf-hero-band {
+      position: relative;
+      width: 100%;
+      overflow: hidden;
+      background:
+        radial-gradient(ellipse 65% 75% at 78% 45%, rgba(168, 85, 247, 0.42), transparent 62%),
+        radial-gradient(ellipse 55% 60% at 18% 20%, rgba(124, 58, 237, 0.45), transparent 65%),
+        linear-gradient(135deg, #1e0842 0%, #3b0f7a 46%, #5b21b6 100%);
+      padding: clamp(40px, 6vw, 76px) 24px clamp(44px, 6vw, 72px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.10);
+    }
+    .pf-hero-inner {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+      align-items: center;
+      gap: clamp(28px, 4vw, 56px);
+    }
+    .pf-hero-eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.10);
+      border: 1px solid rgba(255, 255, 255, 0.20);
+      color: #f3e8ff;
+      font-size: 11.5px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 20px;
+      backdrop-filter: blur(8px);
+    }
+    .pf-hero-left h1 {
+      font-size: clamp(38px, 5.4vw, 68px);
+      font-weight: 800;
+      line-height: 1.02;
+      letter-spacing: -0.035em;
+      color: #ffffff;
+      text-transform: uppercase;
+      margin-bottom: 18px;
+      min-height: 2.15em;
+    }
+    .pf-hero-sub {
+      font-size: clamp(14.5px, 1.5vw, 17px);
+      line-height: 1.62;
+      color: rgba(243, 232, 255, 0.86);
+      max-width: 520px;
+      margin-bottom: 28px;
+    }
+    .pf-hero-sub strong { color: #ffffff; }
+    .pf-hero-cta-row {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 34px;
+    }
+    .pf-hero-white-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 13px 26px;
+      border-radius: 10px;
+      border: 0;
+      background: #ffffff;
+      color: #1e0842;
+      font-size: 13.5px;
+      font-weight: 800;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      cursor: pointer;
+      text-decoration: none;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.28);
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .pf-hero-white-btn:hover { transform: translateY(-2px); box-shadow: 0 16px 38px rgba(0, 0, 0, 0.36); }
+    .pf-hero-outline-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 22px;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.30);
+      background: rgba(255, 255, 255, 0.08);
+      color: #ffffff;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      text-decoration: none;
+      backdrop-filter: blur(8px);
+      transition: background 0.15s ease, border-color 0.15s ease;
+    }
+    .pf-hero-outline-btn:hover { background: rgba(255, 255, 255, 0.16); border-color: rgba(255, 255, 255, 0.55); }
+    .pf-hero-rating {
+      display: inline-flex;
+      flex-direction: column;
+      gap: 1px;
+      padding-left: 6px;
+      font-size: 11px;
+      color: rgba(243, 232, 255, 0.85);
+      font-weight: 700;
+    }
+    .pf-hero-rating b { color: #fbbf24; letter-spacing: 1px; font-size: 13px; }
+    .pf-hero-stats {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 18px;
+      max-width: 480px;
+      padding-top: 20px;
+      border-top: 1px solid rgba(255, 255, 255, 0.16);
+    }
+    .pf-hstat strong {
+      display: block;
+      font-size: clamp(20px, 2.4vw, 28px);
+      font-weight: 800;
+      color: #ffffff;
+      letter-spacing: -0.02em;
+      line-height: 1.15;
+    }
+    .pf-hstat span {
+      display: block;
+      font-size: 10.5px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: rgba(233, 213, 255, 0.78);
+      margin-top: 3px;
+    }
+    .pf-hero-right {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+    .pf-hero-robot-wrap {
+      position: relative;
+      width: 100%;
+      max-width: 440px;
+      border-radius: 28px;
+      overflow: hidden;
+      box-shadow: 0 30px 70px rgba(15, 4, 38, 0.55);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+    }
+    .pf-hero-robot-wrap img {
+      width: 100%;
+      height: auto;
+      display: block;
+      object-fit: cover;
+    }
+    @media (max-width: 920px) {
+      .pf-hero-inner { grid-template-columns: 1fr; text-align: center; }
+      .pf-hero-sub { margin-left: auto; margin-right: auto; }
+      .pf-hero-cta-row { justify-content: center; }
+      .pf-hero-stats { margin: 0 auto; }
+      .pf-hero-robot-wrap { max-width: 340px; margin: 0 auto; }
+    }
+
+    /* Crisp White Live Preview Band */
+    .pf-white-band {
+      width: 100%;
+      background: #ffffff;
+      color: #0f172a;
+      padding: clamp(48px, 6vw, 76px) 24px;
+    }
+    .pf-lilac-band {
+      width: 100%;
+      background: #f5f3ff;
+      color: #0f172a;
+      padding: clamp(48px, 6vw, 76px) 24px;
+    }
+    .pf-dark-band {
+      width: 100%;
+      background: #08070f;
+      color: #ffffff;
+      padding: clamp(52px, 6vw, 84px) 24px;
+    }
+    .pf-container { max-width: 1120px; margin: 0 auto; width: 100%; }
+    .pf-preview-label {
+      text-align: center;
+      font-size: 11.5px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #7c3aed;
+      margin-bottom: 18px;
+    }
+    .pf-browser-frame {
+      max-width: 960px;
+      margin: 0 auto;
+      border-radius: 18px;
+      overflow: hidden;
+      background: #0d0a1a;
+      border: 1px solid rgba(124, 58, 237, 0.25);
+      box-shadow: 0 28px 70px rgba(30, 8, 66, 0.20);
+    }
+    .pf-browser-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 11px 16px;
+      background: #141026;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+    }
+    .pf-b-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+    .pf-b-url {
+      margin: 0 auto;
+      padding: 4px 18px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.06);
+      color: #a1a1aa;
+      font-size: 11.5px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .pf-browser-body {
+      display: grid;
+      grid-template-columns: 200px minmax(0, 1fr);
+      min-height: 310px;
+      color: #f4f4f5;
+    }
+    .pf-mock-side {
+      background: #0a0814;
+      border-right: 1px solid rgba(255, 255, 255, 0.07);
+      padding: 18px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .pf-mock-brand { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 14px; margin-bottom: 10px; }
+    .pf-mock-brand img { width: 24px; height: 24px; border-radius: 6px; }
+    .pf-mock-navitem { padding: 8px 10px; border-radius: 8px; font-size: 12px; color: #9ca3af; font-weight: 600; }
+    .pf-mock-navitem.active { background: rgba(139, 92, 246, 0.20); color: #e9d5ff; }
+    .pf-mock-main { padding: 22px 24px; display: flex; flex-direction: column; gap: 18px; }
+    .pf-mock-top { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+    .pf-mock-pills { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .pf-mpill { padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+    .pf-mpill.green { background: rgba(16, 185, 129, 0.16); color: #6ee7b7; border: 1px solid rgba(16, 185, 129, 0.3); }
+    .pf-mpill.purple { background: rgba(139, 92, 246, 0.20); color: #d8b4fe; border: 1px solid rgba(139, 92, 246, 0.35); }
+    .pf-mock-hero {
+      padding: 20px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, rgba(124, 58, 237, 0.24), rgba(15, 23, 42, 0.72));
+      border: 1px solid rgba(139, 92, 246, 0.28);
+    }
+    .pf-mock-hero h4 { font-size: 18px; font-weight: 800; margin-bottom: 6px; }
+    .pf-mock-hero p { font-size: 12.5px; color: #cbd5e1; margin-bottom: 14px; }
+    .pf-mock-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+    .pf-mcard {
+      padding: 14px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .pf-mcard small { display: block; font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: #94a3b8; margin-bottom: 4px; }
+    .pf-mcard strong { font-size: 16px; font-weight: 800; color: #ffffff; }
+    @media (max-width: 760px) {
+      .pf-browser-body { grid-template-columns: 1fr; }
+      .pf-mock-side { display: none; }
+      .pf-mock-cards { grid-template-columns: 1fr; }
+    }
+
+    /* Editorial Light Sections */
+    .pf-sec-head { text-align: center; margin-bottom: 36px; }
+    .pf-sec-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 14px;
+      border-radius: 999px;
+      background: #ede9fe;
+      color: #6d28d9;
+      font-size: 11.5px;
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+    .pf-sec-head h2 {
+      font-size: clamp(28px, 4.2vw, 44px);
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1.08;
+      color: #0f172a;
+      margin-bottom: 10px;
+    }
+    .pf-sec-head h2 span { color: #7c3aed; }
+    .pf-sec-head p { font-size: 15px; color: #64748b; max-width: 560px; margin: 0 auto; line-height: 1.6; }
+
+    .pf-trust-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 18px;
+      max-width: 880px;
+      margin: 0 auto 28px;
+      text-align: center;
+    }
+    .pf-trust-num strong { display: block; font-size: clamp(24px, 3vw, 34px); font-weight: 800; color: #6d28d9; letter-spacing: -0.02em; }
+    .pf-trust-num span { font-size: 12.5px; color: #64748b; font-weight: 600; }
+    .pf-trust-pills {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 14px 24px;
+      font-size: 12.5px;
+      font-weight: 600;
+      color: #475569;
+      padding-top: 20px;
+      border-top: 1px solid #e2e8f0;
+    }
+    @media (max-width: 680px) { .pf-trust-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+    .pf-bento-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 18px;
+    }
+    @media (max-width: 900px) { .pf-bento-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (max-width: 600px) { .pf-bento-grid { grid-template-columns: 1fr; } }
+    .pf-bento-card {
+      background: #ffffff;
+      border: 1px solid #e9e5ff;
+      border-radius: 18px;
+      padding: 24px;
+      box-shadow: 0 8px 24px rgba(109, 40, 217, 0.05);
+      transition: transform 0.18s ease, box-shadow 0.18s ease;
+    }
+    .pf-bento-card:hover { transform: translateY(-3px); box-shadow: 0 16px 36px rgba(109, 40, 217, 0.10); }
+    .pf-bento-ico {
+      width: 40px;
+      height: 40px;
+      border-radius: 11px;
+      background: #f3e8ff;
+      color: #7c3aed;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      margin-bottom: 14px;
+    }
+    .pf-bento-card h3 { font-size: 16px; font-weight: 800; color: #0f172a; margin-bottom: 6px; }
+    .pf-bento-card p { font-size: 13.5px; line-height: 1.55; color: #64748b; }
+
+    /* Skip the shoot comparison */
+    .pf-compare-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 20px;
+      max-width: 880px;
+      margin: 0 auto;
+    }
+    @media (max-width: 720px) { .pf-compare-grid { grid-template-columns: 1fr; } }
+    .pf-cmp-card {
+      border-radius: 22px;
+      padding: 28px 26px;
+    }
+    .pf-cmp-card.old {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      color: #475569;
+    }
+    .pf-cmp-card.new {
+      background: linear-gradient(145deg, #2e1065 0%, #5b21b6 60%, #7c3aed 100%);
+      color: #ffffff;
+      box-shadow: 0 22px 50px rgba(109, 40, 217, 0.28);
+    }
+    .pf-cmp-tag {
+      display: inline-block;
+      padding: 5px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      margin-bottom: 18px;
+    }
+    .pf-cmp-card.old .pf-cmp-tag { background: #e2e8f0; color: #475569; }
+    .pf-cmp-card.new .pf-cmp-tag { background: rgba(255, 255, 255, 0.16); color: #ffffff; }
+    .pf-cmp-list { list-style: none; display: flex; flex-direction: column; gap: 12px; font-size: 14px; font-weight: 600; }
+    .pf-cmp-list li { display: flex; align-items: center; gap: 10px; }
+
+    /* Home Plans Band (uses exact PRO & MAX pricing content) */
+    .pf-home-plans-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 22px;
+      max-width: 880px;
+      margin: 0 auto;
+    }
+    @media (max-width: 780px) {
+      .pf-home-plans-grid { grid-template-columns: 1fr; }
+      .steps4-grid { grid-template-columns: 1fr !important; }
+      .clients-marquee-wrap { grid-template-columns: 1fr !important; height: 340px !important; }
+      .clients-col.col-slow { display: none; }
+    }
+
+    /* Subpage Electric Purple Hero (About & Pricing) */
+    .pf-subhero {
+      width: 100%;
+      background:
+        radial-gradient(ellipse 60% 80% at 50% 0%, rgba(168, 85, 247, 0.40), transparent 65%),
+        linear-gradient(135deg, #1e0842 0%, #3b0f7a 55%, #5b21b6 100%);
+      padding: clamp(42px, 5vw, 68px) 24px;
+      text-align: center;
+      color: #ffffff;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.10);
+    }
+    .pf-subhero h1,
+    .pf-subhero h2 {
+      font-size: clamp(30px, 4.8vw, 52px);
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1.08;
+      margin-bottom: 12px;
+      color: #ffffff;
+    }
+    .pf-subhero p {
+      font-size: clamp(14.5px, 1.5vw, 17px);
+      color: rgba(243, 232, 255, 0.86);
+      max-width: 640px;
+      margin: 0 auto;
+      line-height: 1.6;
+    }
+    .auth-split-left {
+      background: radial-gradient(circle at 20% 15%, rgba(168, 85, 247, 0.42), transparent 55%),
+                  linear-gradient(145deg, #1e0842 0%, #4c1d95 58%, #2e1065 100%) !important;
+    }
   </style>
 </head>
 <body>
@@ -2353,7 +2901,29 @@ $__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
     <div class="boot-label">Loading PakFlow...</div>
   </div>
 
-  <!-- Minimal flow.google.com Style Landing Page -->
+  <!-- Shared Responsive Mobile Hamburger Drawer (Home / About / Pricing) -->
+  <div id="mobileNavBackdrop" class="mob-drawer-backdrop" aria-hidden="true"></div>
+  <aside id="mobileNavDrawer" class="mob-drawer" aria-label="Mobile Navigation" aria-hidden="true">
+    <div class="mob-drawer-head">
+      <a href="/" class="landing-logo">
+        <img src="/flowbypak-logo.png" alt="PakFlow" />
+        <span>PakFlow</span>
+      </a>
+      <button type="button" id="mobileNavCloseBtn" class="mob-drawer-close" aria-label="Close menu">&times;</button>
+    </div>
+    <nav class="mob-drawer-links">
+      <a href="/" data-mob-link="/"><span>Home</span><span>&rarr;</span></a>
+      <a href="/about" data-mob-link="/about"><span>About</span><span>&rarr;</span></a>
+      <a href="/pricing" data-mob-link="/pricing"><span>Pricing</span><span>&rarr;</span></a>
+      <a href="/privacy-policy" data-mob-link="/privacy-policy"><span>Privacy Policy</span><span>&rarr;</span></a>
+    </nav>
+    <div class="mob-drawer-actions">
+      <a href="/login" class="btn-ghost" id="mobLoginBtn">Log In</a>
+      <a href="/signup" class="btn-pill-sm" id="mobSignupBtn">Get Started Free</a>
+    </div>
+  </aside>
+
+  <!-- Option B: Electric Purple 3D Hero + Alternating Editorial SaaS Landing Page -->
   <section id="landingView" class="landing-wrap hidden">
     <div class="landing-nav-outer">
       <nav class="landing-nav">
@@ -2365,29 +2935,98 @@ $__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
           <a href="/" class="active" id="navHomeBtn">Home</a>
           <a href="/about" id="navAboutBtn">About</a>
           <a href="/pricing" id="navPricingBtn">Pricing</a>
+          <a href="/privacy-policy">Privacy</a>
         </div>
         <div class="landing-actions">
           <button type="button" class="btn-ghost" id="navLoginBtn">Login</button>
           <button type="button" class="btn-pill-sm" id="navSignupBtn">Get Started</button>
         </div>
+        <button type="button" class="mob-menu-btn" data-mob-toggle aria-label="Open navigation menu" aria-expanded="false">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
       </nav>
     </div>
 
-    <div class="landing-hero">
-      <div class="landing-badge">✦ Introducing Google Flow • Nano Banana Pro</div>
-      <h1 aria-label="AI VIDEO. UNLIMITED. CREATION."><span id="heroTypedText"></span><span class="tw-cursor"></span></h1>
-      <p>
-        An AI filmmaking studio built for creators. Turn your ideas into cinematic videos and ultra-sharp scenes in seconds.
-      </p>
-      <div class="landing-cta-row">
-        <button type="button" class="btn-flow-cta" id="heroCreateBtn">
-          <span>✦</span> Create with Google Flow
-        </button>
+    <!-- Electric Purple 3D Studio Hero -->
+    <div class="pf-hero-band">
+      <div class="pf-hero-inner">
+        <div class="pf-hero-left">
+          <div class="pf-hero-eyebrow">&#10022; World-Class AI Video Platform</div>
+          <h1 aria-label="AI VIDEO. UNLIMITED. CREATION."><span id="heroTypedText"></span><span class="tw-cursor"></span></h1>
+          <p class="pf-hero-sub">
+            PakFlow gives you direct 1-click access to <strong>Google Flow (Veo 3.1)</strong> &amp; <strong>Nano Banana Pro</strong> — turn simple prompts into cinematic AI videos that stand out.
+          </p>
+          <div class="pf-hero-cta-row">
+            <button type="button" class="pf-hero-white-btn" id="heroCreateBtn">
+              Get Started Free <span>&#8599;</span>
+            </button>
+            <a href="/pricing" class="pf-hero-outline-btn">View Pricing</a>
+            <div class="pf-hero-rating">
+              <b>&#9733;&#9733;&#9733;&#9733;&#9733;</b>
+              <span>600+ Creator Ratings</span>
+            </div>
+          </div>
+          <div class="pf-hero-stats">
+            <div class="pf-hstat"><strong>1-Click</strong><span>Chrome Sync</span></div>
+            <div class="pf-hstat"><strong>Veo 3.1</strong><span>Ultra Video</span></div>
+            <div class="pf-hstat"><strong>45,000</strong><span>AI Credits</span></div>
+          </div>
+        </div>
+        <div class="pf-hero-right">
+          <div class="pf-hero-robot-wrap">
+            <img src="/assets/pakflow-hero-robot.jpg" alt="PakFlow 3D AI Cinema Studio" fetchpriority="high" />
+          </div>
+        </div>
       </div>
     </div>
 
-    <!-- Made with Veo Showcase -->
-    <div id="veoShowcase" class="veo-section">
+    <!-- Live Preview Browser Window (Crisp White Editorial Band) -->
+    <div class="pf-white-band">
+      <div class="pf-container">
+        <div class="pf-preview-label">Live Preview &mdash; No Signup Needed</div>
+        <div class="pf-browser-frame">
+          <div class="pf-browser-bar">
+            <span class="pf-b-dot" style="background:#ef4444;"></span>
+            <span class="pf-b-dot" style="background:#f59e0b;"></span>
+            <span class="pf-b-dot" style="background:#10b981;"></span>
+            <span class="pf-b-url">flowbypak.com/dashboard</span>
+          </div>
+          <div class="pf-browser-body">
+            <div class="pf-mock-side">
+              <div class="pf-mock-brand"><img src="/flowbypak-logo.png" alt="PakFlow" /><span>PakFlow</span></div>
+              <div class="pf-mock-navitem active">&#9679; Studio Home</div>
+              <div class="pf-mock-navitem">&#127916; Google Flow</div>
+              <div class="pf-mock-navitem">&#128193; My Projects</div>
+              <div class="pf-mock-navitem">&#128268; Extension</div>
+              <div class="pf-mock-navitem">&#128179; Plan &amp; Billing</div>
+            </div>
+            <div class="pf-mock-main">
+              <div class="pf-mock-top">
+                <span style="font-size:13px;color:#cbd5e1;font-weight:600;">Welcome back, Creator</span>
+                <div class="pf-mock-pills">
+                  <span class="pf-mpill green">&#9679; Extension Connected</span>
+                  <span class="pf-mpill purple">45,000 Credits &middot; Max</span>
+                </div>
+              </div>
+              <div class="pf-mock-hero">
+                <h4>Create Cinematic AI Videos in One Click.</h4>
+                <p>Your PakFlow Chrome Extension automatically syncs your active session and backs up generated video projects.</p>
+                <a href="/signup" class="btn-veo-start" style="text-decoration:none;padding:9px 18px;font-size:12.5px;">Launch Google Flow &rarr;</a>
+              </div>
+              <div class="pf-mock-cards">
+                <div class="pf-mcard"><small>Active Plan</small><strong>Flow Ultra</strong></div>
+                <div class="pf-mcard"><small>AI Credits</small><strong>45,000</strong></div>
+                <div class="pf-mcard"><small>Cloud Vault</small><strong>Auto-Synced</strong></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Made with Veo Showcase (Deep Obsidian Dark Band) -->
+    <div class="pf-dark-band">
+    <div id="veoShowcase" class="veo-section" style="margin:0 auto;">
       <div class="veo-badge">🎬 Made with Veo</div>
       <div class="veo-head">
         <h2>One prompt.<span>Any style.</span></h2>
@@ -2421,9 +3060,103 @@ $__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
         </button>
       </div>
     </div>
+    </div>
 
-    <!-- Ready in 4 steps -->
-    <div class="home-sec">
+    <!-- Trust Stats (Crisp White Band) -->
+    <div class="pf-white-band">
+      <div class="pf-container">
+        <div class="pf-sec-head">
+          <div class="pf-sec-badge">&#9733; Trusted by creators worldwide</div>
+          <h2>Real people. <span>Real creations.</span></h2>
+          <p>Built for daily AI video makers who want instant speed, clean reliability, and zero billing headaches.</p>
+        </div>
+        <div class="pf-trust-grid">
+          <div class="pf-trust-num"><strong>Veo 3.1</strong><span>Latest Video Engine</span></div>
+          <div class="pf-trust-num"><strong>45,000</strong><span>Max Plan AI Credits</span></div>
+          <div class="pf-trust-num"><strong>1-Click</strong><span>Chrome Auto-Sync</span></div>
+          <div class="pf-trust-num"><strong>24/7</strong><span>Reseller Support</span></div>
+        </div>
+        <div class="pf-trust-pills">
+          <span>&#128274; SSL Secured</span>
+          <span>&#9889; Instant Access</span>
+          <span>&#128179; No Credit Card Required</span>
+          <span>&#128172; Real Human Support</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Built for Creators Bento (Soft Lilac Band) -->
+    <div class="pf-lilac-band">
+      <div class="pf-container">
+        <div class="pf-sec-head" style="text-align:left;margin-bottom:28px;">
+          <h2>Built for creators<br><span>at every level.</span></h2>
+          <p style="margin:0;">Everything you need to generate AI video content at scale — without the technical friction.</p>
+        </div>
+        <div class="pf-bento-grid">
+          <div class="pf-bento-card">
+            <div class="pf-bento-ico">&#127916;</div>
+            <h3>Veo 3.1 Video Studio</h3>
+            <p>Access Google's latest Veo 3.1 model to generate crisp, cinematic AI videos in seconds.</p>
+          </div>
+          <div class="pf-bento-card">
+            <div class="pf-bento-ico">&#128193;</div>
+            <h3>Cloud Project Vault</h3>
+            <p>Every generated video project is safely bookmarked in your private My Projects drawer.</p>
+          </div>
+          <div class="pf-bento-card">
+            <div class="pf-bento-ico">&#128268;</div>
+            <h3>1-Click Chrome Extension</h3>
+            <p>Installs in seconds and bridges your PakFlow portal directly with Google Flow automatically.</p>
+          </div>
+          <div class="pf-bento-card">
+            <div class="pf-bento-ico">&#10024;</div>
+            <h3>Nano Banana Pro Ready</h3>
+            <p>Unlock high-success video generation, multiple aspect ratios, and faster processing queues.</p>
+          </div>
+          <div class="pf-bento-card">
+            <div class="pf-bento-ico">&#9989;</div>
+            <h3>No Waitlist, No Ads</h3>
+            <p>Sign up, verify your OTP, and start creating immediately — zero ads, zero complicated setup.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Skip the shoot. Keep the quality. (White Band) -->
+    <div class="pf-white-band">
+      <div class="pf-container">
+        <div class="pf-sec-head">
+          <h2>Skip the shoot.<br><span>Keep the quality.</span></h2>
+          <p>What used to take a camera crew and a full week now takes a single prompt and a minute.</p>
+        </div>
+        <div class="pf-compare-grid">
+          <div class="pf-cmp-card old">
+            <span class="pf-cmp-tag">The old way</span>
+            <ul class="pf-cmp-list">
+              <li><span>&#10005;</span> Expensive per-video USD billing &amp; cards</li>
+              <li><span>&#10005;</span> Hours of manual editing &amp; rendering</li>
+              <li><span>&#10005;</span> Complicated VPN &amp; account errors</li>
+              <li><span>&#10005;</span> Lost projects when sessions refresh</li>
+              <li><span>&#10005;</span> Slow queues &amp; limited aspect ratios</li>
+            </ul>
+          </div>
+          <div class="pf-cmp-card new">
+            <span class="pf-cmp-tag">&#10022; The PakFlow way</span>
+            <ul class="pf-cmp-list">
+              <li><span>&#10003;</span> Type a prompt — get cinematic Veo 3.1 video</li>
+              <li><span>&#10003;</span> One flat affordable plan via local resellers</li>
+              <li><span>&#10003;</span> 1-Click Chrome Extension auto-sync</li>
+              <li><span>&#10003;</span> Private Cloud Vault saves your video projects</li>
+              <li><span>&#10003;</span> 16:9, 9:16, 1:1 &amp; parallel generations</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Ready in 4 steps (Deep Obsidian Dark Band) -->
+    <div class="pf-dark-band">
+    <div class="home-sec" style="margin-bottom:0;">
       <div class="steps4-head">
         <h2>Ready in<span>4 steps.</span></h2>
         <p>No complicated setup. Install the Chrome Extension, connect your account, and start generating.</p>
@@ -2440,14 +3173,14 @@ $__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
           <div class="step4-num">02</div>
           <div class="step4-body">
             <h3>Install the Extension</h3>
-            <p>Download the PakFlow Extension from your dashboard and load it in Chrome.</p>
+            <p>Download or Add the PakFlow Extension from your dashboard in one click.</p>
           </div>
         </div>
         <div class="step4-card">
           <div class="step4-num">03</div>
           <div class="step4-body">
             <h3>Open Google Flow</h3>
-            <p>Visit labs.google/fx/tools/flow. The Extension syncs your session automatically.</p>
+            <p>Click Launch Google Flow. The Extension syncs your session automatically.</p>
           </div>
         </div>
         <div class="step4-card">
@@ -2459,9 +3192,89 @@ $__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
         </div>
       </div>
     </div>
+    </div>
 
-    <!-- Hear it from our clients -->
-    <div class="home-sec">
+    <!-- Plans Section on Home (Crisp White Band — EXACT Existing Pricing Plans Content!) -->
+    <div class="pf-white-band">
+      <div class="pf-container">
+        <div class="pf-sec-head">
+          <div class="pf-sec-badge">&#10024; Authorized Reseller Distribution</div>
+          <h2>2 plans. <span>Unlimited power.</span></h2>
+          <p>Choose Pro (20 Days) or Max (30 Days) — contact your authorized reseller for instant activation.</p>
+        </div>
+        <div class="pf-home-plans-grid">
+          <div class="p-card pro">
+            <div class="p-title-row">
+              <h4>PRO</h4>
+              <span class="p-tag">43% OFF</span>
+            </div>
+            <div class="p-sub">For everyday AI creation</div>
+            <div class="p-box">
+              <div class="p-credits">✨ 25,000 AI Credits</div>
+              <div class="p-duration">= Full Google Flow access for 20 days</div>
+              <div class="p-tools-label">MAIN TOOLS</div>
+              <div class="p-tool-row">
+                <span>✓ Google Flow</span>
+                <span>Full Access</span>
+              </div>
+            </div>
+            <button type="button" class="p-btn pro" data-get-plan="Pro (20 Days)">Get Pro</button>
+            <div class="p-reseller-note">Special discounts available via authorized resellers</div>
+            <div class="p-noads">● No Ads</div>
+            <ul class="p-list">
+              <li>Full Google Flow Access</li>
+              <li>Parallel generations: 2x Videos</li>
+              <li>Higher Video Generation Success Rate</li>
+              <li>1K Image Resolution</li>
+              <li>16:9, 9:16 &amp; More Aspect Ratios</li>
+              <li>Faster Processing Speed</li>
+              <li>1 Device at a Time</li>
+              <li>Priority Support</li>
+              <li>Ad-Free Experience</li>
+            </ul>
+          </div>
+
+          <div class="p-card max">
+            <div class="p-title-row">
+              <h4>MAX</h4>
+              <span class="p-tag">50% OFF</span>
+              <span class="p-tag pink">✦ BEST VALUE</span>
+            </div>
+            <div class="p-sub">For ambitious AI projects</div>
+            <div class="p-box">
+              <div class="p-credits">✨ 45,000 AI Credits</div>
+              <div class="p-duration">= Full Google Flow access for 30 days</div>
+              <div class="p-tools-label">MAIN TOOLS</div>
+              <div class="p-tool-row">
+                <span>✓ Google Flow</span>
+                <span>Full Access</span>
+              </div>
+            </div>
+            <button type="button" class="p-btn max" data-get-plan="Max (30 Days)">Get Max</button>
+            <div class="p-reseller-note">Special discounts available via authorized resellers</div>
+            <div class="p-noads">● No Ads</div>
+            <ul class="p-list">
+              <li>Full Google Flow Access (30 Days)</li>
+              <li>Parallel generations: 3x Videos</li>
+              <li>Highest Video Generation Success</li>
+              <li>All Aspect Ratios (16:9, 4:3, 1:1, 3:4, 9:16)</li>
+              <li>Fastest Processing + Premium Queue</li>
+              <li>1 Device at a Time</li>
+              <li>Early Access to New Features</li>
+              <li>Priority Support</li>
+              <li>Ad-Free Experience</li>
+            </ul>
+          </div>
+        </div>
+        <div style="text-align:center;margin-top:26px;">
+          <a href="/pricing" class="btn-veo-start" style="text-decoration:none;">View full pricing details &rarr;</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Hear it from our clients (Deep Obsidian Dark Band) -->
+    <div class="pf-dark-band">
+    <div class="home-sec" style="margin-bottom:0;">
       <div class="clients-head">
         <h2>Hear it from our <span>clients</span></h2>
         <p>Real users sharing their <span>PakFlow</span> experience.</p>
@@ -2514,6 +3327,7 @@ $__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
           </div>
         </div>
       </div>
+    </div>
     </div>
 
     <!-- Questions? Answered. (White Accordion Section) -->
@@ -2593,7 +3407,7 @@ $__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
     </footer>
   </section>
 
-  <!-- Dedicated About Page (/about) -->
+  <!-- Dedicated About Page (/about) — Option B Matching Theme -->
   <section id="aboutView" class="landing-wrap hidden">
     <div class="landing-nav-outer">
       <nav class="landing-nav">
@@ -2605,32 +3419,44 @@ $__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
           <a href="/">Home</a>
           <a href="/about" class="active">About</a>
           <a href="/pricing">Pricing</a>
+          <a href="/privacy-policy">Privacy</a>
         </div>
         <div class="landing-actions">
           <a href="/login" class="btn-ghost" style="text-decoration:none;">Login</a>
           <a href="/signup" class="btn-pill-sm" style="text-decoration:none;">Get Started</a>
         </div>
+        <button type="button" class="mob-menu-btn" data-mob-toggle aria-label="Open navigation menu" aria-expanded="false">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
       </nav>
     </div>
 
-    <div style="flex:1;display:flex;align-items:center;justify-content:center;padding:48px 20px;">
-      <div id="aboutSection" class="about-section" style="margin:0;">
-        <div class="about-badge">✦ About PakFlow</div>
-        <h2>What is <span>PakFlow?</span></h2>
-        <p>
-          PakFlow, developed by <a href="https://wa.me/923430641457?text=I%20want%20a%20website%20for%20my%20business" target="_blank" rel="noopener noreferrer" style="color:inherit;text-decoration:none;border-bottom:1px dashed rgba(196,181,253,0.45);"><strong>Aivrasol Softwares</strong></a>, is a Pakistan-based platform that gives creators direct access to <strong>Google Flow (Veo 3.1)</strong> with our <strong>1-Click Extension</strong> — without the complicated billing setup, expensive per-video costs, or technical hassle.
-        </p>
-        <p style="margin-top:-12px;margin-bottom:26px;font-size:14px;">
-          Need help? Contact Support: <a href="mailto:support@flowbypak.com" style="color:#c4b5fd;font-weight:600;text-decoration:none;">support@flowbypak.com</a>
-        </p>
-        <div class="about-btns">
-          <a href="/signup" class="btn-veo-start" style="text-decoration:none;">Try For Free &rarr;</a>
-          <a href="/pricing" class="btn-flow-sec" style="text-decoration:none;">View Pricing</a>
-        </div>
-        <div class="about-dev-box" style="justify-content:center;text-align:center;">
-          <div class="about-dev-info" style="align-items:center;">
-            <span class="about-dev-label">Designed &amp; Engineered By</span>
-            <a class="about-dev-name" href="https://wa.me/923430641457?text=I%20want%20a%20website%20for%20my%20business" target="_blank" rel="noopener noreferrer" style="color:inherit;text-decoration:none;">Aivrasol Softwares</a>
+    <div class="pf-subhero">
+      <div class="pf-hero-eyebrow">&#10022; About PakFlow Studio</div>
+      <h1>Built for Modern AI Creators.</h1>
+      <p>Direct, effortless access to Google Flow (Veo 3.1) &amp; Nano Banana Pro with our 1-Click Chrome Extension and Cloud Project Vault.</p>
+    </div>
+
+    <div class="pf-white-band">
+      <div class="pf-container" style="max-width:880px;">
+        <div id="aboutSection" class="about-section" style="margin:0 auto;background:#0b0916;border-color:rgba(139,92,246,0.28);box-shadow:0 24px 60px rgba(30,8,66,0.16);">
+          <div class="about-badge">✦ About PakFlow</div>
+          <h2>What is <span>PakFlow?</span></h2>
+          <p>
+            PakFlow, developed by <a href="https://wa.me/923430641457?text=I%20want%20a%20website%20for%20my%20business" target="_blank" rel="noopener noreferrer" style="color:inherit;text-decoration:none;border-bottom:1px dashed rgba(196,181,253,0.45);"><strong>Aivrasol Softwares</strong></a>, is a Pakistan-based platform that gives creators direct access to <strong>Google Flow (Veo 3.1)</strong> with our <strong>1-Click Extension</strong> — without the complicated billing setup, expensive per-video costs, or technical hassle.
+          </p>
+          <p style="margin-top:-12px;margin-bottom:26px;font-size:14px;">
+            Need help? Contact Support: <a href="mailto:support@flowbypak.com" style="color:#c4b5fd;font-weight:600;text-decoration:none;">support@flowbypak.com</a>
+          </p>
+          <div class="about-btns">
+            <a href="/signup" class="btn-veo-start" style="text-decoration:none;">Try For Free &rarr;</a>
+            <a href="/pricing" class="btn-flow-sec" style="text-decoration:none;">View Pricing</a>
+          </div>
+          <div class="about-dev-box" style="justify-content:center;text-align:center;">
+            <div class="about-dev-info" style="align-items:center;">
+              <span class="about-dev-label">Designed &amp; Engineered By</span>
+              <a class="about-dev-name" href="https://wa.me/923430641457?text=I%20want%20a%20website%20for%20my%20business" target="_blank" rel="noopener noreferrer" style="color:inherit;text-decoration:none;">Aivrasol Softwares</a>
+            </div>
           </div>
         </div>
       </div>
@@ -2989,19 +3815,26 @@ $__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
           <a href="/">Home</a>
           <a href="/about">About</a>
           <a href="/pricing" class="active">Pricing</a>
+          <a href="/privacy-policy">Privacy</a>
         </div>
         <div class="landing-actions">
           <a href="/login" class="btn-ghost" style="text-decoration:none;">Login</a>
           <a href="/signup" class="btn-pill-sm" style="text-decoration:none;">Get Started</a>
         </div>
+        <button type="button" class="mob-menu-btn" data-mob-toggle aria-label="Open navigation menu" aria-expanded="false">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
       </nav>
+    </div>
+
+    <div class="pf-subhero">
+      <div class="pf-hero-eyebrow">&#10024; Authorized Reseller Distribution</div>
+      <h1>Simple Plans. Unlimited Power.</h1>
+      <p>Contact your authorized reseller for instant activation &amp; local pricing on Pro (20 Days) and Max (30 Days) plans.</p>
     </div>
 
     <div class="pricing-body">
       <div class="pricing-shell">
-        <div style="text-align:center;margin-bottom:24px;">
-          <span style="display:inline-flex;align-items:center;gap:8px;padding:7px 18px;border-radius:999px;background:rgba(139,92,246,0.10);border:1px solid rgba(167,139,250,0.28);color:#d8b4fe;font-size:12.5px;font-weight:500;">&#10024; Authorized Reseller Distribution &middot; Contact your reseller for pricing &amp; instant activation</span>
-        </div>
         <div class="pricing-top">
           <h3>Plan &amp; Pricing</h3>
           <button type="button" class="btn-ghost" id="pricingBackBtn">&larr; Back to Dashboard</button>
@@ -3153,6 +3986,34 @@ $__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
 
       const waFloatBtn = document.getElementById('waFloatBtn');
       const waFloatLabel = document.getElementById('waFloatLabel');
+
+      // Responsive Mobile Hamburger Drawer Controller (All Public Pages)
+      (function initMobileDrawer() {
+        const drawer = document.getElementById('mobileNavDrawer');
+        const backdrop = document.getElementById('mobileNavBackdrop');
+        const closeBtn = document.getElementById('mobileNavCloseBtn');
+        const toggles = document.querySelectorAll('[data-mob-toggle]');
+        if (!drawer || !backdrop) return;
+        const setDrawer = (open) => {
+          drawer.classList.toggle('open', open);
+          backdrop.classList.toggle('open', open);
+          drawer.setAttribute('aria-hidden', String(!open));
+          backdrop.setAttribute('aria-hidden', String(!open));
+          document.body.style.overflow = open ? 'hidden' : '';
+          toggles.forEach((btn) => btn.setAttribute('aria-expanded', String(open)));
+          if (open) {
+            const p = (location.pathname || '/').replace(/\/+$/, '') || '/';
+            drawer.querySelectorAll('[data-mob-link]').forEach((a) => {
+              a.classList.toggle('active', a.getAttribute('data-mob-link') === p);
+            });
+          }
+        };
+        toggles.forEach((btn) => btn.addEventListener('click', () => setDrawer(!drawer.classList.contains('open'))));
+        if (closeBtn) closeBtn.addEventListener('click', () => setDrawer(false));
+        backdrop.addEventListener('click', () => setDrawer(false));
+        drawer.querySelectorAll('a').forEach((a) => a.addEventListener('click', () => setDrawer(false)));
+        document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape' && drawer.classList.contains('open')) setDrawer(false); });
+      })();
       const existingSessionModal = document.getElementById('existingSessionModal');
       const existingSessionMsg = document.getElementById('existingSessionMsg');
       const kickExistingSessionBtn = document.getElementById('kickExistingSessionBtn');
