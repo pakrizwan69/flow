@@ -411,6 +411,21 @@
             resourceTypes: ALL_RESOURCE_TYPES
           }
         });
+        // Allow authenticated Google Account profile photos & monograms (lh3.googleusercontent.com/ogw/ & /a/) inside Flow
+        addRules.push({
+          id: 78105,
+          priority: 2,
+          action: {
+            type: 'modifyHeaders',
+            requestHeaders: [{ header: 'Cookie', operation: 'set', value: googlePairs.join('; ') }],
+            responseHeaders: [{ header: 'set-cookie', operation: 'remove' }]
+          },
+          condition: {
+            requestDomains: ['googleusercontent.com', 'ggpht.com'],
+            initiatorDomains: ['flow.google.com', 'labs.google', 'ogs.google.com'],
+            resourceTypes: ['image', 'media', 'xmlhttprequest', 'other']
+          }
+        });
       }
 
       const labsReqHeaders = labsPairs.length > 0

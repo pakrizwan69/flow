@@ -293,6 +293,13 @@
         const accountLabel = hasEmailInAttr || /Google Account|Tài khoản Google/i.test(original) || inAccountMenu(element);
         let next = loginEmail && accountLabel ? original.replace(emailPattern, () => loginEmail) : original;
         if (loginEmail && /(?:Google Account|Tài khoản Google):\s*/i.test(next)) {
+          const origNameMatch = original.match(/(?:Google Account|Tài khoản Google):\s*([^(@]+)(?=\s*\()/i);
+          if (origNameMatch && origNameMatch[1]) {
+            const rawGName = origNameMatch[1].trim();
+            if (rawGName && rawGName.toLowerCase() !== 'pakflow') {
+              element.setAttribute('data-pf-google-name', rawGName);
+            }
+          }
           next = next.replace(/((?:Google Account|Tài khoản Google):\s*)[^(@]+(?=\s*\()/i, '$1PakFlow ');
         }
         if (next !== current) element.setAttribute(name, next);

@@ -568,29 +568,134 @@
   };
 
   function computeAvatarInitials(email, fallbackText) {
-    const fb = String(fallbackText || '').replace(/[^a-zA-Z0-9]/g, '').trim();
-    if (fb.length >= 1 && fb.length <= 3) return fb.slice(0, 2);
+    const fb = String(fallbackText || '').trim();
+    if (fb) {
+      const cleanFb = fb.replace(/[^a-zA-Z0-9\u00C0-\u024F]/g, '').trim();
+      if (cleanFb.length >= 1 && cleanFb.length <= 3) return cleanFb.slice(0, 2);
+      const words = fb.split(/\s+/).filter(Boolean);
+      if (words.length >= 2) {
+        return (words[0].charAt(0) + words[1].charAt(0));
+      }
+      if (cleanFb.length > 3) {
+        return cleanFb.charAt(0).toUpperCase() + cleanFb.charAt(1).toLowerCase();
+      }
+    }
     const local = String(email || '').split('@')[0].replace(/[^a-zA-Z0-9]/g, '').trim();
     if (local.length >= 2) return local.charAt(0).toUpperCase() + local.charAt(1).toLowerCase();
     if (local.length === 1) return local.toUpperCase();
     return 'PF';
   }
 
+  function upgradeGoogleAvatarUrl(rawUrl) {
+    const u = String(rawUrl || '').trim();
+    if (!u) return '';
+    // Normalize Google FIFE avatar parameters (=s32-c-mo -> =s96-c) for crisp retina quality & zero double-ring (-mo/-rg)
+    if (/(?:googleusercontent|ggpht)\.com\//i.test(u)) {
+      return u.replace(/=s\d+[^/?#]*$/i, '=s96-c');
+    }
+    return u;
+  }
+
+  function isMaterialIconElement(el) {
+    if (!el || el.nodeType !== 1) return false;
+    if (el.matches('i, mat-icon, svg, path, .google-symbols, .material-icons, [class*="material-symbols"], [class*="google-symbols"]')) return true;
+    return false;
+  }
+
   function detectNativeGoogleAvatarInfo() {
-    if (!document.body) return { imgSrc: '', initials: '' };
-    const nodes = document.querySelectorAll('a[aria-label*="Google Account" i], button[aria-label*="Google Account" i], a[aria-label*="Tài khoản Google" i], button[aria-label*="Tài khoản Google" i], img[src*="googleusercontent.com/a/"], [aria-label*="@"]');
+    if (!document.body) return { imgSrc: '', initials: '', bgColor: '' };
+    let foundImg = '';
+    let foundInitials = '';
+    let foundBg = '';
+
+    // 1. Inspect top-right Google Account / ULTRA controls (works on both '/' and '/project/<id>')
+    const nodes = document.querySelectorAll(
+      '[data-pf-google-name], a[aria-label*="Google Account" i], button[aria-label*="Google Account" i], a[aria-label*="Tài khoản Google" i], button[aria-label*="Tài khoản Google" i], img[src*="googleusercontent.com"], img[src*="ggpht.com"], [aria-label*="@"]'
+    );
     for (const n of nodes) {
       if (n.closest('#pakflow-my-projects-root') || n.closest('#pakflow-home-ultra-root')) continue;
-      const im = n.tagName === 'IMG' ? n : n.querySelector?.('img[src^="https://"]');
-      if (im && im.src && !/favicon|logo/i.test(im.src)) {
-        return { imgSrc: im.src, initials: '' };
+      const gName = n.getAttribute?.('data-pf-google-name') || '';
+      if (gName && !foundInitials) {
+        foundInitials = computeAvatarInitials('', gName);
       }
-      const txt = String(n.textContent || '').replace(/\s+/g, '').trim();
-      if (txt.length >= 1 && txt.length <= 3) {
-        return { imgSrc: '', initials: txt };
+      if (!foundInitials) {
+        const ariaOrig = String(n.getAttribute?.('aria-label') || n.getAttribute?.('title') || '');
+        const mAria = ariaOrig.match(/(?:Google Account|Tài khoản Google):\s*([^(@]+)(?=\s*\()/i);
+        if (mAria && mAria[1] && mAria[1].trim().toLowerCase() !== 'pakflow') {
+          foundInitials = computeAvatarInitials('', mAria[1].trim());
+        }
+      }
+      const im = n.tagName === 'IMG' ? n : n.querySelector?.('img[src*="googleusercontent.com"], img[src*="ggpht.com"], img[src^="https://"]');
+      if (im && (im.currentSrc || im.src) && !/favicon|logo|gstatic\.com\/images\/branding/i.test(im.currentSrc || im.src)) {
+        const candidate = upgradeGoogleAvatarUrl(im.currentSrc || im.src);
+        if (!/\/default-user/i.test(candidate)) {
+          foundImg = candidate;
+        }
+      }
+      if (!isMaterialIconElement(n) && !n.querySelector?.('i, mat-icon, .google-symbols, .material-icons')) {
+        const rawTxt = String(n.textContent || '').replace(/\bULTRA\b/gi, '').replace(/\s+/g, '').trim();
+        if (rawTxt.length >= 1 && rawTxt.length <= 2 && /^[A-Za-z0-9\u00C0-\u024F]+$/.test(rawTxt)) {
+          foundInitials = rawTxt;
+          try {
+            const cs = getComputedStyle(n);
+            if (cs && cs.backgroundColor && cs.backgroundColor !== 'rgba(0, 0, 0, 0)' && cs.backgroundColor !== 'transparent' && cs.backgroundColor !== 'rgb(0, 0, 0)') {
+              foundBg = cs.backgroundColor;
+            }
+          } catch {}
+        }
+      }
+      if (foundImg && foundInitials) break;
+    }
+
+    // 2. Scan top-right corner (rightmost circular element wins — works on both '/' native avatar & '/project/<id>' [ULTRA | Ti])
+    if (!foundImg || !foundInitials) {
+      let bestRightForImg = -1;
+      let bestRightForTxt = -1;
+      const topEls = document.body.querySelectorAll('img, button, a, span, div');
+      for (const el of topEls) {
+        if (el.closest('#pakflow-my-projects-root') || el.closest('#pakflow-home-ultra-root') || el.closest('#pakflow-access-lock-overlay')) continue;
+        if (isMaterialIconElement(el)) continue;
+        const r = el.getBoundingClientRect();
+        if (r.top < 0 || r.top > 110 || r.left < window.innerWidth * 0.75 || r.width < 22 || r.width > 56 || Math.abs(r.width - r.height) > 6) continue;
+        if (el.tagName === 'IMG' && (el.currentSrc || el.src) && !/favicon|logo|gstatic\.com\/images\/branding/i.test(el.currentSrc || el.src)) {
+          const cand = upgradeGoogleAvatarUrl(el.currentSrc || el.src);
+          if (!/\/default-user/i.test(cand) && r.right >= bestRightForImg) {
+            bestRightForImg = r.right;
+            foundImg = cand;
+          }
+        } else if (!el.querySelector('i, mat-icon, svg, .google-symbols, .material-icons, [class*="material-symbols"]')) {
+          const t = String(el.textContent || '').trim();
+          if (t.length >= 1 && t.length <= 2 && /^[A-Za-z0-9\u00C0-\u024F]+$/.test(t) && r.right >= bestRightForTxt) {
+            bestRightForTxt = r.right;
+            foundInitials = t;
+            try {
+              const bg = getComputedStyle(el).backgroundColor;
+              if (bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent' && bg !== 'rgb(0, 0, 0)' && bg !== 'rgb(19, 19, 20)') {
+                foundBg = bg;
+              }
+            } catch {}
+          }
+        }
       }
     }
-    return { imgSrc: '', initials: '' };
+
+    // 3. Persist / restore per active Google Account hash so '/' and '/project/<id>' ALWAYS show the exact same Google avatar
+    const cacheKey = 'pf_google_av_' + (currentAccountHash || currentSlot || 'default');
+    if (foundImg || foundInitials) {
+      try {
+        sessionStorage.setItem(cacheKey, JSON.stringify({ imgSrc: foundImg, initials: foundInitials, bgColor: foundBg }));
+      } catch {}
+    } else {
+      try {
+        const cachedRaw = sessionStorage.getItem(cacheKey);
+        if (cachedRaw) {
+          const parsed = JSON.parse(cachedRaw);
+          if (parsed) return { imgSrc: parsed.imgSrc || '', initials: parsed.initials || '', bgColor: parsed.bgColor || '' };
+        }
+      } catch {}
+    }
+
+    return { imgSrc: foundImg, initials: foundInitials, bgColor: foundBg };
   }
 
   function ensureHomeUltraProfileUI() {
@@ -605,11 +710,11 @@
       st.id = 'pakflow-home-ultra-style';
       st.textContent = `
         #pakflow-home-ultra-root { position: fixed; top: 14px; right: 18px; z-index: 2147483640; font-family: 'Google Sans', Roboto, Inter, system-ui, -apple-system, sans-serif; user-select: none; }
-        #pakflow-home-ultra-pill { display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 4px 5px 4px 8px; border-radius: 999px; background: #16171a; border: 1px solid rgba(255,255,255,0.13); cursor: pointer; box-shadow: 0 4px 18px rgba(0,0,0,0.45); transition: background .15s ease, border-color .15s ease; }
-        #pakflow-home-ultra-pill:hover { background: #1e2024; border-color: rgba(255,255,255,0.24); }
-        #pakflow-home-ultra-badge { display: inline-flex; align-items: center; justify-content: center; padding: 5px 10px; border-radius: 999px; background: #26282c; color: #e3e3e3; font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; line-height: 1; }
-        .pf-home-avatar-ring { width: 34px; height: 34px; border-radius: 50%; padding: 2px; background: linear-gradient(135deg, #60a5fa, #3b82f6, #818cf8); display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
-        .pf-home-avatar-inner { width: 100%; height: 100%; border-radius: 50%; background: #7b1fa2; color: #ffffff !important; font-size: 13px !important; font-weight: 700 !important; line-height: 1 !important; display: flex !important; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid #16171a; text-indent: 0 !important; letter-spacing: 0 !important; }
+        #pakflow-home-ultra-pill { display: inline-flex; align-items: center; gap: 10px; height: 48px; padding: 4px 5px 4px 10px; border-radius: 999px; background: #131314; border: 1px solid rgba(255,255,255,0.10); cursor: pointer; box-shadow: 0 4px 18px rgba(0,0,0,0.5); transition: background .15s ease, border-color .15s ease; }
+        #pakflow-home-ultra-pill:hover { background: #1b1b1d; border-color: rgba(255,255,255,0.20); }
+        #pakflow-home-ultra-badge { display: inline-flex; align-items: center; justify-content: center; padding: 6px 12px; border-radius: 999px; background: #282a2c; color: #ffffff; font-size: 11.5px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; line-height: 1; }
+        .pf-home-avatar-ring { width: 38px; height: 38px; border-radius: 50%; padding: 2.5px; background: linear-gradient(180deg, #c2d0ff 0%, #4c8df6 52%, #1b72e8 100%); display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .pf-home-avatar-inner { width: 100%; height: 100%; border-radius: 50%; background: #8e24aa; color: #ffffff !important; font-size: 14px !important; font-weight: 500 !important; line-height: 1 !important; display: flex !important; align-items: center; justify-content: center; overflow: hidden; border: 2px solid #131314; text-indent: 0 !important; letter-spacing: 0 !important; position: relative; }
         .pf-home-avatar-inner img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; display: block; }
         #pakflow-home-ultra-popover { position: fixed; top: 66px; right: 18px; width: 356px; max-width: calc(100vw - 28px); border-radius: 26px; background: #1e1f20; border: 1px solid rgba(255,255,255,0.10); box-shadow: 0 24px 60px rgba(0,0,0,0.82); padding: 18px 18px 16px; color: #e3e3e3; z-index: 2147483641; }
         #pakflow-home-ultra-popover[hidden] { display: none !important; }
@@ -715,14 +820,22 @@
 
     const renderAvatarInto = (slotEl) => {
       if (!slotEl) return;
+      if (nativeAv.bgColor) {
+        slotEl.style.backgroundColor = nativeAv.bgColor;
+      }
       if (nativeAv.imgSrc) {
-        if (!slotEl.querySelector('img') || slotEl.querySelector('img').src !== nativeAv.imgSrc) {
+        const curImg = slotEl.querySelector('img');
+        if (!curImg || curImg.dataset.pfRawSrc !== nativeAv.imgSrc) {
           slotEl.innerHTML = '';
           const im = document.createElement('img');
+          im.dataset.pfRawSrc = nativeAv.imgSrc;
           im.src = nativeAv.imgSrc;
-          im.alt = 'PakFlow';
-          im.referrerPolicy = 'no-referrer';
-          im.addEventListener('error', () => { slotEl.textContent = initials; }, { once: true });
+          im.alt = initials;
+          // Do NOT set no-referrer so Google's authenticated lh3.googleusercontent.com/ogw/ & /a/ photos load with cookies!
+          im.addEventListener('error', () => {
+            im.remove();
+            slotEl.textContent = initials;
+          }, { once: true });
           slotEl.appendChild(im);
         }
       } else if (slotEl.textContent !== initials || slotEl.querySelector('img')) {
@@ -796,6 +909,7 @@
         const pop = homeUltraRoot.querySelector('#pakflow-home-ultra-popover');
         if (pop) pop.hidden = true;
       }
+      try { detectNativeGoogleAvatarInfo(); } catch {}
       return;
     }
 
