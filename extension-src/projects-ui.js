@@ -119,48 +119,70 @@
       actions.className = 'pakflow-project-actions';
       const targetSlot = normalizeSlot(project.slot);
       const targetNum = parseInt(targetSlot.replace(/\D+/g, ''), 10) || 1;
-      const targetUrl = project.url || ('https://flow.google.com/project/' + project.id);
+      const rawProjId = String(project.rawId || project.id || '').trim();
+      const targetUrl = (project.url && /^https:\/\/(?:flow\.google\.com|(?:[a-z0-9-]+\.)?labs\.google)\//i.test(String(project.url)))
+        ? String(project.url).trim()
+        : ('https://flow.google.com/project/' + rawProjId);
       const rememberOpenedProject = () => {
-        try { sessionStorage.setItem('pf_last_opened_project_id', String(project.id || '').toLowerCase()); } catch {}
+        try {
+          sessionStorage.setItem('pf_last_opened_project_id', String(project.id || '').toLowerCase());
+          sessionStorage.setItem('pf_last_opened_project_meta', JSON.stringify({
+            id: String(project.id || '').toLowerCase(),
+            rawId: rawProjId,
+            url: targetUrl,
+            slotNumber: targetNum,
+            accountHash: String(project.accountHash || '')
+          }));
+        } catch {}
       };
-      preview.addEventListener('click', () => { rememberOpenedProject(); open?.click(); });
-      info.addEventListener('click', rememberOpenedProject, true);
-      open.addEventListener('click', rememberOpenedProject, true);
-      const isDifferentSlot = targetSlot !== normalizeSlot(currentSlot);
+      const isDifferentSlot = project.accountHash && currentAccountHash
+        ? (project.accountHash !== currentAccountHash)
+        : (targetSlot !== normalizeSlot(currentSlot));
       open.className = 'pakflow-project-open';
       open.textContent = isDifferentSlot ? ('▶ Switch S' + targetNum + ' & Open') : '▶ Open This Project';
       open.title = isDifferentSlot
         ? ('Created on Session ' + targetNum + ' — click to switch to Session ' + targetNum + ' and open')
-        : 'Open project in Google Flow';
-      if (isDifferentSlot && !open.dataset.pfSwitchBound) {
-        open.dataset.pfSwitchBound = '1';
-        open.addEventListener('click', (ev) => {
-          const activeNow = normalizeSlot(currentSlot);
-          if (targetSlot === activeNow) return;
+        : 'Open saved project URL in Google Flow';
+      const triggerVerifiedOpen = (ev) => {
+        if (ev) {
           ev.preventDefault();
           ev.stopImmediatePropagation();
-          rememberOpenedProject();
-          const prevLabel = open.textContent;
-          open.disabled = true;
-          open.textContent = 'Switching to S' + targetNum + '...';
-          try {
-            chrome.runtime.sendMessage(
-              { type: 'PAKFLOW_REINJECT_CURRENT', slotNumber: targetNum, openFlow: false, targetUrl },
-              (res) => {
-                void chrome.runtime?.lastError;
-                open.disabled = false;
-                open.textContent = prevLabel;
-                if (!res || !res.navigated) {
-                  window.location.href = targetUrl;
-                }
+        }
+        if (open.disabled) return;
+        rememberOpenedProject();
+        const prevLabel = open.textContent;
+        open.disabled = true;
+        open.textContent = isDifferentSlot ? ('Switching to S' + targetNum + '...') : 'Opening Project...';
+        try {
+          chrome.runtime.sendMessage(
+            {
+              type: 'PAKFLOW_OPEN_SAVED_PROJECT',
+              id: String(project.id || '').toLowerCase(),
+              rawId: rawProjId,
+              slotNumber: targetNum,
+              accountHash: String(project.accountHash || ''),
+              targetUrl
+            },
+            (res) => {
+              void chrome.runtime?.lastError;
+              open.disabled = false;
+              open.textContent = prevLabel;
+              if (!res || !res.navigated) {
+                window.location.href = (res && res.targetUrl) ? res.targetUrl : targetUrl;
               }
-            );
-          } catch {
-            open.disabled = false;
-            open.textContent = prevLabel;
-            window.location.href = targetUrl;
-          }
-        }, true);
+            }
+          );
+        } catch {
+          open.disabled = false;
+          open.textContent = prevLabel;
+          window.location.href = targetUrl;
+        }
+      };
+      preview.addEventListener('click', triggerVerifiedOpen);
+      info.addEventListener('click', rememberOpenedProject, true);
+      if (!open.dataset.pfSwitchBound) {
+        open.dataset.pfSwitchBound = '1';
+        open.addEventListener('click', triggerVerifiedOpen, true);
       }
       rename.className = 'pakflow-project-rename'; rename.setAttribute('aria-label', 'Rename ' + title.textContent);
       remove.className = 'pakflow-project-remove'; remove.textContent = '×';
@@ -277,7 +299,40 @@
       return;
     }
 
-    // Permanently remove the dead/unavailable project ID from BOTH local storage and cloud DB so it never reappears on refresh
+    // First attempt self-heal: if DNR cookies had not finished syncing right after an extension update/reinstall,
+    // re-inject the saved project's session cookies once and retry its exact saved URL instead of deleting it!
+    try {
+      const retryKey = 'pf_retried_proj_' + projId;
+      const alreadyRetried = sessionStorage.getItem(retryKey) === '1';
+      let savedMeta = null;
+      try {
+        const rawMeta = sessionStorage.getItem('pf_last_opened_project_meta');
+        if (rawMeta) {
+          const parsed = JSON.parse(rawMeta);
+          if (parsed && parsed.id === projId) savedMeta = parsed;
+        }
+      } catch {}
+      if (!alreadyRetried && savedMeta && savedMeta.url) {
+        sessionStorage.setItem(retryKey, '1');
+        chrome.runtime.sendMessage({
+          type: 'PAKFLOW_OPEN_SAVED_PROJECT',
+          id: projId,
+          rawId: savedMeta.rawId || projId,
+          slotNumber: Number(savedMeta.slotNumber) || 1,
+          accountHash: savedMeta.accountHash || '',
+          targetUrl: savedMeta.url,
+          forceReinject: true
+        }, (res) => {
+          void chrome.runtime?.lastError;
+          if (!res || !res.navigated) {
+            location.replace(savedMeta.url);
+          }
+        });
+        return;
+      }
+    } catch {}
+
+    // Only prune if project still 404s after verified session cookie injection
     try {
       chrome.runtime.sendMessage({ type: 'PAKFLOW_PRUNE_DEAD_PROJECT', id: projId }, () => {
         void chrome.runtime?.lastError;
@@ -376,12 +431,15 @@
 
     const updates = new Map(); // id -> thumbnail
     const realTitles = new Map(); // id -> real Flow title
+    const realUrls = new Map(); // id -> { rawId, url }
 
     // Case A: Inside a specific project editor /project/<id>
-    let lastConfirmedEditorSig = '';
     const mProj = location.pathname.match(/\/project\/([^/?#]+)/i);
     if (mProj && mProj[1]) {
-      const pid = String(mProj[1]).toLowerCase();
+      const rawPid = String(mProj[1]).trim();
+      const pid = rawPid.toLowerCase();
+      const exactEditorUrl = String(location.origin + location.pathname);
+      realUrls.set(pid, { rawId: rawPid, url: exactEditorUrl });
       try { sessionStorage.setItem('pf_last_opened_project_id', pid); } catch {}
       const thumb = extractMediaThumbFromContainer(document.body);
       if (thumb) updates.set(pid, thumb);
@@ -397,15 +455,17 @@
         && !/ai\s*creative\s*studio|page\s*not\s*found|project\s*not\s*found/i.test(cleanDocTitle)
       );
       if (hasRealDocTitle) realTitles.set(pid, cleanDocTitle);
-      // Confirm & persist this active project into My Projects the moment real media or real backend title exists!
+      // Confirm & persist this active project (with exact URL + preview!) into My Projects & Cloud DB
       if (thumb || hasRealDocTitle) {
-        const sig = pid + '|' + (hasRealDocTitle ? cleanDocTitle : '') + '|' + (thumb ? thumb.slice(0, 48) : '');
+        const sig = pid + '|' + exactEditorUrl + '|' + (hasRealDocTitle ? cleanDocTitle : '') + '|' + (thumb ? thumb.slice(0, 48) : '');
         if (sig !== globalThis.__pfLastConfirmedSig) {
           globalThis.__pfLastConfirmedSig = sig;
           try {
             chrome.runtime.sendMessage({
               type: 'PAKFLOW_CONFIRM_ACTIVE_PROJECT',
               id: pid,
+              rawId: rawPid,
+              url: exactEditorUrl,
               title: hasRealDocTitle ? cleanDocTitle : '',
               thumbnail: thumb || ''
             }, () => {
@@ -418,13 +478,19 @@
         }
       }
     } else {
-      // Case B: Google Flow homepage grid — extract real thumbnails & titles ONLY for projects already owned by this user
+      // Case B: Google Flow homepage grid — extract real URLs, thumbnails & titles ONLY for projects already owned by this user
       const links = document.querySelectorAll('a.project-thumbnail-container[href*="/project/"], a[href*="/project/"]');
       for (const a of links) {
         if (a.closest('#pakflow-my-projects-root')) continue;
-        const m = String(a.getAttribute('href') || '').match(/\/project\/([^/?#]+)/i);
+        const hrefAttr = String(a.getAttribute('href') || '').trim();
+        const m = hrefAttr.match(/\/project\/([^/?#]+)/i);
         if (!m || !m[1]) continue;
-        const pid = String(m[1]).toLowerCase();
+        const rawPid = String(m[1]).trim();
+        const pid = rawPid.toLowerCase();
+        try {
+          const fullLink = new URL(hrefAttr, location.origin).href;
+          realUrls.set(pid, { rawId: rawPid, url: fullLink });
+        } catch {}
         const thumb = extractMediaThumbFromContainer(a) || extractMediaThumbFromContainer(a.closest('.project-card') || a.parentElement);
         if (thumb) updates.set(pid, thumb);
         const cardTitle = a.closest('.project-card')?.querySelector('.project-title-text')?.textContent?.trim();
@@ -432,52 +498,25 @@
       }
     }
 
-    if (updates.size === 0 && realTitles.size === 0) return;
+    if (updates.size === 0 && realTitles.size === 0 && realUrls.size === 0) return;
 
-    const isGenericProjTitle = (t) => !t
-      || /^google\s*flow\s*[-–—]\s*ai\s*creative\s*studio/i.test(t)
-      || /^(?:flow|google\s*flow|new\s*project)$/i.test(t)
-      || /^project\s*#?\d+$/i.test(t);
-
+    const patchPayload = [];
+    const allIds = new Set([...updates.keys(), ...realTitles.keys(), ...realUrls.keys()]);
+    for (const pid of allIds) {
+      const urlInfo = realUrls.get(pid);
+      patchPayload.push({
+        id: pid,
+        rawId: urlInfo?.rawId || '',
+        url: urlInfo?.url || '',
+        thumbnail: updates.get(pid) || '',
+        title: realTitles.get(pid) || ''
+      });
+    }
     try {
-      chrome.storage.local.get(['myProjectsUnified', 'myProjectsByIp'], (st) => {
+      chrome.runtime.sendMessage({ type: 'PAKFLOW_PATCH_PROJECT_META', patches: patchPayload }, (res) => {
         void chrome.runtime?.lastError;
-        if (!st) return;
-        let changed = false;
-        const patchList = (arr) => {
-          if (!Array.isArray(arr)) return arr;
-          return arr.map((p) => {
-            if (!p || !p.id) return p;
-            const pid = String(p.id).toLowerCase();
-            let next = p;
-            const nextThumb = updates.get(pid) || '';
-            if (nextThumb && next.thumbnail !== nextThumb) {
-              // Prefer durable data:image/jpeg over expiring https:// URLs
-              if (!next.thumbnail || !next.thumbnail.startsWith('data:image/') || nextThumb.startsWith('data:image/')) {
-                changed = true;
-                next = { ...next, thumbnail: nextThumb };
-              }
-            }
-            const nextTitle = realTitles.get(pid) || '';
-            if (nextTitle && !next.customTitle && isGenericProjTitle(String(next.title || '').trim())) {
-              changed = true;
-              next = { ...next, title: nextTitle };
-            }
-            return next;
-          });
-        };
-        const nextUnified = patchList(st.myProjectsUnified);
-        const nextByIp = st.myProjectsByIp && typeof st.myProjectsByIp === 'object' ? { ...st.myProjectsByIp } : {};
-        for (const k of Object.keys(nextByIp)) {
-          nextByIp[k] = patchList(nextByIp[k]);
-        }
-        if (changed) {
-          chrome.storage.local.set({ myProjectsUnified: nextUnified, myProjectsByIp: nextByIp }, () => {
-            void chrome.runtime?.lastError;
-            if (!isOpen()) {
-              try { refreshProjects?.(); } catch {}
-            }
-          });
+        if (res && res.ok && !isOpen()) {
+          try { refreshProjects?.(); } catch {}
         }
       });
     } catch {}
@@ -517,49 +556,224 @@
     return bestBtn;
   }
 
-  function findTopRightProfileControl() {
-    if (!document.body) return null;
-    // Locate the compact top-right ULTRA + User Avatar pill in Google Flow's header
-    const avatarImgs = document.querySelectorAll('img[src*="googleusercontent.com/a/"], [aria-label*="@"] img, a[aria-label*="Google Account" i], button[aria-label*="Google Account" i], a[aria-label*="Tài khoản Google" i], button[aria-label*="Tài khoản Google" i]');
-    for (const node of avatarImgs) {
-      if (node.closest('#pakflow-my-projects-root')) continue;
-      let pill = node;
-      let cur = node.parentElement;
-      for (let d = 0; d < 6 && cur && cur !== document.body; d++) {
-        const r = cur.getBoundingClientRect();
-        if (r.top >= 0 && r.top <= 120 && r.right >= window.innerWidth * 0.65 && r.width <= 260 && r.height <= 80) {
-          // Stop before grabbing the entire full-width header bar
-          pill = cur;
-        } else if (r.width > 260) {
-          break;
-        }
-        cur = cur.parentElement;
-      }
-      const pr = pill.getBoundingClientRect();
-      if (pr.width > 0 && pr.width <= 260 && pr.top >= 0 && pr.top <= 120) {
-        return pill;
-      }
-    }
-    // Fallback: look for compact top-right "ULTRA" badge container
-    const spans = document.querySelectorAll('span, div, button');
-    for (const s of spans) {
-      if (s.closest('#pakflow-my-projects-root')) continue;
-      if (String(s.textContent || '').trim().toUpperCase() !== 'ULTRA') continue;
-      const r = s.getBoundingClientRect();
-      if (r.top >= 0 && r.top <= 120 && r.left >= window.innerWidth * 0.65 && r.width > 0 && r.width < 160) {
-        let box = s;
-        let p = s.parentElement;
-        for (let d = 0; d < 4 && p && p !== document.body; d++) {
-          const pr = p.getBoundingClientRect();
-          if (pr.width <= 240 && pr.height <= 76 && pr.top >= 0 && pr.top <= 120) box = p;
-          else break;
-          p = p.parentElement;
-        }
-        return box;
-      }
-    }
-    return null;
+  // ── Homepage Top-Right [ ULTRA | Avatar ] Pill + Clickable Live Credits Popover (Matches In-Project UI) ──
+  let homeUltraRoot = null;
+  let homeUltraMenuOpen = false;
+  let homeAccountState = {
+    email: '',
+    credits: 45000,
+    plan: 'ultra',
+    portalOrigin: 'https://flowbypak.com',
+    avatarInitials: ''
+  };
+
+  function computeAvatarInitials(email, fallbackText) {
+    const fb = String(fallbackText || '').replace(/[^a-zA-Z0-9]/g, '').trim();
+    if (fb.length >= 1 && fb.length <= 3) return fb.slice(0, 2);
+    const local = String(email || '').split('@')[0].replace(/[^a-zA-Z0-9]/g, '').trim();
+    if (local.length >= 2) return local.charAt(0).toUpperCase() + local.charAt(1).toLowerCase();
+    if (local.length === 1) return local.toUpperCase();
+    return 'PF';
   }
+
+  function detectNativeGoogleAvatarInfo() {
+    if (!document.body) return { imgSrc: '', initials: '' };
+    const nodes = document.querySelectorAll('a[aria-label*="Google Account" i], button[aria-label*="Google Account" i], a[aria-label*="Tài khoản Google" i], button[aria-label*="Tài khoản Google" i], img[src*="googleusercontent.com/a/"], [aria-label*="@"]');
+    for (const n of nodes) {
+      if (n.closest('#pakflow-my-projects-root') || n.closest('#pakflow-home-ultra-root')) continue;
+      const im = n.tagName === 'IMG' ? n : n.querySelector?.('img[src^="https://"]');
+      if (im && im.src && !/favicon|logo/i.test(im.src)) {
+        return { imgSrc: im.src, initials: '' };
+      }
+      const txt = String(n.textContent || '').replace(/\s+/g, '').trim();
+      if (txt.length >= 1 && txt.length <= 3) {
+        return { imgSrc: '', initials: txt };
+      }
+    }
+    return { imgSrc: '', initials: '' };
+  }
+
+  function ensureHomeUltraProfileUI() {
+    if (!document.body) return null;
+    let el = document.getElementById('pakflow-home-ultra-root');
+    if (el) {
+      homeUltraRoot = el;
+      return el;
+    }
+    if (!document.getElementById('pakflow-home-ultra-style')) {
+      const st = document.createElement('style');
+      st.id = 'pakflow-home-ultra-style';
+      st.textContent = `
+        #pakflow-home-ultra-root { position: fixed; top: 14px; right: 18px; z-index: 2147483640; font-family: 'Google Sans', Roboto, Inter, system-ui, -apple-system, sans-serif; user-select: none; }
+        #pakflow-home-ultra-pill { display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 4px 5px 4px 8px; border-radius: 999px; background: #16171a; border: 1px solid rgba(255,255,255,0.13); cursor: pointer; box-shadow: 0 4px 18px rgba(0,0,0,0.45); transition: background .15s ease, border-color .15s ease; }
+        #pakflow-home-ultra-pill:hover { background: #1e2024; border-color: rgba(255,255,255,0.24); }
+        #pakflow-home-ultra-badge { display: inline-flex; align-items: center; justify-content: center; padding: 5px 10px; border-radius: 999px; background: #26282c; color: #e3e3e3; font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; line-height: 1; }
+        .pf-home-avatar-ring { width: 34px; height: 34px; border-radius: 50%; padding: 2px; background: linear-gradient(135deg, #60a5fa, #3b82f6, #818cf8); display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .pf-home-avatar-inner { width: 100%; height: 100%; border-radius: 50%; background: #7b1fa2; color: #ffffff; font-size: 13.5px; font-weight: 600; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid #16171a; }
+        .pf-home-avatar-inner img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; display: block; }
+        #pakflow-home-ultra-popover { position: fixed; top: 66px; right: 18px; width: 356px; max-width: calc(100vw - 28px); border-radius: 26px; background: #1e1f20; border: 1px solid rgba(255,255,255,0.10); box-shadow: 0 24px 60px rgba(0,0,0,0.82); padding: 18px 18px 16px; color: #e3e3e3; z-index: 2147483641; }
+        #pakflow-home-ultra-popover[hidden] { display: none !important; }
+        .pf-hp-top { position: relative; display: flex; align-items: center; justify-content: center; min-height: 36px; margin-bottom: 10px; }
+        .pf-hp-google { font-size: 19px; font-weight: 600; color: #ffffff; letter-spacing: -0.01em; }
+        .pf-hp-close { position: absolute; right: 0; top: 0; width: 36px; height: 36px; border-radius: 50%; border: 0; background: #2b2c2f; color: #c4c7c5; font-size: 20px; line-height: 1; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+        .pf-hp-close:hover { background: #37393d; color: #ffffff; }
+        .pf-hp-user-row { display: flex; align-items: center; gap: 12px; padding: 4px 2px 12px; }
+        .pf-hp-user-meta { min-width: 0; flex: 1; }
+        .pf-hp-user-name { font-size: 14px; font-weight: 600; color: #ffffff; line-height: 1.3; }
+        .pf-hp-user-email { font-size: 12px; color: #9aa0a6; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
+        .pf-hp-credits-box { background: #282a2c; border-radius: 18px; padding: 14px 16px; }
+        .pf-hp-credits-line { display: flex; align-items: center; gap: 10px; font-size: 14.5px; font-weight: 500; color: #e3e3e3; }
+        .pf-hp-credits-txt { text-decoration: underline; text-underline-offset: 3px; }
+        .pf-hp-plan-pill { margin-top: 12px; width: 100%; padding: 10px 16px; border-radius: 999px; border: 0; background: #d3dbe5; color: #1f1f1f; font-size: 13px; font-weight: 600; text-align: center; cursor: default; }
+        .pf-hp-manage-btn { margin-top: 10px; display: block; width: 100%; padding: 11px 16px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.14); background: #161719; color: #e3e3e3; font-size: 13px; font-weight: 600; text-align: center; text-decoration: none; cursor: pointer; transition: background .15s ease; box-sizing: border-box; }
+        .pf-hp-manage-btn:hover { background: #222427; }
+        .pf-hp-foot { margin-top: 14px; text-align: center; font-size: 11px; color: #9aa0a6; line-height: 1.5; }
+      `;
+      (document.head || document.documentElement).appendChild(st);
+    }
+
+    el = document.createElement('div');
+    el.id = 'pakflow-home-ultra-root';
+    el.innerHTML = `
+      <button type="button" id="pakflow-home-ultra-pill" aria-haspopup="dialog" aria-expanded="false" title="Google Account: PakFlow">
+        <span id="pakflow-home-ultra-badge">ULTRA</span>
+        <span class="pf-home-avatar-ring"><span class="pf-home-avatar-inner" id="pakflow-home-avatar-slot">PF</span></span>
+      </button>
+      <div id="pakflow-home-ultra-popover" role="dialog" aria-label="Account & Google Flow credits" hidden>
+        <div class="pf-hp-top">
+          <span class="pf-hp-google">Google</span>
+          <button type="button" class="pf-hp-close" id="pakflow-home-ultra-close" aria-label="Close">&times;</button>
+        </div>
+        <div class="pf-hp-user-row">
+          <span class="pf-home-avatar-ring" style="width:38px;height:38px;"><span class="pf-home-avatar-inner" id="pakflow-home-pop-avatar">PF</span></span>
+          <div class="pf-hp-user-meta">
+            <div class="pf-hp-user-name">PakFlow</div>
+            <div class="pf-hp-user-email" id="pakflow-home-pop-email">user@pakflow.com</div>
+          </div>
+        </div>
+        <div class="pf-hp-credits-box">
+          <div class="pf-hp-credits-line">
+            <span aria-hidden="true">🎬</span>
+            <span class="pf-hp-credits-txt" id="pakflow-home-pop-credits">45000 Google Flow credits</span>
+          </div>
+          <div class="pf-hp-plan-pill" id="pakflow-home-pop-plan">Google Ultra Plan 20x</div>
+        </div>
+        <a class="pf-hp-manage-btn" id="pakflow-home-manage-link" href="https://flowbypak.com/dashboard" target="_blank" rel="noopener noreferrer">Manage subscription</a>
+        <div class="pf-hp-foot">Privacy &middot; Terms of Service &middot; Licenses</div>
+      </div>
+    `;
+    document.body.appendChild(el);
+    homeUltraRoot = el;
+
+    const pillBtn = el.querySelector('#pakflow-home-ultra-pill');
+    const popBox = el.querySelector('#pakflow-home-ultra-popover');
+    const closeBtn = el.querySelector('#pakflow-home-ultra-close');
+
+    const setMenuOpen = (openState) => {
+      homeUltraMenuOpen = Boolean(openState);
+      if (popBox) popBox.hidden = !homeUltraMenuOpen;
+      if (pillBtn) pillBtn.setAttribute('aria-expanded', String(homeUltraMenuOpen));
+      if (homeUltraMenuOpen) refreshHomeUltraAccountData();
+    };
+
+    pillBtn?.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setMenuOpen(!homeUltraMenuOpen);
+    });
+    closeBtn?.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setMenuOpen(false);
+    });
+    document.addEventListener('click', (e) => {
+      if (homeUltraMenuOpen && homeUltraRoot && !homeUltraRoot.contains(e.target)) {
+        setMenuOpen(false);
+      }
+    });
+    document.addEventListener('keydown', (e) => {
+      if (homeUltraMenuOpen && e.key === 'Escape') {
+        setMenuOpen(false);
+      }
+    });
+
+    refreshHomeUltraAccountData();
+    return el;
+  }
+
+  function renderHomeUltraAccountDOM() {
+    if (!homeUltraRoot || !homeUltraRoot.isConnected) return;
+    const nativeAv = detectNativeGoogleAvatarInfo();
+    const initials = computeAvatarInitials(homeAccountState.email, nativeAv.initials);
+    const pillBtn = homeUltraRoot.querySelector('#pakflow-home-ultra-pill');
+    const av1 = homeUltraRoot.querySelector('#pakflow-home-avatar-slot');
+    const av2 = homeUltraRoot.querySelector('#pakflow-home-pop-avatar');
+    const emailEl = homeUltraRoot.querySelector('#pakflow-home-pop-email');
+    const credEl = homeUltraRoot.querySelector('#pakflow-home-pop-credits');
+    const planEl = homeUltraRoot.querySelector('#pakflow-home-pop-plan');
+    const manageEl = homeUltraRoot.querySelector('#pakflow-home-manage-link');
+
+    const renderAvatarInto = (slotEl) => {
+      if (!slotEl) return;
+      if (nativeAv.imgSrc) {
+        if (!slotEl.querySelector('img') || slotEl.querySelector('img').src !== nativeAv.imgSrc) {
+          slotEl.innerHTML = '';
+          const im = document.createElement('img');
+          im.src = nativeAv.imgSrc;
+          im.alt = 'PakFlow';
+          im.referrerPolicy = 'no-referrer';
+          im.addEventListener('error', () => { slotEl.textContent = initials; }, { once: true });
+          slotEl.appendChild(im);
+        }
+      } else if (slotEl.textContent !== initials || slotEl.querySelector('img')) {
+        slotEl.textContent = initials;
+      }
+    };
+    renderAvatarInto(av1);
+    renderAvatarInto(av2);
+
+    if (pillBtn && homeAccountState.email) {
+      pillBtn.title = 'Google Account: PakFlow (' + homeAccountState.email + ')';
+    }
+    if (emailEl) emailEl.textContent = homeAccountState.email || 'Connected Account';
+    if (credEl) credEl.textContent = Math.max(0, Math.round(Number(homeAccountState.credits) || 0)) + ' Google Flow credits';
+    if (planEl) {
+      const pLow = String(homeAccountState.plan || 'ultra').toLowerCase();
+      planEl.textContent = pLow === 'demo' ? 'Google Flow Demo Plan' : (pLow === 'pro' || pLow === 'plus') ? 'Google Ultra Plan (Pro)' : 'Google Ultra Plan 20x';
+    }
+    if (manageEl && homeAccountState.portalOrigin) {
+      manageEl.href = String(homeAccountState.portalOrigin).replace(/\/+$/, '') + '/dashboard';
+    }
+  }
+
+  function refreshHomeUltraAccountData() {
+    try {
+      if (!chrome?.runtime?.id || !chrome?.storage?.local) return;
+      chrome.storage.local.get(['userEmail', 'user', 'pakflow_user', 'credits', 'fakeBalance', 'userPlan', 'pakflowWorkingOrigin', 'apiBase', 'connectedFromSite'], (st) => {
+        void chrome.runtime?.lastError;
+        if (!st) return;
+        const em = String(st.userEmail || st.user?.email || st.pakflow_user?.email || '').trim();
+        const rawCr = st.credits !== undefined && st.credits !== null && st.credits !== ''
+          ? Number(st.credits)
+          : (st.fakeBalance !== undefined && st.fakeBalance !== null ? Number(st.fakeBalance) : Number(st.user?.credits ?? 45000));
+        homeAccountState.email = em;
+        homeAccountState.credits = Number.isFinite(rawCr) ? Math.max(0, Math.round(rawCr)) : 45000;
+        homeAccountState.plan = String(st.userPlan || st.user?.plan || 'ultra').toLowerCase();
+        homeAccountState.portalOrigin = String(st.pakflowWorkingOrigin || st.apiBase || st.connectedFromSite || 'https://flowbypak.com').replace(/\/+$/, '');
+        renderHomeUltraAccountDOM();
+      });
+    } catch {}
+  }
+
+  try {
+    if (chrome?.storage?.onChanged) {
+      chrome.storage.onChanged.addListener((changes, area) => {
+        if (area === 'local' && (changes.credits || changes.fakeBalance || changes.userEmail || changes.user || changes.userPlan)) {
+          refreshHomeUltraAccountData();
+        }
+      });
+    }
+  } catch {}
 
   function syncFlowHomePrivacyOverlay() {
     if (window.top !== window) return;
@@ -576,24 +790,18 @@
         try { cachedRealNewBtn.removeAttribute('data-pakflow-real-new-btn'); } catch {}
         cachedRealNewBtn = null;
       }
-      if (cachedTopProfileEl) {
-        try { cachedTopProfileEl.removeAttribute('data-pakflow-top-profile'); } catch {}
-        cachedTopProfileEl = null;
+      if (homeUltraRoot) {
+        homeUltraRoot.style.display = 'none';
+        homeUltraMenuOpen = false;
+        const pop = homeUltraRoot.querySelector('#pakflow-home-ultra-popover');
+        if (pop) pop.hidden = true;
       }
       return;
     }
 
-    // Fast path when both genuine New Project button and top-right Profile pill are already tagged
-    const btnReady = cachedRealNewBtn && cachedRealNewBtn.isConnected && cachedRealNewBtn.getAttribute('data-pakflow-real-new-btn') === 'true';
-    const profReady = cachedTopProfileEl && cachedTopProfileEl.isConnected && cachedTopProfileEl.getAttribute('data-pakflow-top-profile') === 'true';
-    if (btnReady && profReady) {
-      if (document.documentElement && document.documentElement.getAttribute('data-pakflow-flow-home') !== 'true') {
-        document.documentElement.setAttribute('data-pakflow-flow-home', 'true');
-      }
-      return;
-    }
-
-    const realNewBtn = btnReady ? cachedRealNewBtn : findRealGoogleNewProjectButton();
+    const realNewBtn = (cachedRealNewBtn && cachedRealNewBtn.isConnected && cachedRealNewBtn.getAttribute('data-pakflow-real-new-btn') === 'true')
+      ? cachedRealNewBtn
+      : findRealGoogleNewProjectButton();
     const hasProjLinks = Boolean(document.querySelector('a[href*="/project/"]'));
 
     // Do not cover Google's sign-in screen if genuinely signed out
@@ -603,6 +811,7 @@
       ));
       if (hasSignInCta) {
         if (document.documentElement) document.documentElement.removeAttribute('data-pakflow-flow-home');
+        if (homeUltraRoot) homeUltraRoot.style.display = 'none';
         return;
       }
     }
@@ -619,13 +828,10 @@
       cachedRealNewBtn = realNewBtn;
     }
 
-    const topProf = profReady ? cachedTopProfileEl : findTopRightProfileControl();
-    if (topProf && topProf !== cachedTopProfileEl) {
-      if (cachedTopProfileEl) {
-        try { cachedTopProfileEl.removeAttribute('data-pakflow-top-profile'); } catch {}
-      }
-      topProf.setAttribute('data-pakflow-top-profile', 'true');
-      cachedTopProfileEl = topProf;
+    const ultraUi = ensureHomeUltraProfileUI();
+    if (ultraUi) {
+      ultraUi.style.display = isUserLoggedIn ? 'block' : 'none';
+      renderHomeUltraAccountDOM();
     }
   }
 

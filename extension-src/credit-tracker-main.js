@@ -47,7 +47,9 @@
     lastDeductAt = now;
     var modelCost = readSelectedModelCost();
     var mProj = String(location.pathname || "").match(/\/project\/([^/?#]+)/i);
-    var projId = mProj && mProj[1] ? String(mProj[1]).toLowerCase() : "";
+    var rawProjId = mProj && mProj[1] ? String(mProj[1]).trim() : "";
+    var projId = rawProjId ? rawProjId.toLowerCase() : "";
+    var projUrl = rawProjId ? String(location.href || ("https://flow.google.com/project/" + rawProjId)) : "";
     var promptTxt = "";
     try {
       var ta = document.querySelector('textarea, [contenteditable="true"]');
@@ -57,6 +59,8 @@
       type: "PAKFLOW_DEDUCT_CREDITS",
       amount: modelCost,
       projectId: projId,
+      rawId: rawProjId,
+      url: projUrl,
       prompt: promptTxt
     }, "*");
   }

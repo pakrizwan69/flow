@@ -55,6 +55,25 @@
     } catch {}
   }
 
+  function readOrCreateSiteDeviceId() {
+    try {
+      let id = localStorage.getItem('pakflow_device_id');
+      if (!id || typeof id !== 'string' || id.trim().length < 4) {
+        const rawBridge = localStorage.getItem('pakflow_auth_bridge');
+        if (rawBridge) {
+          const parsed = JSON.parse(rawBridge);
+          if (parsed?.deviceId) id = String(parsed.deviceId).trim();
+        }
+      }
+      if (!id || typeof id !== 'string' || id.trim().length < 4) {
+        id = 'dev_' + Math.random().toString(36).slice(2, 12);
+        localStorage.setItem('pakflow_device_id', id);
+      }
+      return id.trim();
+    } catch {}
+    return '';
+  }
+
   function reconcilePortalConnectionState() {
     try {
       const path = String(window.location.pathname || '/').toLowerCase();
@@ -65,12 +84,13 @@
           {
             type: 'PAKFLOW_ENSURE_COOKIES_READY',
             token: tok,
+            deviceId: readOrCreateSiteDeviceId(),
             user: readSiteUser(),
             apiBase: window.location.origin
           },
           () => { void chrome.runtime?.lastError; }
         );
-      } else if (path === '/login' || path === '/signup' || path === '/register' || path === '/') {
+      } else if (path === '/login' || path === '/signup' || path === '/register') {
         chrome.runtime.sendMessage(
           {
             type: 'PAKFLOW_PORTAL_UNAUTHENTICATED',
@@ -119,6 +139,7 @@
           {
             type: 'PAKFLOW_ENSURE_COOKIES_READY',
             token: String(data.token),
+            deviceId: String(data.deviceId || readOrCreateSiteDeviceId()),
             user: data.user || readSiteUser(),
             apiBase: window.location.origin,
             force: true
@@ -136,6 +157,7 @@
       const requestId = data.requestId || '';
       const token = data.token || readSiteToken();
       const user = data.user || readSiteUser();
+      const deviceId = readOrCreateSiteDeviceId();
       const apiBase = window.location.origin;
 
       try {
@@ -146,6 +168,7 @@
             slotId,
             openFlow,
             token,
+            deviceId,
             user,
             apiBase
           },

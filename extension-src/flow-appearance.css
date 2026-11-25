@@ -12,34 +12,32 @@ html[data-pakflow-flow-home="true"] body {
 }
 
 /* Hide shared project grid, cards, headers, and banners on Flow homepage.
-   Never touches #pakflow-my-projects-root or #pakflow-access-lock-overlay. */
-html[data-pakflow-flow-home="true"] body > *:not(#pakflow-my-projects-root):not(#pakflow-access-lock-overlay):not(.cdk-overlay-container),
-html[data-pakflow-flow-home="true"] body > *:not(#pakflow-my-projects-root):not(#pakflow-access-lock-overlay):not(.cdk-overlay-container) * {
+   Never touches #pakflow-my-projects-root, #pakflow-home-ultra-root, or #pakflow-access-lock-overlay. */
+html[data-pakflow-flow-home="true"] body > *:not(#pakflow-my-projects-root):not(#pakflow-home-ultra-root):not(#pakflow-access-lock-overlay):not(.cdk-overlay-container),
+html[data-pakflow-flow-home="true"] body > *:not(#pakflow-my-projects-root):not(#pakflow-home-ultra-root):not(#pakflow-access-lock-overlay):not(.cdk-overlay-container) * {
   visibility: hidden !important;
   pointer-events: none !important;
 }
 
 /* 1) Reveal Google Flow's genuine native "+ New project" button in ALL languages (0ms pure CSS via .new-project-button). */
-html[data-pakflow-flow-home="true"] body > *:not(#pakflow-my-projects-root):not(#pakflow-access-lock-overlay) button.new-project-button,
-html[data-pakflow-flow-home="true"] body > *:not(#pakflow-my-projects-root):not(#pakflow-access-lock-overlay) button.new-project-button *,
-html[data-pakflow-flow-home="true"] body > *:not(#pakflow-my-projects-root):not(#pakflow-access-lock-overlay) .new-project-button,
-html[data-pakflow-flow-home="true"] body > *:not(#pakflow-my-projects-root):not(#pakflow-access-lock-overlay) .new-project-button *,
-html[data-pakflow-flow-home="true"] body > *:not(#pakflow-my-projects-root):not(#pakflow-access-lock-overlay) [data-pakflow-real-new-btn="true"],
-html[data-pakflow-flow-home="true"] body > *:not(#pakflow-my-projects-root):not(#pakflow-access-lock-overlay) [data-pakflow-real-new-btn="true"] * {
+html[data-pakflow-flow-home="true"] body > *:not(#pakflow-my-projects-root):not(#pakflow-home-ultra-root):not(#pakflow-access-lock-overlay) button.new-project-button,
+html[data-pakflow-flow-home="true"] body > *:not(#pakflow-my-projects-root):not(#pakflow-home-ultra-root):not(#pakflow-access-lock-overlay) button.new-project-button *,
+html[data-pakflow-flow-home="true"] body > *:not(#pakflow-my-projects-root):not(#pakflow-home-ultra-root):not(#pakflow-access-lock-overlay) .new-project-button,
+html[data-pakflow-flow-home="true"] body > *:not(#pakflow-my-projects-root):not(#pakflow-home-ultra-root):not(#pakflow-access-lock-overlay) .new-project-button *,
+html[data-pakflow-flow-home="true"] body > *:not(#pakflow-my-projects-root):not(#pakflow-home-ultra-root):not(#pakflow-access-lock-overlay) [data-pakflow-real-new-btn="true"],
+html[data-pakflow-flow-home="true"] body > *:not(#pakflow-my-projects-root):not(#pakflow-home-ultra-root):not(#pakflow-access-lock-overlay) [data-pakflow-real-new-btn="true"] * {
   visibility: visible !important;
   pointer-events: auto !important;
 }
 
-/* 2) Reveal Top-Right User Profile / ULTRA pill + open Account Menu / dialogs on the black homepage. */
-html[data-pakflow-flow-home="true"] body > *:not(#pakflow-my-projects-root):not(#pakflow-access-lock-overlay) [data-pakflow-top-profile="true"],
-html[data-pakflow-flow-home="true"] body > *:not(#pakflow-my-projects-root):not(#pakflow-access-lock-overlay) [data-pakflow-top-profile="true"] *,
+/* 2) Reveal Top-Right ULTRA + Avatar Pill & Account Credits Popover on the black homepage. */
+#pakflow-home-ultra-root,
+#pakflow-home-ultra-root * {
+  visibility: visible !important;
+  pointer-events: auto !important;
+}
 html[data-pakflow-flow-home="true"] body > .cdk-overlay-container,
-html[data-pakflow-flow-home="true"] body > .cdk-overlay-container *,
-html[data-pakflow-flow-home="true"] body > *:not(#pakflow-my-projects-root):not(#pakflow-access-lock-overlay) [role="menu"],
-html[data-pakflow-flow-home="true"] body > *:not(#pakflow-my-projects-root):not(#pakflow-access-lock-overlay) [role="menu"] *,
-html[data-pakflow-flow-home="true"] body > *:not(#pakflow-my-projects-root):not(#pakflow-access-lock-overlay) [role="dialog"],
-html[data-pakflow-flow-home="true"] body > *:not(#pakflow-my-projects-root):not(#pakflow-access-lock-overlay) [role="dialog"] *,
-html[data-pakflow-flow-home="true"] body > *:not(#pakflow-my-projects-root):not(#pakflow-access-lock-overlay) iframe[src*="ogs.google.com"] {
+html[data-pakflow-flow-home="true"] body > .cdk-overlay-container * {
   visibility: visible !important;
   pointer-events: auto !important;
 }

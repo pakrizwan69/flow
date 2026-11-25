@@ -39,6 +39,20 @@ globalThis.PakFlowProjects = (() => {
     return result;
   }
 
+  function resolveCanonicalFlowUrl(candidateUrl, fallbackUrl, rawId) {
+    const cleanRawId = String(rawId || '').trim();
+    for (const u of [candidateUrl, fallbackUrl]) {
+      const s = String(u || '').trim();
+      if (s && s.length <= 420 && /^https:\/\/(?:flow\.google\.com|(?:[a-z0-9-]+\.)?labs\.google)\/.*\/project\/[^/?#]+/i.test(s)) {
+        return s;
+      }
+      if (s && s.length <= 420 && /^https:\/\/flow\.google\.com\/project\/[^/?#]+/i.test(s)) {
+        return s;
+      }
+    }
+    return 'https://flow.google.com/project/' + cleanRawId;
+  }
+
   function mergeAllProjects(unifiedList, byIpObj, ownerEmail = '') {
     const cleanOwner = String(ownerEmail || '').trim().toLowerCase();
     const map = new Map();
@@ -49,14 +63,17 @@ globalThis.PakFlowProjects = (() => {
         const rawOwner = String(raw.ownerEmail || '').trim().toLowerCase();
         // Never allow another PakFlow account's projects to mix into this user's project folder
         if (cleanOwner && rawOwner && rawOwner !== cleanOwner) continue;
-        const id = String(raw.id || '').trim().toLowerCase();
+        const urlMatch = String(raw.url || '').match(/\/project\/([^/?#]+)/i);
+        const rawId = String(raw.rawId || urlMatch?.[1] || raw.id || '').trim();
+        const id = rawId.toLowerCase();
         if (!id) continue;
         const item = {
           ...raw,
           id,
+          rawId,
           ownerEmail: rawOwner || cleanOwner || undefined,
           slot: normalize(raw.slot),
-          url: raw.url || ('https://flow.google.com/project/' + id),
+          url: resolveCanonicalFlowUrl(raw.url, '', rawId),
           createdAt: Number(raw.createdAt || raw.updatedAt || Date.now()),
           updatedAt: Number(raw.updatedAt || raw.createdAt || Date.now())
         };
@@ -67,13 +84,22 @@ globalThis.PakFlowProjects = (() => {
           // Prefer customTitle and latest updatedAt
           const newer = (item.updatedAt || 0) >= (prev.updatedAt || 0) ? item : prev;
           const older = newer === item ? prev : item;
+          const bestRawId = (newer.rawId && newer.rawId !== newer.id) ? newer.rawId : (older.rawId || newer.rawId || id);
+          const bestThumb = (newer.thumbnail && String(newer.thumbnail).startsWith('data:image/'))
+            ? newer.thumbnail
+            : (older.thumbnail && String(older.thumbnail).startsWith('data:image/')
+              ? older.thumbnail
+              : (newer.thumbnail || older.thumbnail || newer.thumbnailUrl || older.thumbnailUrl || ''));
           map.set(id, {
             ...older,
             ...newer,
+            id,
+            rawId: bestRawId,
+            url: resolveCanonicalFlowUrl(newer.url, older.url, bestRawId),
             ownerEmail: cleanOwner || newer.ownerEmail || older.ownerEmail || undefined,
             accountHash: newer.accountHash || older.accountHash || undefined,
             confirmed: Boolean(prev.confirmed || item.confirmed),
-            thumbnail: newer.thumbnail || older.thumbnail || newer.thumbnailUrl || older.thumbnailUrl || '',
+            thumbnail: bestThumb,
             title: prev.customTitle ? prev.title : (item.customTitle ? item.title : (newer.title || older.title)),
             customTitle: Boolean(prev.customTitle || item.customTitle),
             createdAt: Math.min(prev.createdAt || Date.now(), item.createdAt || Date.now()),
@@ -191,11 +217,13 @@ globalThis.PakFlowProjects = (() => {
       return run(async () => {
         const ctx = await context(resolveIp);
         const match = String(input.url || '').match(/\/project\/([^/?#]+)/i);
-        const id = String(input.id || match?.[1] || '').toLowerCase();
+        const rawIdIn = String(input.rawId || match?.[1] || input.id || '').trim();
+        const id = rawIdIn.toLowerCase();
         if (!id) return response(ctx);
         const index = ctx.all.findIndex(p => String(p.id || '').toLowerCase() === id);
         const previous = index >= 0 ? ctx.all[index] : null;
         const draft = pendingDrafts.get(id) || null;
+        const rawId = (rawIdIn && rawIdIn !== id) ? rawIdIn : (previous?.rawId || draft?.rawId || rawIdIn);
         // Preserve original server attribution if already known; otherwise use actual injected slot
         const target = previous?.slot
           ? normalize(previous.slot)
@@ -220,10 +248,11 @@ globalThis.PakFlowProjects = (() => {
         );
         const now = Date.now();
         // Do NOT save brand-new empty "+ New project" draft URLs until user actually generates or names the project!
-        // Google Flow does NOT create empty draft URLs on its backend, so saving empty drafts causes 404 "Project not found".
         if (!isRealConfirmed) {
           pendingDrafts.set(id, {
             id,
+            rawId,
+            url: resolveCanonicalFlowUrl(input.url, '', rawId),
             slot: target,
             accountHash: ctx.accountHash || draft?.accountHash || undefined,
             ownerEmail: ctx.ownerEmail || draft?.ownerEmail || undefined,
@@ -237,10 +266,11 @@ globalThis.PakFlowProjects = (() => {
         const project = {
           ...previous,
           id,
+          rawId,
           confirmed: true,
           ownerEmail: ctx.ownerEmail || previous?.ownerEmail || draft?.ownerEmail || undefined,
           accountHash: ctx.accountHash || previous?.accountHash || draft?.accountHash || undefined,
-          url: 'https://flow.google.com/project/' + id,
+          url: resolveCanonicalFlowUrl(input.url, previous?.url || draft?.url, rawId),
           slot: target,
           ip: ctx.ip,
           createdAt: previous?.createdAt || draft?.createdAt || now,
@@ -264,6 +294,58 @@ globalThis.PakFlowProjects = (() => {
         if (project.customTitle === undefined) project.customTitle = false;
         if (index >= 0) ctx.all[index] = project;
         else ctx.all.unshift(project);
+        return persist(ctx);
+      });
+    },
+    patchMetadata(resolveIp, patches = []) {
+      return run(async () => {
+        if (!Array.isArray(patches) || patches.length === 0) return null;
+        const ctx = await context(resolveIp);
+        let changed = false;
+        const isGenericProjTitle = (t) => !t
+          || /^google\s*flow\s*[-–—]\s*ai\s*creative\s*studio/i.test(t)
+          || /^(?:flow|google\s*flow|new\s*project)$/i.test(t)
+          || /^project\s*#?\d+$/i.test(t);
+        for (const patch of patches) {
+          if (!patch || !patch.id) continue;
+          const pid = String(patch.id).toLowerCase();
+          const idx = ctx.all.findIndex(p => String(p.id || '').toLowerCase() === pid);
+          if (idx < 0) continue;
+          let cur = { ...ctx.all[idx] };
+          let itemChanged = false;
+          if (patch.rawId && patch.rawId !== cur.rawId) {
+            cur.rawId = String(patch.rawId).trim();
+            itemChanged = true;
+          }
+          if (patch.url) {
+            const nextUrl = resolveCanonicalFlowUrl(patch.url, cur.url, cur.rawId || cur.id);
+            if (nextUrl !== cur.url) {
+              cur.url = nextUrl;
+              itemChanged = true;
+            }
+          }
+          if (ctx.accountHash && !cur.accountHash) {
+            cur.accountHash = ctx.accountHash;
+            itemChanged = true;
+          }
+          if (patch.thumbnail && /^(?:https:\/\/|data:image\/)/i.test(String(patch.thumbnail))) {
+            const nextT = String(patch.thumbnail);
+            if (cur.thumbnail !== nextT && (!cur.thumbnail || !String(cur.thumbnail).startsWith('data:image/') || nextT.startsWith('data:image/'))) {
+              cur.thumbnail = nextT;
+              itemChanged = true;
+            }
+          }
+          if (patch.title && !cur.customTitle && isGenericProjTitle(String(cur.title || '').trim())) {
+            cur.title = String(patch.title).trim();
+            itemChanged = true;
+          }
+          if (itemChanged) {
+            cur.updatedAt = Date.now();
+            ctx.all[idx] = cur;
+            changed = true;
+          }
+        }
+        if (!changed) return response(ctx);
         return persist(ctx);
       });
     },

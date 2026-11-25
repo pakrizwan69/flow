@@ -61,6 +61,8 @@
         type: "PAKFLOW_DEDUCT_CREDITS",
         amount: Math.round(amt),
         projectId: ev.data.projectId ? String(ev.data.projectId) : "",
+        rawId: ev.data.rawId ? String(ev.data.rawId) : "",
+        url: ev.data.url ? String(ev.data.url) : "",
         prompt: ev.data.prompt ? String(ev.data.prompt) : ""
       });
     } catch (_e) {}

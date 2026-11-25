@@ -631,6 +631,7 @@ final class AdminRoutes
             while ($r = $stmt->fetch()) {
                 $extraRaw = (string)($r['extra_json'] ?? '');
                 $deviceSwitchCount = 0;
+                $maxDevicesRow = 1;
                 $resellerName = null;
                 $requestedDays = null;
                 $demoHours = null;
@@ -639,6 +640,7 @@ final class AdminRoutes
                     $extra = json_decode($extraRaw, true);
                     if (is_array($extra)) {
                         $deviceSwitchCount = (int)($extra['deviceSwitchCount'] ?? 0);
+                        $maxDevicesRow = max(1, min(50, (int)($extra['maxDevices'] ?? 1)));
                         $resellerName = $extra['resellerName'] ?? null;
                         $requestedDays = $extra['requestedDays'] ?? null;
                         $demoHours = isset($extra['demoHours']) ? (float)$extra['demoHours'] : null;
@@ -669,6 +671,7 @@ final class AdminRoutes
                     'remainingSeconds' => $remSec,
                     'isDemo' => $isDemoFlag,
                     'demoHours' => $demoHours,
+                    'maxDevices' => $maxDevicesRow,
                     'status' => ($isDemoFlag && $remSec <= 0 && strtolower((string)($r['status'] ?? 'active')) !== 'suspended') ? 'expired' : (string)($r['status'] ?? 'active'),
                     'isLocked' => !empty($r['is_locked']),
                     'deviceSwitchCount' => $deviceSwitchCount,
@@ -737,6 +740,7 @@ final class AdminRoutes
                 'remainingSeconds' => $remSec,
                 'isDemo' => $isDemoFlag,
                 'demoHours' => isset($u['demoHours']) ? (float)$u['demoHours'] : null,
+                'maxDevices' => Helpers::getUserMaxDevices($u),
                 'status' => ($isDemoFlag && $remSec <= 0 && $stLower !== 'suspended') ? 'expired' : ($u['status'] ?? 'active'),
                 'isLocked' => !empty($u['isLocked']),
                 'deviceSwitchCount' => (int)($u['deviceSwitchCount'] ?? 0),
@@ -853,6 +857,9 @@ final class AdminRoutes
             'basic' => 0,
         ];
         $userCredits = ($credits !== null && $credits !== '') ? (int)$credits : ($planCreditsDefault[$selectedPlan] ?? 25000);
+        $maxDevices = isset($body['maxDevices']) && is_numeric($body['maxDevices'])
+            ? max(1, min(50, (int)$body['maxDevices']))
+            : 1;
         $localPart = explode('@', $cleanEmail)[0] ?? 'user';
 
         if (\App\Database::isEnabled()) {
@@ -866,6 +873,8 @@ final class AdminRoutes
                 $existing['plan'] = $selectedPlan;
                 $existing['isDemo'] = $isDemoPlan;
                 $existing['demoHours'] = $demoHours;
+                $existing['maxDevices'] = $maxDevices;
+                $existing['billedDevices'] = $maxDevices;
                 $existing['credits'] = $userCredits;
                 $existing['creditsTotal'] = $userCredits;
                 $existing['planExpiresAt'] = $planExpiresAt;
@@ -895,6 +904,8 @@ final class AdminRoutes
                 'plan' => $selectedPlan,
                 'isDemo' => $isDemoPlan,
                 'demoHours' => $demoHours,
+                'maxDevices' => $maxDevices,
+                'billedDevices' => $maxDevices,
                 'credits' => $userCredits,
                 'creditsTotal' => $userCredits,
                 'planExpiresAt' => $planExpiresAt,
@@ -925,6 +936,8 @@ final class AdminRoutes
                 $existing['plan'] = $selectedPlan;
                 $existing['isDemo'] = $isDemoPlan;
                 $existing['demoHours'] = $demoHours;
+                $existing['maxDevices'] = $maxDevices;
+                $existing['billedDevices'] = $maxDevices;
                 $existing['credits'] = $userCredits;
                 $existing['creditsTotal'] = $userCredits;
                 $existing['planExpiresAt'] = $planExpiresAt;
@@ -956,6 +969,8 @@ final class AdminRoutes
             'plan' => $selectedPlan,
             'isDemo' => $isDemoPlan,
             'demoHours' => $demoHours,
+            'maxDevices' => $maxDevices,
+            'billedDevices' => $maxDevices,
             'credits' => $userCredits,
             'creditsTotal' => $userCredits,
             'planExpiresAt' => $planExpiresAt,
@@ -1037,6 +1052,16 @@ final class AdminRoutes
                 $user['lockReason'] = null;
             }
         }
+        if (array_key_exists('maxDevices', $body) && is_numeric($body['maxDevices'])) {
+            $nextMaxDev = max(1, min(50, (int)$body['maxDevices']));
+            $user['maxDevices'] = $nextMaxDev;
+            $user['billedDevices'] = $nextMaxDev;
+            $curSess = Helpers::normalizeActiveDeviceSessions($user);
+            if (count($curSess) > $nextMaxDev) {
+                usort($curSess, static fn(array $a, array $b): int => ((int)($a['lastSeenAt'] ?? 0)) <=> ((int)($b['lastSeenAt'] ?? 0)));
+                $user['activeDeviceSessions'] = array_values(array_slice($curSess, -$nextMaxDev));
+            }
+        }
         if (array_key_exists('deviceSwitchCount', $body)) {
             $user['deviceSwitchCount'] = max(0, (int)$body['deviceSwitchCount']);
         }
@@ -1047,7 +1072,9 @@ final class AdminRoutes
             $user['lockReason'] = null;
             $user['lockedAt'] = null;
             $user['activeDeviceId'] = null;
+            $user['activeDeviceSessions'] = [];
             $user['sessionVersion'] = (int)($user['sessionVersion'] ?? 1) + 1;
+            $user['resetSessionFloor'] = $user['sessionVersion'];
         }
         if (!empty($body['password'])) {
             $cleanPass = Helpers::normalizePasswordForEmail($body['password'], (string)($user['email'] ?? ''));
@@ -1107,7 +1134,9 @@ final class AdminRoutes
             $user['lockReason'] = null;
             $user['lockedAt'] = null;
             $user['activeDeviceId'] = null;
+            $user['activeDeviceSessions'] = [];
             $user['sessionVersion'] = (int)($user['sessionVersion'] ?? 1) + 1;
+            $user['resetSessionFloor'] = $user['sessionVersion'];
             $user['updatedAt'] = Db::isoNow();
             Db::upsertSingleUser($user);
             $safe = $user;
@@ -1128,7 +1157,9 @@ final class AdminRoutes
                 $user['lockReason'] = null;
                 $user['lockedAt'] = null;
                 $user['activeDeviceId'] = null;
+                $user['activeDeviceSessions'] = [];
                 $user['sessionVersion'] = (int)($user['sessionVersion'] ?? 1) + 1;
+                $user['resetSessionFloor'] = $user['sessionVersion'];
                 $user['updatedAt'] = Db::isoNow();
                 $users[$i] = $user;
                 Db::writeUsers($users, ['immediate' => true]);

@@ -234,16 +234,33 @@ final class AuthRoutes
         if (!$payload) {
             return;
         }
+        $tokenSid = trim((string)($payload['sid'] ?? ''));
+        $applyRevoke = static function (array &$u) use ($tokenSid): void {
+            $sessions = Helpers::normalizeActiveDeviceSessions($u);
+            if ($tokenSid !== '' && !empty($sessions)) {
+                $sessions = array_values(array_filter($sessions, static fn(array $s): bool => ($s['sid'] ?? '') !== $tokenSid));
+                $u['activeDeviceSessions'] = $sessions;
+                if (empty($sessions)) {
+                    $u['sessionVersion'] = (int)($u['sessionVersion'] ?? 1) + 1;
+                    $u['sessionLoggedOut'] = true;
+                }
+            } else {
+                $u['activeDeviceSessions'] = [];
+                $u['sessionVersion'] = (int)($u['sessionVersion'] ?? 1) + 1;
+                $u['resetSessionFloor'] = $u['sessionVersion'];
+                $u['sessionLoggedOut'] = true;
+            }
+            $u['singleDeviceEnforced'] = true;
+            $u['updatedAt'] = Db::isoNow();
+        };
+
         if (\App\Database::isEnabled()) {
             $target = Db::findUserByTokenMysql(
                 isset($payload['userId']) ? (string)$payload['userId'] : null,
                 Db::sanitizeEmail($payload['email'] ?? '')
             );
             if ($target) {
-                $target['sessionVersion'] = (int)($target['sessionVersion'] ?? 1) + 1;
-                $target['singleDeviceEnforced'] = true;
-                $target['sessionLoggedOut'] = true;
-                $target['updatedAt'] = Db::isoNow();
+                $applyRevoke($target);
                 Db::upsertSingleUser($target);
             }
             return;
@@ -255,10 +272,7 @@ final class AuthRoutes
         }
         foreach ($users as $i => $u) {
             if (($u['id'] ?? null) === ($target['id'] ?? null) && Db::sanitizeEmail($u['email'] ?? '') === Db::sanitizeEmail($target['email'] ?? '')) {
-                $users[$i]['sessionVersion'] = (int)($u['sessionVersion'] ?? 1) + 1;
-                $users[$i]['singleDeviceEnforced'] = true;
-                $users[$i]['sessionLoggedOut'] = true;
-                $users[$i]['updatedAt'] = Db::isoNow();
+                $applyRevoke($users[$i]);
                 Db::writeUsers($users, ['immediate' => true]);
                 break;
             }
@@ -458,69 +472,118 @@ final class AuthRoutes
             }
         }
 
-        $currentDeviceId = trim((string)($deviceId ?: $fingerprint ?: Http::header('x-device-id') ?: Http::header('user-agent') ?: 'device_unknown'));
+        $explicitDeviceId = trim((string)($deviceId ?: $fingerprint ?: Http::header('x-device-id')));
+        $uaKey = Helpers::getClientUaKey();
+        $currentDeviceId = $explicitDeviceId !== ''
+            ? $explicitDeviceId
+            : trim((string)(Http::header('user-agent') ?: 'device_unknown'));
         $isSocialExtLogin = $isExtLoginRequest && $loginClientApp === 'social_pak_ext';
         $isFlowExtLogin = $isExtLoginRequest && !$isSocialExtLogin;
         $currentIp = Helpers::getClientIp();
-        $previousIp = trim((string)($user['lastLoginIp'] ?? ''));
-        $isSameIp = ($previousIp !== '' && $currentIp !== '' && $previousIp === $currentIp);
 
         $user['deviceSwitchCount'] = (int)($user['deviceSwitchCount'] ?? 0);
         $user['sessionVersion'] = (int)($user['sessionVersion'] ?? 1);
+        $maxDevices = Helpers::getUserMaxDevices($user);
+        $sessions = Helpers::normalizeActiveDeviceSessions($user);
+        $nowTs = time();
 
-        $flowExtId = $user['activeFlowExtDeviceId'] ?? ($user['activeExtDeviceId'] ?? null);
-        $socialExtId = $user['activeSocialExtDeviceId'] ?? null;
-        $webId = $user['activeWebDeviceId'] ?? null;
+        // Migrate legacy single-device slot on first multi-device login check so an active browser tab is recognized
+        if (empty($sessions) && empty($user['sessionLoggedOut'])) {
+            $legacyDev = trim((string)($user['activeWebDeviceId'] ?? ($user['activeDeviceId'] ?? '')));
+            if ($legacyDev !== '' && $legacyDev === $currentDeviceId) {
+                $sessions[] = [
+                    'deviceId' => $legacyDev,
+                    'sid' => 'sid_' . substr(hash('sha256', $legacyDev . ':' . $user['id'] . ':' . $user['sessionVersion']), 0, 16),
+                    'ip' => trim((string)($user['lastLoginIp'] ?? $currentIp)),
+                    'uaKey' => $uaKey,
+                    'loginAt' => $nowTs,
+                    'lastSeenAt' => $nowTs,
+                ];
+            }
+        }
 
-        // Auto-replace any previous active session on another device without blocking login with a confirmation button
-        $explicitPromptOnly = !empty($body['promptExistingSession']) && array_key_exists('forceLogoutExisting', $body) && $body['forceLogoutExisting'] === false;
-        if ($explicitPromptOnly && empty($user['sessionLoggedOut']) && !empty($user['lastLoginAt'])) {
-            $lastTs = strtotime((string)$user['lastLoginAt']) ?: 0;
-            $recentSession = ($lastTs > 0 && (time() - $lastTs) < 86400);
-            $otherDeviceActive = ($webId && $webId !== $currentDeviceId)
-                || ($flowExtId && $flowExtId !== $currentDeviceId && !$isSameIp);
-            if ($recentSession && $otherDeviceActive) {
-                Http::json([
-                    'success' => false,
-                    'existingSession' => true,
-                    'error' => 'ExistingSessionActive',
-                    'message' => 'Your account is already signed in on another device. Click below to logout the existing session and sign in here.',
-                ], 409);
+        // Match existing active device:
+        // 1) Exact same deviceId (all Chrome tabs + bridged Extension inside the same Chrome profile share pakflow_device_id!)
+        // 2) Extension popup login without explicit deviceId on the exact same IP + Browser UA as an active Chrome session
+        $matchedIdx = -1;
+        foreach ($sessions as $si => $sItem) {
+            if (($sItem['deviceId'] ?? '') === $currentDeviceId) {
+                $matchedIdx = $si;
+                break;
+            }
+        }
+        if ($matchedIdx === -1 && $isExtLoginRequest && $explicitDeviceId === '') {
+            foreach ($sessions as $si => $sItem) {
+                if (!empty($sItem['uaKey']) && $sItem['uaKey'] === $uaKey) {
+                    $matchedIdx = $si;
+                    $currentDeviceId = (string)$sItem['deviceId'];
+                    break;
+                }
             }
         }
 
         if ($isSocialExtLogin) {
-            if ($socialExtId && $socialExtId !== $currentDeviceId && !$isSameIp) {
-                $user['sessionVersion'] += 1;
-                $user['deviceSwitchCount'] += 1;
-            }
             $user['activeSocialExtDeviceId'] = $currentDeviceId;
-            $user['activeDeviceId'] = $currentDeviceId;
-        } elseif ($isFlowExtLogin) {
-            if ($flowExtId && $flowExtId !== $currentDeviceId) {
-                $user['sessionVersion'] += 1;
-                $user['deviceSwitchCount'] += 1;
+            $sid = !empty($sessions) ? (string)$sessions[count($sessions) - 1]['sid'] : ('sid_' . bin2hex(random_bytes(8)));
+            if (empty($sessions)) {
+                $sessions[] = [
+                    'deviceId' => $currentDeviceId,
+                    'sid' => $sid,
+                    'ip' => $currentIp,
+                    'uaKey' => $uaKey,
+                    'loginAt' => $nowTs,
+                    'lastSeenAt' => $nowTs,
+                ];
             }
-            $user['activeFlowExtDeviceId'] = $currentDeviceId;
-            $user['activeExtDeviceId'] = $currentDeviceId;
+        } elseif ($matchedIdx >= 0) {
+            // Same Chrome profile / already-active device: refresh in-place, NEVER bump sessionVersion or log out sibling tabs!
+            $sid = (string)$sessions[$matchedIdx]['sid'];
+            $sessions[$matchedIdx]['ip'] = $currentIp;
+            $sessions[$matchedIdx]['uaKey'] = $uaKey;
+            $sessions[$matchedIdx]['lastSeenAt'] = $nowTs;
+            if ($isFlowExtLogin) {
+                $user['activeFlowExtDeviceId'] = $currentDeviceId;
+                $user['activeExtDeviceId'] = $currentDeviceId;
+            } else {
+                $user['activeWebDeviceId'] = $currentDeviceId;
+            }
             $user['activeDeviceId'] = $currentDeviceId;
         } else {
-            // Web portal login automatically invalidates any previous device session and signs in on current device
-            $replacingOtherDevice = ($webId && $webId !== $currentDeviceId)
-                || ($flowExtId && $flowExtId !== $currentDeviceId && !$isSameIp)
-                || !empty($body['forceLogoutExisting']);
-            if ($replacingOtherDevice) {
-                $user['sessionVersion'] += 1;
+            // Brand-new device login: allow up to $maxDevices simultaneously; if full, silently evict oldest device(s)
+            $sid = 'sid_' . bin2hex(random_bytes(8));
+            if (!empty($sessions) || !empty($user['activeDeviceId'])) {
                 $user['deviceSwitchCount'] += 1;
-                if (!$isSameIp || !empty($body['forceLogoutExisting'])) {
-                    $user['activeFlowExtDeviceId'] = null;
-                    $user['activeExtDeviceId'] = null;
+            }
+            if (count($sessions) >= $maxDevices) {
+                usort($sessions, static function (array $a, array $b): int {
+                    $la = (int)($a['lastSeenAt'] ?? ($a['loginAt'] ?? 0));
+                    $lb = (int)($b['lastSeenAt'] ?? ($b['loginAt'] ?? 0));
+                    return $la <=> $lb;
+                });
+                $keepCount = max(0, $maxDevices - 1);
+                $sessions = $keepCount > 0 ? array_slice($sessions, -$keepCount) : [];
+                if ($maxDevices === 1) {
+                    $user['sessionVersion'] += 1;
                 }
             }
-            $user['activeWebDeviceId'] = $currentDeviceId;
+            $sessions[] = [
+                'deviceId' => $currentDeviceId,
+                'sid' => $sid,
+                'ip' => $currentIp,
+                'uaKey' => $uaKey,
+                'loginAt' => $nowTs,
+                'lastSeenAt' => $nowTs,
+            ];
+            if ($isFlowExtLogin) {
+                $user['activeFlowExtDeviceId'] = $currentDeviceId;
+                $user['activeExtDeviceId'] = $currentDeviceId;
+            } else {
+                $user['activeWebDeviceId'] = $currentDeviceId;
+            }
             $user['activeDeviceId'] = $currentDeviceId;
         }
 
+        $user['activeDeviceSessions'] = array_values($sessions);
         $user['singleDeviceEnforced'] = true;
         $user['sessionLoggedOut'] = false;
         $user['lastLoginAt'] = Db::isoNow();
@@ -548,6 +611,8 @@ final class AuthRoutes
             'email' => $user['email'],
             'plan' => $safeUser['plan'],
             'sessionVersion' => $user['sessionVersion'],
+            'deviceId' => $currentDeviceId,
+            'sid' => $sid,
         ]);
 
         Http::json([
@@ -591,12 +656,21 @@ final class AuthRoutes
         );
         $assignedServer = Helpers::computeUserAssignedSlot($user, Db::readSlotsByRange(1, 10), $settings);
 
-        $refreshedToken = Db::generateToken([
+        $inTok = Helpers::getBearerToken();
+        $inPayload = $inTok ? (Db::verifyToken($inTok) ?: []) : [];
+        $tokClaims = [
             'userId' => $user['id'],
             'email' => $user['email'],
             'plan' => $safeUser['plan'],
             'sessionVersion' => (int)($user['sessionVersion'] ?? 1),
-        ]);
+        ];
+        if (!empty($inPayload['sid'])) {
+            $tokClaims['sid'] = (string)$inPayload['sid'];
+        }
+        if (!empty($inPayload['deviceId'])) {
+            $tokClaims['deviceId'] = (string)$inPayload['deviceId'];
+        }
+        $refreshedToken = Db::generateToken($tokClaims);
 
         Http::json(array_merge([
             'success' => true,
@@ -682,7 +756,7 @@ final class AuthRoutes
         ]);
     }
 
-    private static function sanitizeSavedProjects($rawList): array
+    private static function sanitizeSavedProjects($rawList, bool $keepDataThumbnails = true): array
     {
         if (!is_array($rawList)) {
             return [];
@@ -690,28 +764,64 @@ final class AuthRoutes
         $byId = [];
         foreach ($rawList as $raw) {
             if (!is_array($raw)) continue;
-            $id = strtolower(trim((string)($raw['id'] ?? '')));
+            $rawIdOrig = trim((string)($raw['rawId'] ?? ($raw['id'] ?? '')));
+            if ($rawIdOrig === '' && !empty($raw['url']) && preg_match('#/project/([^/?\#]+)#i', (string)$raw['url'], $mUrl)) {
+                $rawIdOrig = trim($mUrl[1]);
+            }
+            $id = strtolower($rawIdOrig);
             if ($id === '' || strlen($id) > 120) continue;
             $slot = trim((string)($raw['slot'] ?? 'slot_1'));
             if (!preg_match('/^slot_\d+$/', $slot)) $slot = 'slot_1';
-            $thumb = trim((string)($raw['thumbnail'] ?? ''));
-            // Only store https:// URLs in DB (skip base64 data URIs to keep extra_json tiny & fast)
-            if ($thumb !== '' && (!str_starts_with(strtolower($thumb), 'https://') || strlen($thumb) > 1000)) {
-                $thumb = '';
+
+            $rawUrl = trim((string)($raw['url'] ?? ''));
+            $validFlowUrl = ($rawUrl !== '' && strlen($rawUrl) <= 420 && preg_match('#^https://(?:flow\.google\.com|(?:[a-z0-9-]+\.)?labs\.google)/#i', $rawUrl));
+            $canonicalUrl = $validFlowUrl ? $rawUrl : ('https://flow.google.com/project/' . $rawIdOrig);
+
+            $accHash = preg_replace('/[^a-zA-Z0-9_:-]/', '', trim((string)($raw['accountHash'] ?? ''))) ?? '';
+            if (strlen($accHash) > 80) {
+                $accHash = substr($accHash, 0, 80);
             }
+
+            $thumb = trim((string)($raw['thumbnail'] ?? ''));
+            if ($thumb !== '') {
+                $thumbLower = strtolower(substr($thumb, 0, 24));
+                if (str_starts_with($thumbLower, 'https://')) {
+                    if (strlen($thumb) > 1500) $thumb = '';
+                } elseif ($keepDataThumbnails && preg_match('#^data:image/(?:jpeg|jpg|webp|png);base64,[A-Za-z0-9+/=\s]+$#i', $thumb)) {
+                    if (strlen($thumb) > 68000) $thumb = '';
+                } else {
+                    $thumb = '';
+                }
+            }
+
+            $prev = $byId[$id] ?? null;
+            $titleIn = mb_substr(trim((string)($raw['title'] ?? '')), 0, 120);
+            $customTitle = !empty($raw['customTitle']) || !empty($prev['customTitle']);
+            $finalTitle = $titleIn !== '' ? $titleIn : ($prev['title'] ?? 'Flow Project');
+            if (!empty($prev['customTitle']) && empty($raw['customTitle']) && !empty($prev['title'])) {
+                $finalTitle = $prev['title'];
+            }
+
             $item = [
                 'id' => $id,
-                'title' => mb_substr(trim((string)($raw['title'] ?? 'Flow Project')), 0, 120),
-                'customTitle' => !empty($raw['customTitle']),
+                'rawId' => $rawIdOrig,
+                'title' => $finalTitle,
+                'customTitle' => $customTitle,
+                'confirmed' => true,
                 'slot' => $slot,
-                'url' => 'https://flow.google.com/project/' . $id,
-                'createdAt' => (int)($raw['createdAt'] ?? time() * 1000),
-                'updatedAt' => (int)($raw['updatedAt'] ?? time() * 1000),
+                'url' => $canonicalUrl,
+                'createdAt' => (int)($raw['createdAt'] ?? ($prev['createdAt'] ?? (time() * 1000))),
+                'updatedAt' => max((int)($prev['updatedAt'] ?? 0), (int)($raw['updatedAt'] ?? (time() * 1000))),
             ];
-            if ($thumb !== '') {
-                $item['thumbnail'] = $thumb;
+            $finalAccHash = $accHash !== '' ? $accHash : (string)($prev['accountHash'] ?? '');
+            if ($finalAccHash !== '') {
+                $item['accountHash'] = $finalAccHash;
             }
-            $prompt = trim((string)($raw['prompt'] ?? ''));
+            $finalThumb = $thumb !== '' ? $thumb : (string)($prev['thumbnail'] ?? '');
+            if ($finalThumb !== '') {
+                $item['thumbnail'] = $finalThumb;
+            }
+            $prompt = trim((string)($raw['prompt'] ?? ($prev['prompt'] ?? '')));
             if ($prompt !== '') {
                 $item['prompt'] = mb_substr($prompt, 0, 180);
             }
@@ -736,7 +846,8 @@ final class AuthRoutes
                 }
             }
         }
-        $projects = is_array($user['savedProjects'] ?? null) ? $user['savedProjects'] : [];
+        $uid = (int)($user['id'] ?? ($reqUser['id'] ?? 0));
+        $projects = Db::readUserProjectVault($uid, $user);
         Http::json(['success' => true, 'projects' => $projects, 'count' => count($projects)]);
     }
 
@@ -744,7 +855,7 @@ final class AuthRoutes
     {
         $reqUser = Helpers::requireUser($path);
         $body = Http::body();
-        $incoming = self::sanitizeSavedProjects($body['projects'] ?? []);
+        $incoming = self::sanitizeSavedProjects($body['projects'] ?? [], true);
         $replaceAll = !empty($body['replace']);
 
         if (\App\Database::isEnabled()) {
@@ -752,9 +863,11 @@ final class AuthRoutes
             if (!$user) {
                 Http::json(['success' => false, 'error' => 'UserNotFound'], 404);
             }
-            $existing = is_array($user['savedProjects'] ?? null) ? $user['savedProjects'] : [];
-            $merged = $replaceAll ? $incoming : self::sanitizeSavedProjects(array_merge($existing, $incoming));
-            $user['savedProjects'] = $merged;
+            $uid = (int)$user['id'];
+            $existing = Db::readUserProjectVault($uid, $user);
+            $merged = $replaceAll ? $incoming : self::sanitizeSavedProjects(array_merge($existing, $incoming), true);
+            Db::writeUserProjectVault($uid, $merged);
+            $user['savedProjects'] = self::sanitizeSavedProjects($merged, false);
             Db::upsertSingleUser($user);
             Http::json(['success' => true, 'projects' => $merged, 'count' => count($merged)]);
         }
@@ -762,9 +875,11 @@ final class AuthRoutes
         $users = Db::readUsers();
         foreach ($users as $i => $u) {
             if ((string)($u['id'] ?? '') === (string)($reqUser['id'] ?? '') || Db::sanitizeEmail($u['email'] ?? '') === Db::sanitizeEmail($reqUser['email'] ?? '')) {
-                $existing = is_array($u['savedProjects'] ?? null) ? $u['savedProjects'] : [];
-                $merged = $replaceAll ? $incoming : self::sanitizeSavedProjects(array_merge($existing, $incoming));
-                $users[$i]['savedProjects'] = $merged;
+                $uid = (int)$u['id'];
+                $existing = Db::readUserProjectVault($uid, $u);
+                $merged = $replaceAll ? $incoming : self::sanitizeSavedProjects(array_merge($existing, $incoming), true);
+                Db::writeUserProjectVault($uid, $merged);
+                $users[$i]['savedProjects'] = self::sanitizeSavedProjects($merged, false);
                 Db::writeUsers($users);
                 Http::json(['success' => true, 'projects' => $merged, 'count' => count($merged)]);
             }

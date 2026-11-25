@@ -288,6 +288,65 @@ public const ADMIN_PASSWORD = 'admin@123';
         return $p === 'demo' || !empty($user['isDemo']);
     }
 
+    public static function getUserMaxDevices(array $user): int
+    {
+        return max(1, min(50, (int)($user['maxDevices'] ?? 1)));
+    }
+
+    public static function normalizeActiveDeviceSessions(array $user): array
+    {
+        $raw = $user['activeDeviceSessions'] ?? null;
+        if (!is_array($raw)) {
+            return [];
+        }
+        $out = [];
+        foreach ($raw as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+            $devId = trim((string)($item['deviceId'] ?? ''));
+            $sid = trim((string)($item['sid'] ?? ''));
+            if ($devId === '' || $sid === '') {
+                continue;
+            }
+            $out[] = [
+                'deviceId' => $devId,
+                'sid' => $sid,
+                'ip' => trim((string)($item['ip'] ?? '')),
+                'uaKey' => trim((string)($item['uaKey'] ?? '')),
+                'loginAt' => (int)($item['loginAt'] ?? time()),
+                'lastSeenAt' => (int)($item['lastSeenAt'] ?? ($item['loginAt'] ?? time())),
+            ];
+        }
+        return $out;
+    }
+
+    public static function isTokenSessionRevoked(array $user, array $payload): bool
+    {
+        $tokenVer = (int)($payload['sessionVersion'] ?? 1);
+        $resetFloor = (int)($user['resetSessionFloor'] ?? 0);
+        if ($resetFloor > 0 && $tokenVer < $resetFloor) {
+            return true;
+        }
+        $tokenSid = trim((string)($payload['sid'] ?? ''));
+        if ($tokenSid !== '') {
+            $sessions = self::normalizeActiveDeviceSessions($user);
+            foreach ($sessions as $s) {
+                if (($s['sid'] ?? '') === $tokenSid) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        if (!empty($user['singleDeviceEnforced'])) {
+            $currentVersion = (int)($user['sessionVersion'] ?? 1);
+            if ($tokenVer < $currentVersion) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public static function getResellerPlanCredits(?array $reseller = null, ?array $settings = null): array
     {
         $settings = $settings ?? Db::readSettings();
@@ -584,30 +643,31 @@ public const ADMIN_PASSWORD = 'admin@123';
         }
 
         $tokenVersion = (int)($payload['sessionVersion'] ?? 1);
-        if (empty($user['singleDeviceEnforced'])) {
+        if (empty($user['singleDeviceEnforced']) && empty($payload['sid'])) {
             $user['sessionVersion'] = $tokenVersion;
             $user['singleDeviceEnforced'] = true;
             $userModified = true;
-        } else {
-            $currentVersion = (int)($user['sessionVersion'] ?? 1);
-            if ($tokenVersion < $currentVersion) {
-                if ($userModified) {
-                    if ($useMysqlFast) {
-                        Db::upsertSingleUser($user);
-                    } elseif ($userIdx >= 0 && is_array($users)) {
-                        $users[$userIdx] = $user;
-                        Db::writeUsers($users);
-                    }
+        } elseif (self::isTokenSessionRevoked($user, $payload)) {
+            if ($userModified) {
+                if ($useMysqlFast) {
+                    Db::upsertSingleUser($user);
+                } elseif ($userIdx >= 0 && is_array($users)) {
+                    $users[$userIdx] = $user;
+                    Db::writeUsers($users);
                 }
-                Http::json([
-                    'authenticated' => false,
-                    'locked' => true,
-                    'forceLogout' => true,
-                    'loggedOutOtherDevice' => true,
-                    'error' => 'Logged out: Your account was signed in on another device.',
-                    'message' => 'Logged out: Your account was signed in on another device. Only 1 active device is allowed at a time.',
-                ], 401);
             }
+            $maxDevsMsg = self::getUserMaxDevices($user);
+            $limitNote = $maxDevsMsg === 1
+                ? 'Only 1 active device is allowed at a time.'
+                : "Your plan allows up to {$maxDevsMsg} active devices.";
+            Http::json([
+                'authenticated' => false,
+                'locked' => true,
+                'forceLogout' => true,
+                'loggedOutOtherDevice' => true,
+                'error' => 'Logged out: Your account was signed in on another device.',
+                'message' => "Logged out: Your account was signed in on another device. {$limitNote}",
+            ], 401);
         }
 
         if ($userModified) {
@@ -735,7 +795,7 @@ public const ADMIN_PASSWORD = 'admin@123';
             ];
         }
         $tokenVersion = (int)($payload['sessionVersion'] ?? 1);
-        if (empty($user['singleDeviceEnforced'])) {
+        if (empty($user['singleDeviceEnforced']) && empty($payload['sid'])) {
             if ($useMysqlFast) {
                 $user['sessionVersion'] = $tokenVersion;
                 $user['singleDeviceEnforced'] = true;
@@ -752,8 +812,7 @@ public const ADMIN_PASSWORD = 'admin@123';
             }
             return null;
         }
-        $currentVersion = (int)($user['sessionVersion'] ?? 1);
-        if ($tokenVersion < $currentVersion) {
+        if (self::isTokenSessionRevoked($user, $payload)) {
             return [
                 'success' => false,
                 'forceLogout' => true,
@@ -821,7 +880,7 @@ public const ADMIN_PASSWORD = 'admin@123';
             }
             if ($checkForcedLogout) {
                 $tokenVersion = (int)($payload['sessionVersion'] ?? 1);
-                if (empty($user['singleDeviceEnforced'])) {
+                if (empty($user['singleDeviceEnforced']) && empty($payload['sid'])) {
                     $user['sessionVersion'] = $tokenVersion;
                     $user['singleDeviceEnforced'] = true;
                     if ($useMysqlFast) {
@@ -835,21 +894,18 @@ public const ADMIN_PASSWORD = 'admin@123';
                             }
                         }
                     }
-                } else {
-                    $currentVersion = (int)($user['sessionVersion'] ?? 1);
-                    if ($tokenVersion < $currentVersion) {
-                        return [
-                            'forcedLogout' => [
-                                'success' => false,
-                                'forceLogout' => true,
-                                'loggedOutOtherDevice' => true,
-                                'locked' => true,
-                                'error' => 'Logged out: Your account was signed in on another device.',
-                            ],
-                            'flowLocked' => true,
-                            'user' => $user,
-                        ];
-                    }
+                } elseif (self::isTokenSessionRevoked($user, $payload)) {
+                    return [
+                        'forcedLogout' => [
+                            'success' => false,
+                            'forceLogout' => true,
+                            'loggedOutOtherDevice' => true,
+                            'locked' => true,
+                            'error' => 'Logged out: Your account was signed in on another device.',
+                        ],
+                        'flowLocked' => true,
+                        'user' => $user,
+                    ];
                 }
             }
             $isBasicPlan = self::isPlanBasicOrLocked($user['plan'] ?? 'basic');
@@ -1014,9 +1070,15 @@ public const ADMIN_PASSWORD = 'admin@123';
 
         $usersCharges = 0;
         foreach ($myUsers as $u) {
+            $isDemoU = self::isDemoUser($u);
+            if ($isDemoU) {
+                continue;
+            }
             $p = strtolower((string)($u['plan'] ?? 'pro'));
-            $rate = $rates[$p] ?? ($p === 'max' ? 800 : 500);
-            $usersCharges += $rate;
+            $baseRate = (float)($rates[$p] ?? ($p === 'max' ? 800 : 500));
+            $maxDevs = self::getUserMaxDevices($u);
+            $billedDevs = max($maxDevs, (int)($u['billedDevices'] ?? 1));
+            $usersCharges += ($baseRate * $billedDevs);
         }
 
         $deletedCharges = count($myUsers) === 0 ? 0 : (float)($reseller['deletedCharges'] ?? 0);
@@ -1045,16 +1107,20 @@ public const ADMIN_PASSWORD = 'admin@123';
         $remainingCredit = max(0, $totalPaid + $totalDiscount - $deletedCharges);
         $paidMap = [];
         foreach ($sortedOldestFirst as $u) {
+            $isDemoU = self::isDemoUser($u);
             $p = strtolower((string)($u['plan'] ?? 'pro'));
-            $rate = $rates[$p] ?? ($p === 'max' ? 800 : 500);
+            $maxDevs = self::getUserMaxDevices($u);
+            $billedDevs = $isDemoU ? 1 : max($maxDevs, (int)($u['billedDevices'] ?? 1));
+            $baseRate = $isDemoU ? 0.0 : (float)($rates[$p] ?? ($p === 'max' ? 800 : 500));
+            $rate = $isDemoU ? 0.0 : ($baseRate * $billedDevs);
             $uid = $u['id'];
             if ($rate <= 0 || $remainingCredit >= $rate) {
                 $remainingCredit = max(0, $remainingCredit - $rate);
-                $paidMap[$uid] = ['isPaid' => true, 'amountDue' => 0, 'rate' => $rate];
+                $paidMap[$uid] = ['isPaid' => true, 'amountDue' => 0, 'rate' => $rate, 'baseRate' => $baseRate, 'billedDevices' => $billedDevs];
             } else {
                 $userDue = $rate - $remainingCredit;
                 $remainingCredit = 0;
-                $paidMap[$uid] = ['isPaid' => false, 'amountDue' => $userDue, 'rate' => $rate];
+                $paidMap[$uid] = ['isPaid' => false, 'amountDue' => $userDue, 'rate' => $rate, 'baseRate' => $baseRate, 'billedDevices' => $billedDevs];
             }
         }
 
@@ -1080,7 +1146,9 @@ public const ADMIN_PASSWORD = 'admin@123';
                 $usersThisWeek++;
             }
 
-            $payInfo = $paidMap[$u['id']] ?? ['isPaid' => false, 'amountDue' => 500, 'rate' => 500];
+            $isDemoU = self::isDemoUser($u);
+            $maxDevs = self::getUserMaxDevices($u);
+            $payInfo = $paidMap[$u['id']] ?? ['isPaid' => $isDemoU, 'amountDue' => $isDemoU ? 0 : 500, 'rate' => $isDemoU ? 0 : 500, 'baseRate' => $isDemoU ? 0 : 500, 'billedDevices' => $maxDevs];
             $isPaid = (bool)$payInfo['isPaid'];
             $inGracePeriod = !$isPaid && !$rawPastGrace;
             $isPastGrace = !$isPaid && $rawPastGrace;
@@ -1094,23 +1162,33 @@ public const ADMIN_PASSWORD = 'admin@123';
                 $overdueUsersCount++;
             }
 
-            $effectiveStatus = $isUnpaidOverdue ? 'unpaid_suspended' : ($u['status'] ?? 'active');
+            $expTsU = !empty($u['planExpiresAt']) ? (strtotime((string)$u['planExpiresAt']) ?: 0) : 0;
+            $remSecU = $expTsU > time() ? ($expTsU - time()) : 0;
+            $rawSt = ($isDemoU && $remSecU <= 0 && ($u['status'] ?? 'active') !== 'suspended') ? 'expired' : ($u['status'] ?? 'active');
+            $effectiveStatus = $isUnpaidOverdue ? 'unpaid_suspended' : $rawSt;
 
             $uPlanLower = strtolower((string)($u['plan'] ?? 'pro'));
-            $defaultTotalCr = ($uPlanLower === 'max' || $uPlanLower === 'ultra') ? $planCredits['max'] : $planCredits['pro'];
+            $defaultTotalCr = $isDemoU
+                ? (int)($planCredits['demo'] ?? 2000)
+                : (($uPlanLower === 'max' || $uPlanLower === 'ultra') ? $planCredits['max'] : $planCredits['pro']);
             $usersFormatted[] = [
                 'id' => $u['id'],
                 'name' => $u['name'] ?? '',
                 'username' => $u['username'] ?? '',
                 'email' => $u['email'] ?? '',
                 'plainPasswordHint' => $u['plainPasswordHint'] ?? null,
-                'plan' => $u['plan'] ?? 'pro',
+                'plan' => $isDemoU ? 'demo' : ($u['plan'] ?? 'pro'),
+                'isDemo' => $isDemoU,
+                'demoHours' => isset($u['demoHours']) ? (float)$u['demoHours'] : ($isDemoU ? 2.0 : null),
+                'remainingSeconds' => $remSecU,
+                'maxDevices' => $maxDevs,
+                'billedDevices' => (int)($payInfo['billedDevices'] ?? $maxDevs),
                 'credits' => (int)($u['credits'] ?? 0),
                 'creditsTotal' => (int)($u['creditsTotal'] ?? 0) ?: $defaultTotalCr,
                 'planExpiresAt' => $u['planExpiresAt'] ?? null,
                 'daysRemaining' => Db::calculateDaysRemaining($u['planExpiresAt'] ?? null),
                 'status' => $effectiveStatus,
-                'rawStatus' => $u['status'] ?? 'active',
+                'rawStatus' => $rawSt,
                 'createdAt' => $u['createdAt'] ?? null,
                 'ageMs' => $ageMs,
                 'daysSinceCreation' => $daysSinceCreation,
@@ -1121,6 +1199,7 @@ public const ADMIN_PASSWORD = 'admin@123';
                 'isUnpaidOverdue' => $isUnpaidOverdue,
                 'hoursLeftInGrace' => $isPaid ? 0 : $hoursLeftInGrace,
                 'planRate' => $payInfo['rate'],
+                'basePlanRate' => $payInfo['baseRate'],
             ];
         }
 
@@ -1197,6 +1276,8 @@ public const ADMIN_PASSWORD = 'admin@123';
             'emailVerified' => true,
             'status' => ($isDemo && $remSec <= 0) ? 'expired' : ($user['status'] ?? 'active'),
             'createdAt' => $user['createdAt'] ?? null,
+            'maxDevices' => self::getUserMaxDevices($user),
+            'activeDevicesCount' => max(1, count(self::normalizeActiveDeviceSessions($user))),
             'deviceSwitchCount' => (int)($user['deviceSwitchCount'] ?? 0),
             'isLocked' => !empty($user['isLocked']),
         ];

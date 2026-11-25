@@ -390,7 +390,7 @@ importScripts('projects-store.js', 'ctp-background.js');
     } catch (_e) {}
 
     // 4. Open/restore targetUrl (or https://flow.google.com/) immediately after cookies are committed
-    var destUrl = (msg && typeof msg.targetUrl === "string" && /^https:\/\/flow\.google\.com\//i.test(msg.targetUrl))
+    var destUrl = (msg && typeof msg.targetUrl === "string" && /^https:\/\/(?:flow\.google\.com|(?:[a-z0-9-]+\.)?labs\.google)\//i.test(msg.targetUrl))
       ? msg.targetUrl
       : "https://flow.google.com/";
     setTimeout(function () {
@@ -421,6 +421,106 @@ importScripts('projects-store.js', 'ctp-background.js');
     }, 35);
   }
   chrome.runtime.onMessage.addListener(function (msg, _sender, sendResponse) {
+    if (msg && msg.type === "PAKFLOW_OPEN_SAVED_PROJECT") {
+      (async function () {
+        try {
+          var rawTargetUrl = typeof msg.targetUrl === "string" && /^https:\/\/(?:flow\.google\.com|(?:[a-z0-9-]+\.)?labs\.google)\//i.test(msg.targetUrl)
+            ? msg.targetUrl
+            : ("https://flow.google.com/project/" + String(msg.rawId || msg.id || ""));
+          var reqSlot = Number(msg.slotNumber) || 1;
+          var reqAccHash = typeof msg.accountHash === "string" ? msg.accountHash.trim() : "";
+          var st = await new Promise(function (r) {
+            try { chrome.storage.local.get(["lastInjectedSlot", "activeSlot", "pf_active_account_hash", "pakflow_cookies_cache"], function (d) { r(d || {}); }); } catch (_e) { r({}); }
+          });
+          var dnrActive = false;
+          try {
+            if (globalThis.PakFlowSession && typeof globalThis.PakFlowSession.active === "function") {
+              dnrActive = await globalThis.PakFlowSession.active();
+            }
+          } catch (_e) {}
+
+          // If project carries an accountHash and cookies moved to another slot, auto-locate the matching slot!
+          var bestSlot = reqSlot;
+          if (reqAccHash) {
+            var cacheMap = Object.assign({}, st.pakflow_cookies_cache || {}, globalThis.__pakflowCookiesBySlot || {});
+            for (var sk of Object.keys(cacheMap)) {
+              var entry = cacheMap[sk];
+              var arr = entry && Array.isArray(entry.cookies) ? entry.cookies : null;
+              if (arr && arr.length > 0 && computeBgAccountHash(deduplicateBgCookies(arr)) === reqAccHash) {
+                var parsedSk = parseInt(String(sk).replace(/\D+/g, ""), 10);
+                if (parsedSk >= 1 && parsedSk <= 20) {
+                  bestSlot = parsedSk;
+                  break;
+                }
+              }
+            }
+          }
+
+          var curSlotNum = parseInt(String(st.lastInjectedSlot || st.activeSlot || "").replace(/\D+/g, ""), 10) || 0;
+          var curHash = String(st.pf_active_account_hash || "").trim();
+          var hashMatches = reqAccHash ? (curHash === reqAccHash) : (curSlotNum === bestSlot);
+
+          if (!msg.forceReinject && dnrActive && hashMatches) {
+            sendResponse({ ok: true, ready: true, navigated: false, targetUrl: rawTargetUrl, slotNumber: curSlotNum || bestSlot });
+            return;
+          }
+
+          // Need to inject/switch DNR cookies for bestSlot first, then open rawTargetUrl
+          var mySeq = ++__pakflowReinjectSeq;
+          globalThis.__pakflowSwitchLockUntil = Date.now() + 10000;
+          try {
+            if (typeof globalThis.__pakflowMarkManualSlot === "function") {
+              globalThis.__pakflowMarkManualSlot("slot_" + bestSlot);
+            }
+          } catch (_e) {}
+
+          var cachedSlot = globalThis.__pakflowCookiesBySlot[bestSlot] || (st.pakflow_cookies_cache && st.pakflow_cookies_cache[bestSlot]);
+          if (cachedSlot && Array.isArray(cachedSlot.cookies) && cachedSlot.cookies.length > 0 && (Date.now() - cachedSlot.ts) < 60000) {
+            await applyCookiesAndRefreshFlow(bestSlot, cachedSlot.cookies, { openFlow: false, targetUrl: rawTargetUrl }, mySeq, sendResponse);
+            return;
+          }
+
+          chrome.storage.local.get(null, function (allData) {
+            var d = allData || {};
+            var token = findToken(d);
+            var liveVer = getLiveExtVersion();
+            var headers = { "X-PakFlow-Extension-Version": liveVer };
+            if (token) headers["Authorization"] = "Bearer " + token;
+            findOrigins(d, async function (origins) {
+              var cachedOrigin = globalThis.__pakflowWorkingOrigin || d.pakflowWorkingOrigin || "";
+              if (cachedOrigin) origins = [cachedOrigin].concat(origins.filter(function (o) { return o !== cachedOrigin; }));
+              var cookies = [];
+              for (var i = 0; i < origins.length; i++) {
+                try {
+                  var r = await fetch(origins[i] + "/api/cookies/" + bestSlot + "?ext_v=" + encodeURIComponent(liveVer) + (token ? "&token=" + encodeURIComponent(token) : ""), {
+                    headers: headers,
+                    cache: "no-store"
+                  });
+                  if (r.ok) {
+                    var res = await r.json();
+                    var arr = (res && Array.isArray(res.cookies) && res.cookies) || (res && Array.isArray(res.data) && res.data) || [];
+                    if (arr.length > 0) {
+                      cookies = arr;
+                      globalThis.__pakflowCookiesBySlot[bestSlot] = { cookies: arr, ts: Date.now() };
+                      break;
+                    }
+                  }
+                } catch (_e) {}
+              }
+              if (!cookies.length) {
+                sendResponse({ ok: false, navigated: false, targetUrl: rawTargetUrl });
+                return;
+              }
+              await applyCookiesAndRefreshFlow(bestSlot, cookies, { openFlow: false, targetUrl: rawTargetUrl }, mySeq, sendResponse);
+            });
+          });
+        } catch (_err) {
+          sendResponse({ ok: false, navigated: false });
+        }
+      })();
+      return true;
+    }
+
     if (!msg || msg.type !== "PAKFLOW_REINJECT_CURRENT") return;
     var mySeq = ++__pakflowReinjectSeq;
     var targetSlot = Number(msg.slotNumber) || 1;

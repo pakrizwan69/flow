@@ -11,6 +11,21 @@
         const rawUrl = typeof input === 'string' ? input : (input && input.url ? input.url : String(input));
         const u = new URL(rawUrl, location.origin);
         const p = u.pathname.replace(/\/+$/, '');
+        if (/\/(?:api\/)?(?:user\/login|auth\/login)$/i.test(p)) {
+          const stDev = await new Promise(res => {
+            try { chrome.storage.local.get(['pakflow_device_id'], s => res(s || {})); } catch { res({}); }
+          });
+          let devId = typeof stDev.pakflow_device_id === 'string' ? stDev.pakflow_device_id.trim() : '';
+          if (!devId) {
+            devId = 'dev_' + Math.random().toString(36).slice(2, 12);
+            try { chrome.storage.local.set({ pakflow_device_id: devId }); } catch {}
+          }
+          const nextInit = Object.assign({}, init || {});
+          const hdrs = new Headers(nextInit.headers || (input && input.headers) || {});
+          if (!hdrs.has('X-Device-Id')) hdrs.set('X-Device-Id', devId);
+          nextInit.headers = hdrs;
+          return origFetch(u.toString(), nextInit);
+        }
         if (/\/(?:api\/)?(?:cookies|slots|cookies\/active)$/i.test(p)) {
           const st = await new Promise(res => {
             try {

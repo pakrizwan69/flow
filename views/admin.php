@@ -1561,7 +1561,7 @@
               </div>
             </div>
           </div>
-          <div class="grid-2">
+          <div class="grid-3">
             <div class="field">
               <label for="uStatus">Account Status</label>
               <select id="uStatus" class="select">
@@ -1572,6 +1572,10 @@
             <div class="field">
               <label for="uCredits">AI Credits</label>
               <input id="uCredits" class="input" type="number" min="0" max="10000000" value="45000" />
+            </div>
+            <div class="field">
+              <label for="uMaxDevices">Allowed Devices</label>
+              <input id="uMaxDevices" class="input" type="number" min="1" max="50" value="1" />
             </div>
           </div>
           <!-- Edit-only Quick Actions -->
@@ -2379,7 +2383,7 @@
               '</div>' +
             '</td>' +
             '<td>' + statusBadge + '</td>' +
-            '<td style="font-family:var(--font-mono);">' + Number(u.deviceSwitchCount || 0) + '</td>' +
+            '<td style="font-family:var(--font-mono);"><span class="badge badge-muted">' + Math.max(1, Number(u.maxDevices || 1)) + ' Dev' + (Number(u.maxDevices || 1) > 1 ? 's' : '') + '</span> <span style="font-size:11px;color:var(--text-muted);">(' + Number(u.deviceSwitchCount || 0) + ' sw)</span></td>' +
             '<td><div class="actions-cell">' +
               '<button type="button" class="btn btn-ghost btn-xs" data-act="share-user" data-id="' + u.id + '" title="Copy / Share Login">Share</button>' +
               '<button type="button" class="btn btn-ghost btn-xs" data-act="edit-user" data-id="' + u.id + '">Edit</button>' +
@@ -2512,6 +2516,7 @@
         }
         $('uStatus').value = String(user.status || 'active').toLowerCase() === 'suspended' ? 'suspended' : 'active';
         $('uCredits').value = user.credits ?? getDefaultCreditsForPlan(uPlanLow);
+        $('uMaxDevices').value = Math.max(1, Number(user.maxDevices || 1));
         $('uEditQuickTools').classList.remove('hidden');
         $('userFormSubmitBtn').textContent = 'Save Changes';
       } else {
@@ -2521,6 +2526,7 @@
         $('uPassHint').textContent = '';
         $('uPlan').value = 'pro';
         $('uStatus').value = 'active';
+        $('uMaxDevices').value = 1;
         syncUserPlanModeUI(true);
         $('uEditQuickTools').classList.add('hidden');
         $('userFormSubmitBtn').textContent = 'Create User';
@@ -2558,12 +2564,15 @@
       const rawCredits = parseInt($('uCredits').value, 10);
       const demoHrsVal = parseFloat($('uDemoHours').value);
       const demoHours = Number.isFinite(demoHrsVal) && demoHrsVal > 0 ? demoHrsVal : 2;
+      const rawMaxDevs = parseInt($('uMaxDevices').value, 10);
+      const maxDevices = Number.isFinite(rawMaxDevs) && rawMaxDevs >= 1 ? Math.min(50, rawMaxDevs) : 1;
       const payload = {
         name: $('uName').value.trim(),
         email: $('uEmail').value.trim(),
         plan: chosenPlan,
         status: $('uStatus').value,
         credits: Number.isFinite(rawCredits) && rawCredits >= 0 ? rawCredits : getDefaultCreditsForPlan(chosenPlan),
+        maxDevices,
       };
       if (isDemo) {
         payload.demoHours = demoHours;

@@ -1338,6 +1338,17 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
           ]);
           const portalBase = String(msg.apiBase || st.pakflowWorkingOrigin || st.apiBase || st.connectedFromSite || "https://flowbypak.com").replace(/\/+$/, "");
           if (msg.type === "PAKFLOW_PORTAL_UNAUTHENTICATED") {
+            const activeOrigin = String(st.pakflowWorkingOrigin || st.connectedFromSite || "").replace(/\/+$/, "");
+            if (activeOrigin && msg.apiBase) {
+              try {
+                const hActive = new URL(activeOrigin).hostname.replace(/^www\./i, "").toLowerCase();
+                const hMsg = new URL(String(msg.apiBase)).hostname.replace(/^www\./i, "").toLowerCase();
+                if (hActive && hMsg && hActive !== hMsg) {
+                  sendResponse({ ok: true, ignoredCrossOrigin: true });
+                  return;
+                }
+              } catch {}
+            }
             const hadSession = Boolean(
               st.isLoggedIn === true || st.isLoggedIn === "true" ||
               st.userToken || st.pakflow_token || st.flow_token || st.authToken || st.token
@@ -1391,6 +1402,8 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
       if (msg.projectId && globalThis.PakFlowProjects && typeof globalThis.PakFlowProjects.save === "function") {
         globalThis.PakFlowProjects.save(() => Promise.resolve("default"), {
           id: String(msg.projectId),
+          rawId: msg.rawId ? String(msg.rawId) : String(msg.projectId),
+          url: msg.url ? String(msg.url) : "",
           prompt: msg.prompt ? String(msg.prompt) : "",
           confirmed: true
         }).catch(() => {});
@@ -1403,11 +1416,24 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
       if (msg.id && globalThis.PakFlowProjects && typeof globalThis.PakFlowProjects.save === "function") {
         globalThis.PakFlowProjects.save(() => Promise.resolve("default"), {
           id: String(msg.id),
+          rawId: msg.rawId ? String(msg.rawId) : String(msg.id),
+          url: msg.url ? String(msg.url) : "",
           title: msg.title ? String(msg.title) : "",
           prompt: msg.prompt ? String(msg.prompt) : "",
           thumbnail: msg.thumbnail ? String(msg.thumbnail) : "",
           confirmed: true
         }).then((res) => sendResponse({ ok: true, count: res?.activeSlotCount || 0 }))
+          .catch(() => sendResponse({ ok: false }));
+        return true;
+      }
+      sendResponse({ ok: false });
+      return false;
+    }
+
+    if (msg.type === "PAKFLOW_PATCH_PROJECT_META") {
+      if (Array.isArray(msg.patches) && msg.patches.length > 0 && globalThis.PakFlowProjects && typeof globalThis.PakFlowProjects.patchMetadata === "function") {
+        globalThis.PakFlowProjects.patchMetadata(() => Promise.resolve("default"), msg.patches)
+          .then((res) => sendResponse({ ok: true, count: res?.activeSlotCount || 0 }))
           .catch(() => sendResponse({ ok: false }));
         return true;
       }
@@ -1435,8 +1461,11 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
     if (msg.type === "PAKFLOW_ENSURE_COOKIES_READY") {
       (async () => {
         try {
-          if (msg.token || msg.apiBase || msg.user) {
+          if (msg.token || msg.apiBase || msg.user || msg.deviceId) {
             const patch = {};
+            if (msg.deviceId && typeof msg.deviceId === "string" && msg.deviceId.trim().length >= 4) {
+              patch.pakflow_device_id = msg.deviceId.trim();
+            }
             if (msg.token) {
               patch.userToken = msg.token;
               patch.pakflow_token = msg.token;
@@ -2151,17 +2180,27 @@ if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
       const base = String(st.pakflowWorkingOrigin || st.apiBase || st.connectedFromSite || "https://flowbypak.com").replace(/\/+$/, "");
       const extVer = getExtVersion();
       const fetchFn = rawBgFetch || globalThis.fetch;
-      const slim = projects.slice(0, 100).map((p) => ({
-        id: p.id,
-        title: p.title || "Flow Project",
-        customTitle: Boolean(p.customTitle),
-        slot: p.slot || "slot_1",
-        url: p.url || ("https://flow.google.com/project/" + p.id),
-        thumbnail: (typeof p.thumbnail === "string" && /^https:\/\//i.test(p.thumbnail)) ? p.thumbnail : "",
-        prompt: p.prompt || "",
-        createdAt: p.createdAt || Date.now(),
-        updatedAt: p.updatedAt || Date.now()
-      }));
+      const slim = projects.slice(0, 100).map((p) => {
+        const rawId = String(p.rawId || p.id || "").trim();
+        const thumbStr = typeof p.thumbnail === "string" ? p.thumbnail.trim() : "";
+        const validThumb = (
+          /^https:\/\//i.test(thumbStr) ||
+          (/^data:image\/(?:jpeg|jpg|webp|png);base64,/i.test(thumbStr) && thumbStr.length <= 65000)
+        ) ? thumbStr : "";
+        return {
+          id: p.id,
+          rawId: rawId || p.id,
+          title: p.title || "Flow Project",
+          customTitle: Boolean(p.customTitle),
+          slot: p.slot || "slot_1",
+          accountHash: p.accountHash ? String(p.accountHash) : "",
+          url: p.url || ("https://flow.google.com/project/" + (rawId || p.id)),
+          thumbnail: validThumb,
+          prompt: p.prompt || "",
+          createdAt: p.createdAt || Date.now(),
+          updatedAt: p.updatedAt || Date.now()
+        };
+      });
       await fetchFn(`${base}/api/user/projects?ext_v=${encodeURIComponent(extVer)}`, {
         method: "POST",
         headers: {

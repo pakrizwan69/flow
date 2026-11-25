@@ -517,7 +517,16 @@ final class ResellerRoutes
             $hoursLeftInGrace = $isPaid ? 0 : ($bu ? $bu['hoursLeftInGrace'] : $rawHoursLeft);
             $effectiveStatus = (!$isPaid && $isPastGrace) ? 'unpaid_suspended' : ($u['status'] ?? 'active');
             $uPlan = strtolower((string)($u['plan'] ?? 'pro'));
-            $defTot = ($uPlan === 'max' || $uPlan === 'ultra') ? $planCredits['max'] : $planCredits['pro'];
+            $isDemoU = Helpers::isDemoUser($u);
+            $maxDevs = Helpers::getUserMaxDevices($u);
+            $defTot = $isDemoU
+                ? (int)($planCredits['demo'] ?? 2000)
+                : (($uPlan === 'max' || $uPlan === 'ultra') ? $planCredits['max'] : $planCredits['pro']);
+            $expTsU = !empty($u['planExpiresAt']) ? (strtotime((string)$u['planExpiresAt']) ?: 0) : 0;
+            $remSecU = $expTsU > time() ? ($expTsU - time()) : 0;
+            if ($isDemoU && $remSecU <= 0 && $effectiveStatus === 'active') {
+                $effectiveStatus = 'expired';
+            }
 
             $formatted[] = [
                 'id' => $u['id'],
@@ -525,7 +534,14 @@ final class ResellerRoutes
                 'username' => $u['username'] ?? '',
                 'email' => $u['email'] ?? '',
                 'plainPasswordHint' => $u['plainPasswordHint'] ?? null,
-                'plan' => $u['plan'] ?? 'pro',
+                'plan' => $isDemoU ? 'demo' : ($u['plan'] ?? 'pro'),
+                'isDemo' => $isDemoU,
+                'demoHours' => isset($u['demoHours']) ? (float)$u['demoHours'] : ($isDemoU ? 2.0 : null),
+                'remainingSeconds' => $remSecU,
+                'maxDevices' => $maxDevs,
+                'billedDevices' => $bu ? (int)($bu['billedDevices'] ?? $maxDevs) : max($maxDevs, (int)($u['billedDevices'] ?? 1)),
+                'planRate' => $bu ? $bu['planRate'] : 0,
+                'basePlanRate' => $bu ? ($bu['basePlanRate'] ?? $bu['planRate']) : 0,
                 'credits' => (int)($u['credits'] ?? 0),
                 'creditsTotal' => (int)($u['creditsTotal'] ?? 0) ?: $defTot,
                 'planExpiresAt' => $u['planExpiresAt'] ?? null,
@@ -589,17 +605,35 @@ final class ResellerRoutes
         $freshResellerMeta = $useMysqlFast ? (Db::findResellerByIdMysql($resellerId) ?: $reqReseller) : $reqReseller;
         $planCredits = Helpers::getResellerPlanCredits($freshResellerMeta, $settings);
 
-        $chosenPlan = strtolower((string)$plan) === 'max' ? 'max' : 'pro';
-        $durationDays = $chosenPlan === 'pro' ? 20 : 30;
-        $assignedCredits = $chosenPlan === 'max' ? (int)$planCredits['max'] : (int)$planCredits['pro'];
+        $rawPlanLow = strtolower(trim((string)$plan));
+        $isDemoPlan = ($rawPlanLow === 'demo');
+        $chosenPlan = $isDemoPlan ? 'demo' : ($rawPlanLow === 'max' ? 'max' : 'pro');
+        $demoHours = null;
+        $nowIso = Db::isoNow();
+        if ($isDemoPlan) {
+            $rawDemoHrs = $body['demoHours'] ?? ($body['hours'] ?? 2);
+            // Cap reseller demo duration at 2 hours max (default 2h) to prevent abuse
+            $demoHours = is_numeric($rawDemoHrs) ? max(0.0005, min(2.0, (float)$rawDemoHrs)) : 2.0;
+            $demoSeconds = max(2, (int)round($demoHours * 3600));
+            $durationDays = 1;
+            $expiresAt = Db::isoNow($demoSeconds);
+            $assignedCredits = (int)($planCredits['demo'] ?? 2000);
+            $maxDevices = 1;
+            $billedDevices = 1;
+        } else {
+            $durationDays = $chosenPlan === 'pro' ? 20 : 30;
+            $expiresAt = Db::isoNow($durationDays * 86400);
+            $assignedCredits = $chosenPlan === 'max' ? (int)$planCredits['max'] : (int)$planCredits['pro'];
+            $rawMaxDev = $body['maxDevices'] ?? ($body['devices'] ?? 1);
+            $maxDevices = is_numeric($rawMaxDev) ? max(1, min(5, (int)$rawMaxDev)) : 1;
+            $billedDevices = $maxDevices;
+        }
         $localPart = explode('@', $cleanEmail)[0] ?? 'user';
         $cleanUsername = $username
             ? Db::sanitizeCredential($username)
             : ($name ? Db::sanitizeCredential($name) : preg_replace('/[^a-zA-Z0-9_]/', '', $localPart));
 
         $allowed = (int)($reqReseller['allowedUsers'] ?? 50);
-        $nowIso = Db::isoNow();
-        $expiresAt = Db::isoNow($durationDays * 86400);
 
         if ($useMysqlFast) {
             $freshReseller = Db::findResellerByIdMysql($resellerId);
@@ -620,7 +654,7 @@ final class ResellerRoutes
             }
 
             $myUsersCount = Db::countUsersByResellerMysql($resellerId);
-            if ($myUsersCount >= $allowed && (!$existing || (int)($existing['resellerId'] ?? 0) !== $resellerId)) {
+            if ($myUsersCount >= $allowed && (!$existing || (int)$existing['resellerId'] !== $resellerId)) {
                 Http::json([
                     'error' => 'QuotaExceeded',
                     'message' => "Your account creation quota ($allowed users) is full. Please contact Flow by Pak admin to increase your quota.",
@@ -639,6 +673,10 @@ final class ResellerRoutes
                 $existing['passwordHash'] = Db::hashPassword($cleanPass);
                 $existing['plainPasswordHint'] = $cleanPass;
                 $existing['plan'] = $chosenPlan;
+                $existing['isDemo'] = $isDemoPlan;
+                $existing['demoHours'] = $demoHours;
+                $existing['maxDevices'] = $maxDevices;
+                $existing['billedDevices'] = $wasSameReseller ? max($billedDevices, (int)($existing['billedDevices'] ?? 1)) : $billedDevices;
                 $existing['credits'] = $assignedCredits;
                 $existing['creditsTotal'] = $assignedCredits;
                 $existing['planExpiresAt'] = $expiresAt;
@@ -661,7 +699,7 @@ final class ResellerRoutes
                 unset($safe['passwordHash']);
                 Http::json([
                     'success' => true,
-                    'message' => 'User account updated and activated immediately! (3-day grace period for payment is active)',
+                    'message' => $isDemoPlan ? "Demo account activated for {$demoHours}h (auto-closes on expiry)!" : 'User account updated and activated immediately! (3-day grace period for payment is active)',
                     'user' => $safe,
                 ], 200);
             }
@@ -677,6 +715,10 @@ final class ResellerRoutes
                 'passwordHash' => Db::hashPassword($cleanPass),
                 'plainPasswordHint' => $cleanPass,
                 'plan' => $chosenPlan,
+                'isDemo' => $isDemoPlan,
+                'demoHours' => $demoHours,
+                'maxDevices' => $maxDevices,
+                'billedDevices' => $billedDevices,
                 'credits' => $assignedCredits,
                 'creditsTotal' => $assignedCredits,
                 'planExpiresAt' => $expiresAt,
@@ -698,7 +740,7 @@ final class ResellerRoutes
             unset($safe['passwordHash']);
             Http::json([
                 'success' => true,
-                'message' => 'User account created and activated immediately! (3-day grace period for payment is active)',
+                'message' => $isDemoPlan ? "Demo account created for {$demoHours}h (auto-closes on expiry)!" : 'User account created and activated immediately! (3-day grace period for payment is active)',
                 'user' => $safe,
             ], 201);
         }
@@ -749,6 +791,10 @@ final class ResellerRoutes
             $existing['passwordHash'] = Db::hashPassword($cleanPass);
             $existing['plainPasswordHint'] = $cleanPass;
             $existing['plan'] = $chosenPlan;
+            $existing['isDemo'] = $isDemoPlan;
+            $existing['demoHours'] = $demoHours;
+            $existing['maxDevices'] = $maxDevices;
+            $existing['billedDevices'] = $wasSameReseller ? max($billedDevices, (int)($existing['billedDevices'] ?? 1)) : $billedDevices;
             $existing['credits'] = $assignedCredits;
             $existing['creditsTotal'] = $assignedCredits;
             $existing['planExpiresAt'] = $expiresAt;
@@ -779,7 +825,7 @@ final class ResellerRoutes
             unset($safe['passwordHash']);
             Http::json([
                 'success' => true,
-                'message' => 'User account updated and activated immediately! (3-day grace period for payment is active)',
+                'message' => $isDemoPlan ? "Demo account activated for {$demoHours}h (auto-closes on expiry)!" : 'User account updated and activated immediately! (3-day grace period for payment is active)',
                 'user' => $safe,
             ], 200);
         }
@@ -795,6 +841,10 @@ final class ResellerRoutes
             'passwordHash' => Db::hashPassword($cleanPass),
             'plainPasswordHint' => $cleanPass,
             'plan' => $chosenPlan,
+            'isDemo' => $isDemoPlan,
+            'demoHours' => $demoHours,
+            'maxDevices' => $maxDevices,
+            'billedDevices' => $billedDevices,
             'credits' => $assignedCredits,
             'creditsTotal' => $assignedCredits,
             'planExpiresAt' => $expiresAt,
@@ -824,7 +874,7 @@ final class ResellerRoutes
         unset($safe['passwordHash']);
         Http::json([
             'success' => true,
-            'message' => 'User account created and activated immediately! (3-day grace period for payment is active)',
+            'message' => $isDemoPlan ? "Demo account created for {$demoHours}h (auto-closes on expiry)!" : 'User account created and activated immediately! (3-day grace period for payment is active)',
             'user' => $safe,
         ], 201);
     }
@@ -857,23 +907,52 @@ final class ResellerRoutes
             Http::json(['error' => 'Forbidden', 'message' => 'Resellers are not allowed to add or extend days. Only administrator can extend validity.'], 403);
         }
         if (!empty($body['name'])) $user['name'] = Db::sanitizeCredential($body['name']);
+        $wasDemoBefore = Helpers::isDemoUser($user);
         if (!empty($body['plan'])) {
-            $nextPlan = strtolower((string)$body['plan']) === 'max' ? 'max' : 'pro';
-            $prevPlan = strtolower((string)($user['plan'] ?? 'pro')) === 'max' ? 'max' : 'pro';
+            $reqPlanLow = strtolower(trim((string)$body['plan']));
+            if ($reqPlanLow === 'demo' && !$wasDemoBefore) {
+                Http::json(['error' => 'Forbidden', 'message' => 'Paid Pro/Max accounts cannot be downgraded to Demo.'], 403);
+            }
+            $nextPlan = $reqPlanLow === 'demo' ? 'demo' : ($reqPlanLow === 'max' ? 'max' : 'pro');
+            $prevPlan = $wasDemoBefore ? 'demo' : (strtolower((string)($user['plan'] ?? 'pro')) === 'max' ? 'max' : 'pro');
             if ($nextPlan !== $prevPlan) {
                 $planCr = Helpers::getResellerPlanCredits($reqReseller, Db::readSettings());
                 $proCr = (int)$planCr['pro'];
                 $maxCr = (int)$planCr['max'];
-                if ($nextPlan === 'max') {
+                if ($prevPlan === 'demo' && ($nextPlan === 'pro' || $nextPlan === 'max')) {
+                    // Upgrading a Demo trial account to full paid Pro/Max plan
+                    $upgDays = $nextPlan === 'max' ? 30 : 20;
+                    $upgCr = $nextPlan === 'max' ? $maxCr : $proCr;
+                    $user['isDemo'] = false;
+                    $user['demoHours'] = null;
+                    $user['status'] = 'active';
+                    $user['credits'] = $upgCr;
+                    $user['creditsTotal'] = $upgCr;
+                    $user['planExpiresAt'] = Db::isoNow($upgDays * 86400);
+                    $user['daysRemaining'] = $upgDays;
+                    $user['requestedDays'] = $upgDays;
+                    $user['createdAt'] = Db::isoNow();
+                    $wasDemoBefore = false;
+                } elseif ($nextPlan === 'max') {
                     $delta = max(0, $maxCr - $proCr);
                     $user['credits'] = min($maxCr, max(0, (int)($user['credits'] ?? 0)) + $delta);
                     $user['creditsTotal'] = $maxCr;
-                } else {
+                } elseif ($nextPlan === 'pro') {
                     $user['credits'] = min($proCr, max(0, (int)($user['credits'] ?? 0)));
                     $user['creditsTotal'] = $proCr;
                 }
             }
             $user['plan'] = $nextPlan;
+        }
+        if (!$wasDemoBefore && isset($body['maxDevices']) && is_numeric($body['maxDevices'])) {
+            $nextMaxDev = max(1, min(5, (int)$body['maxDevices']));
+            $user['maxDevices'] = $nextMaxDev;
+            $user['billedDevices'] = max($nextMaxDev, (int)($user['billedDevices'] ?? 1));
+            $curSess = Helpers::normalizeActiveDeviceSessions($user);
+            if (count($curSess) > $nextMaxDev) {
+                usort($curSess, static fn(array $a, array $b): int => ((int)($a['lastSeenAt'] ?? 0)) <=> ((int)($b['lastSeenAt'] ?? 0)));
+                $user['activeDeviceSessions'] = array_values(array_slice($curSess, -$nextMaxDev));
+            }
         }
         if (!empty($body['status'])) $user['status'] = $body['status'];
         if (!empty($body['password']) && Db::sanitizeCredential($body['password']) !== '') {

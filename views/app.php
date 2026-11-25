@@ -3223,14 +3223,16 @@ $__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
         if (!token || !user) return;
         const plan = String(user.plan || 'basic').toLowerCase();
         if (plan === 'basic' || plan === 'free' || plan === 'trial' || plan === 'vibe' || plan === 'starter') return;
+        const devId = getDeviceId();
         try {
           localStorage.setItem('pakflow_token', token);
           localStorage.setItem('token', token);
           localStorage.setItem('user', JSON.stringify(user));
-          localStorage.setItem('pakflow_auth_bridge', JSON.stringify({ token: token, user: user }));
+          localStorage.setItem('pakflow_auth_bridge', JSON.stringify({ token: token, user: user, deviceId: devId }));
           window.dispatchEvent(new CustomEvent('__bf_auth_ready__', {
             detail: {
               token: token,
+              deviceId: devId,
               userId: user.id,
               email: user.email,
               username: user.username || user.name,
@@ -3241,7 +3243,7 @@ $__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
               daysRemaining: user.daysLeft !== undefined ? user.daysLeft : (user.daysRemaining !== undefined ? user.daysRemaining : 30)
             }
           }));
-          window.postMessage({ type: 'PAKFLOW_SITE_LOGIN', token: token, user: user }, '*');
+          window.postMessage({ type: 'PAKFLOW_SITE_LOGIN', token: token, user: user, deviceId: devId }, '*');
         } catch (_) {}
       }
 
@@ -3530,11 +3532,13 @@ $__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
         const dashBarEl = document.getElementById('dashCreditsBar');
         const dashDaysEl = document.getElementById('dashDaysCardVal');
         const dashEmailSub = document.getElementById('dashEmailCardSub');
+        const maxDevsAllowed = Math.max(1, Number(user.maxDevices || 1));
+        const devLabel = maxDevsAllowed + ' active device' + (maxDevsAllowed > 1 ? 's allowed' : ' session');
         if (dashPlanEl) dashPlanEl.textContent = planBadge;
         if (dashCreditsEl) dashCreditsEl.textContent = credits.toLocaleString();
         if (dashBarEl) dashBarEl.style.width = pct + '%';
         if (dashDaysEl) dashDaysEl.textContent = formatValidityText(user, true);
-        if (dashEmailSub) dashEmailSub.textContent = email || '1 active device session';
+        if (dashEmailSub) dashEmailSub.textContent = email ? (email + ' · ' + maxDevsAllowed + (maxDevsAllowed > 1 ? ' Devices' : ' Device')) : devLabel;
       }
 
       function hideBootLoader() {
@@ -3748,7 +3752,7 @@ $__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
           const endpoint = mode === 'signup' ? '/api/auth/register' : '/api/auth/login';
           const payload = mode === 'signup'
             ? { name, email, password, deviceId: getDeviceId() }
-            : { email, password, deviceId: getDeviceId(), forceLogoutExisting: true };
+            : { email, password, deviceId: getDeviceId() };
 
           const res = await fetch(endpoint, {
             method: 'POST',
@@ -3871,9 +3875,11 @@ $__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
             showPricing();
             return;
           } else {
+            const maxDevsAllowed = Math.max(1, Number(u.maxDevices || 1));
             modalTitle.textContent = 'My Devices';
             modalBody.innerHTML =
-              '<div class="info-row"><span>Active Device ID</span><strong>' + getDeviceId() + '</strong></div>' +
+              '<div class="info-row"><span>Allowed Devices</span><strong>' + maxDevsAllowed + (maxDevsAllowed > 1 ? ' Devices' : ' Device') + '</strong></div>' +
+              '<div class="info-row"><span>Active Browser ID</span><strong>' + getDeviceId() + '</strong></div>' +
               '<div class="info-row"><span>Device Switches</span><strong>' + Number(u.deviceSwitchCount || 0) + '</strong></div>';
           }
           infoModal.classList.remove('hidden');
@@ -4073,6 +4079,30 @@ $__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
       document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible' && (Date.now() - lastSessionCheckMs) >= 15000) {
           verifyActiveSession();
+        }
+      });
+
+      // Same-Chrome Multi-Tab Sync: if another tab in this Chrome profile signs in or refreshes token, stay signed in seamlessly
+      window.addEventListener('storage', (ev) => {
+        if (!ev) return;
+        if (ev.key === 'pakflow_token' || ev.key === 'token') {
+          if (ev.newValue && typeof ev.newValue === 'string') {
+            try {
+              const cachedRaw = localStorage.getItem('pakflow_user_cache');
+              if (cachedRaw) {
+                const cachedU = JSON.parse(cachedRaw);
+                if (cachedU && (cachedU.email || cachedU.id)) {
+                  if (!currentUser) showDash(cachedU);
+                  else renderUser(cachedU);
+                  return;
+                }
+              }
+            } catch (_) {}
+            boot();
+          } else if (!localStorage.getItem('pakflow_token') && !localStorage.getItem('token') && currentUser) {
+            currentUser = null;
+            showAuth('login');
+          }
         }
       });
 

@@ -21,6 +21,7 @@ final class Db
     private static ?array $deletedUsersCache = null;
     private static int $dbRevision = 1;
     private static int $promptsRevision = 1;
+    private static bool $projectVaultTableReady = false;
 
     public static function dataDir(): string
     {
@@ -248,6 +249,73 @@ final class Db
     public static function hashPassword(string $password): string
     {
         return hash('sha256', $password);
+    }
+
+    private static function ensureProjectVaultTable(): void
+    {
+        if (self::$projectVaultTableReady || !Database::isEnabled()) {
+            return;
+        }
+        Database::pdo()->exec(
+            'CREATE TABLE IF NOT EXISTS user_project_vault (
+                user_id INT NOT NULL PRIMARY KEY,
+                projects_json LONGTEXT NOT NULL,
+                updated_at VARCHAR(40) NOT NULL
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4'
+        );
+        self::$projectVaultTableReady = true;
+    }
+
+    public static function readUserProjectVault(int $userId, ?array $fallbackUser = null): array
+    {
+        if ($userId > 0) {
+            if (Database::isEnabled()) {
+                try {
+                    self::ensureProjectVaultTable();
+                    $stmt = Database::pdo()->prepare('SELECT projects_json FROM user_project_vault WHERE user_id = ? LIMIT 1');
+                    $stmt->execute([$userId]);
+                    $row = $stmt->fetch();
+                    if (is_array($row) && !empty($row['projects_json'])) {
+                        $decoded = json_decode((string)$row['projects_json'], true);
+                        if (is_array($decoded)) {
+                            return $decoded;
+                        }
+                    }
+                } catch (\Throwable $e) {
+                }
+            } else {
+                $vaultFile = self::dataDir() . DIRECTORY_SEPARATOR . 'user_projects' . DIRECTORY_SEPARATOR . 'u_' . $userId . '.json';
+                if (is_file($vaultFile)) {
+                    $decoded = self::readJsonFile($vaultFile, null);
+                    if (is_array($decoded)) {
+                        return $decoded;
+                    }
+                }
+            }
+        }
+        return is_array($fallbackUser['savedProjects'] ?? null) ? $fallbackUser['savedProjects'] : [];
+    }
+
+    public static function writeUserProjectVault(int $userId, array $projects): void
+    {
+        if ($userId <= 0) {
+            return;
+        }
+        if (Database::isEnabled()) {
+            try {
+                self::ensureProjectVaultTable();
+                $json = json_encode(array_values($projects), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '[]';
+                $stmt = Database::pdo()->prepare(
+                    'INSERT INTO user_project_vault (user_id, projects_json, updated_at) VALUES (?, ?, ?)
+                     ON DUPLICATE KEY UPDATE projects_json = VALUES(projects_json), updated_at = VALUES(updated_at)'
+                );
+                $stmt->execute([$userId, $json, self::isoNow()]);
+                return;
+            } catch (\Throwable $e) {
+            }
+        }
+        $vaultFile = self::dataDir() . DIRECTORY_SEPARATOR . 'user_projects' . DIRECTORY_SEPARATOR . 'u_' . $userId . '.json';
+        self::writeFileAtomic($vaultFile, array_values($projects), false);
     }
 
     public static function verifyPassword($password, ?string $storedHash, string $plainPasswordHint = '', string $userEmail = ''): bool
