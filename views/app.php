@@ -33,6 +33,7 @@ $__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="google-site-verification" content="wR4H4lO2yGQYZdAm1085Thn0qJfRDfga3RLeJjZ1zOc" />
   <title>PakFlow — Google Flow AI</title>
   <link rel="icon" href="/flowbypak-logo.png" />
   <link rel="preload" as="image" href="/flowbypak-logo.png" />

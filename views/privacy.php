@@ -6,6 +6,7 @@ $__pfUpdated = 'November 25, 2026';
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="google-site-verification" content="wR4H4lO2yGQYZdAm1085Thn0qJfRDfga3RLeJjZ1zOc" />
   <title>Privacy Policy — PakFlow Studio &amp; Chrome Extension</title>
   <meta name="description" content="Official Privacy Policy for PakFlow Studio (flowbypak.com) and the PakFlow Chrome Extension." />
   <link rel="icon" type="image/png" href="/flowbypak-logo.png" />
