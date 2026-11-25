@@ -2609,19 +2609,17 @@ $__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
     .pf-hero-robot-wrap {
       position: relative;
       width: 100%;
-      max-width: 490px;
+      max-width: 470px;
       border: 0;
       box-shadow: none;
-      background: transparent;
-      -webkit-mask-image: radial-gradient(ellipse 68% 72% at 50% 48%, #000 54%, transparent 94%);
-      mask-image: radial-gradient(ellipse 68% 72% at 50% 48%, #000 54%, transparent 94%);
+      background: radial-gradient(circle at 52% 48%, rgba(168, 85, 247, 0.42) 0%, rgba(124, 58, 237, 0.16) 44%, transparent 72%);
     }
     .pf-hero-robot-wrap img {
       width: 100%;
       height: auto;
       display: block;
       object-fit: contain;
-      filter: drop-shadow(0 24px 48px rgba(15, 4, 38, 0.55));
+      filter: drop-shadow(0 22px 46px rgba(12, 4, 32, 0.58));
     }
     @media (max-width: 920px) {
       .pf-hero-inner { grid-template-columns: 1fr; text-align: center; }
@@ -3105,7 +3103,7 @@ $__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
         </div>
         <div class="pf-hero-right">
           <div class="pf-hero-robot-wrap">
-            <img src="/assets/pakflow-hero-robot.jpg?v=2" alt="PakFlow 3D AI Cinema Studio" fetchpriority="high" />
+            <img src="/assets/pakflow-hero-robot.png?v=3" alt="PakFlow 3D AI Cinema Studio" fetchpriority="high" />
           </div>
         </div>
       </div>
