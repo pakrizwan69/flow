@@ -3302,7 +3302,7 @@ $__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
         <div class="pf-sec-head">
           <div class="pf-sec-badge">&#10024; Authorized Reseller Distribution</div>
           <h2>2 plans. <span>Unlimited power.</span></h2>
-          <p>Choose Pro (20 Days) or Max (30 Days) — contact your authorized reseller for instant activation.</p>
+          <p>Choose Pro (25 Days) or Max (30 Days) — contact your authorized reseller for instant activation.</p>
         </div>
         <div class="pf-home-plans-grid">
           <div class="p-card pro">
@@ -3313,14 +3313,14 @@ $__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
             <div class="p-sub">For everyday AI creation</div>
             <div class="p-box">
               <div class="p-credits">✨ 25,000 AI Credits</div>
-              <div class="p-duration">= Full Google Flow access for 20 days</div>
+              <div class="p-duration">= Full Google Flow access for 25 days</div>
               <div class="p-tools-label">MAIN TOOLS</div>
               <div class="p-tool-row">
                 <span>✓ Google Flow</span>
                 <span>Full Access</span>
               </div>
             </div>
-            <button type="button" class="p-btn pro" data-get-plan="Pro (20 Days)">Get Pro</button>
+            <button type="button" class="p-btn pro" data-get-plan="Pro (25 Days)">Get Pro</button>
             <div class="p-reseller-note">Special discounts available via authorized resellers</div>
             <div class="p-noads">● No Ads</div>
             <ul class="p-list">
@@ -3451,7 +3451,7 @@ $__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
               <span>How do I upgrade to Pro or Max?</span>
               <svg class="qa-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
             </summary>
-            <div class="qa-ans">Check our Pro (20 Days) and Max (30 Days) plans on the Pricing page and contact your authorized reseller for instant activation.</div>
+            <div class="qa-ans">Check our Pro (25 Days) and Max (30 Days) plans on the Pricing page and contact your authorized reseller for instant activation.</div>
           </details>
           <details class="qa-item">
             <summary>
@@ -3984,7 +3984,7 @@ $__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
     <div class="pf-subhero">
       <div class="pf-hero-eyebrow">&#10024; Authorized Reseller Distribution</div>
       <h1>Simple Plans. Unlimited Power.</h1>
-      <p>Contact your authorized reseller for instant activation &amp; local pricing on Pro (20 Days) and Max (30 Days) plans.</p>
+      <p>Contact your authorized reseller for instant activation &amp; local pricing on Pro (25 Days) and Max (30 Days) plans.</p>
     </div>
 
     <div class="pricing-body">
@@ -4003,14 +4003,14 @@ $__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
           <div class="p-sub">For everyday AI creation</div>
           <div class="p-box">
             <div class="p-credits">✨ 25,000 AI Credits</div>
-            <div class="p-duration">= Full Google Flow access for 20 days</div>
+            <div class="p-duration">= Full Google Flow access for 25 days</div>
             <div class="p-tools-label">MAIN TOOLS</div>
             <div class="p-tool-row">
               <span>✓ Google Flow</span>
               <span>Full Access</span>
             </div>
           </div>
-          <button type="button" class="p-btn pro" data-get-plan="Pro (20 Days)">Get Pro</button>
+          <button type="button" class="p-btn pro" data-get-plan="Pro (25 Days)">Get Pro</button>
           <div class="p-reseller-note">Special discounts available via authorized resellers</div>
           <div class="p-noads">● No Ads</div>
           <ul class="p-list">

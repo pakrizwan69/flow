@@ -1186,12 +1186,16 @@ final class Db
                 'instructions' => "1. Download PakFlow_v1.7.zip\n2. Extract it to a folder on your PC\n3. Go to chrome://extensions and enable Developer mode\n4. Click Load unpacked and select the extracted folder",
             ],
             'plans' => [
-                'vibe' => ['name' => 'Vibe', 'price' => 1500, 'credits' => 10000, 'visible' => true, 'description' => 'Budget friendly Veo 3.1 Lite model'],
-                'plus' => ['name' => 'Plus', 'price' => 2500, 'credits' => 25000, 'visible' => true, 'description' => 'Most popular: 25,000 credits & single device lock'],
-                'pro' => ['name' => 'Pro', 'price' => 3500, 'credits' => 25000, 'visible' => true, 'description' => 'High-speed Google Flow rendering & 25,000 credits'],
-                'max' => ['name' => 'Max', 'price' => 5000, 'credits' => 45000, 'visible' => true, 'description' => 'Heavy creators: 45,000 credits & VIP priority queue'],
-                'ultra' => ['name' => 'Ultra', 'price' => 8000, 'credits' => 100000, 'visible' => true, 'description' => 'Ultimate studio power: 100,000 credits & personal support'],
-                'heavy' => ['name' => 'Heavy', 'price' => 5999, 'credits' => 100000, 'heavyCredits' => 6200, 'visible' => true, 'exclusiveEmail' => 'pak@gmail.com', 'description' => 'Omni Flash 6,200 Credits + Unlimited Veo 3.1 Lite'],
+                'basic' => ['name' => 'Basic', 'price' => 0, 'credits' => 0, 'days' => 0, 'visible' => true, 'description' => 'Free starter account (upgrade to Pro or Max for Google Flow access)'],
+                'pro' => ['name' => 'Pro', 'price' => 3500, 'credits' => 25000, 'days' => 25, 'visible' => true, 'description' => 'High-speed Google Flow rendering, 25,000 credits & 25 days validity'],
+                'max' => ['name' => 'Max', 'price' => 5000, 'credits' => 45000, 'days' => 30, 'visible' => true, 'description' => 'Heavy creators: 45,000 credits, VIP priority queue & 30 days validity'],
+                'demo' => ['name' => 'Demo', 'price' => 0, 'credits' => 2000, 'days' => 0, 'demoHours' => 2, 'visible' => true, 'description' => 'Timed 2-hour trial account (auto-locks on expiry)'],
+            ],
+            'planDurations' => [
+                'basic' => 0,
+                'pro' => 25,
+                'max' => 30,
+                'demo' => 0,
             ],
             'resellerPlanCredits' => [
                 'pro' => 25000,

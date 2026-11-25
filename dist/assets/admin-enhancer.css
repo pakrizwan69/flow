@@ -781,3 +781,138 @@ div.fixed.inset-0[class*="z-50"] form textarea {
   white-space: pre-wrap;
   word-break: break-word;
 }
+
+
+/* ── 9. Reseller Users Table: Crisp Desktop Rows + Responsive Mobile/Tablet Cards ── */
+table.pf-reseller-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: auto;
+}
+
+table.pf-reseller-table th {
+  padding: 12px 14px !important;
+  font-size: 11px !important;
+  letter-spacing: 0.06em !important;
+  white-space: nowrap !important;
+  vertical-align: middle !important;
+}
+
+table.pf-reseller-table td {
+  padding: 12px 14px !important;
+  vertical-align: middle !important;
+}
+
+table.pf-reseller-table tr.pf-reseller-row {
+  transition: background-color 0.15s ease;
+}
+
+table.pf-reseller-table .pf-reseller-actions {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  gap: 6px !important;
+  flex-wrap: nowrap !important;
+}
+
+table.pf-reseller-table .pf-reseller-actions > button {
+  width: 32px !important;
+  height: 32px !important;
+  min-width: 32px !important;
+  min-height: 32px !important;
+  border-radius: 9px !important;
+  flex-shrink: 0 !important;
+  margin: 0 !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+@media (max-width: 960px) {
+  table.pf-reseller-table,
+  table.pf-reseller-table tbody {
+    display: block !important;
+    width: 100% !important;
+  }
+
+  table.pf-reseller-table thead {
+    display: none !important;
+  }
+
+  table.pf-reseller-table tbody {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 10px !important;
+    padding: 12px !important;
+  }
+
+  table.pf-reseller-table tr.pf-reseller-row {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px 12px !important;
+    padding: 14px !important;
+    border-radius: 12px !important;
+    background: rgba(255, 255, 255, 0.025) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  }
+
+  table.pf-reseller-table tr.pf-reseller-row td {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    justify-content: center !important;
+    text-align: left !important;
+    padding: 4px 0 !important;
+    border: 0 !important;
+    min-width: 0 !important;
+    white-space: normal !important;
+  }
+
+  table.pf-reseller-table tr.pf-reseller-row td::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #71717a;
+    margin-bottom: 3px;
+  }
+
+  table.pf-reseller-table tr.pf-reseller-row td.pf-cell-user {
+    grid-column: 1 / -1 !important;
+    padding-bottom: 10px !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+  }
+
+  table.pf-reseller-table tr.pf-reseller-row td.pf-cell-user::before {
+    display: none !important;
+  }
+
+  table.pf-reseller-table tr.pf-reseller-row td.pf-cell-user > div {
+    max-width: 100% !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  table.pf-reseller-table tr.pf-reseller-row td.pf-cell-actions {
+    grid-column: 1 / -1 !important;
+    padding-top: 10px !important;
+    margin-top: 2px !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.06) !important;
+  }
+
+  table.pf-reseller-table tr.pf-reseller-row td.pf-cell-actions::before {
+    display: none !important;
+  }
+
+  table.pf-reseller-table tr.pf-reseller-row td.pf-cell-actions .pf-reseller-actions {
+    width: 100% !important;
+    justify-content: flex-start !important;
+    gap: 8px !important;
+    flex-wrap: wrap !important;
+  }
+
+  table.pf-reseller-table tr.pf-reseller-row td.pf-cell-actions .pf-reseller-actions > button {
+    flex: 1 1 42px !important;
+    height: 36px !important;
+  }
+}

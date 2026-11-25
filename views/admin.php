@@ -711,10 +711,7 @@
                   <option value="pro">Pro</option>
                   <option value="max">Max</option>
                   <option value="demo">Demo</option>
-                  <option value="plus">Plus</option>
-                  <option value="ultra">Ultra</option>
-                  <option value="vibe">Vibe</option>
-                  <option value="basic">Basic / Free</option>
+                  <option value="basic">Basic (Free)</option>
                 </select>
                 <select id="userStatusFilter" class="select" style="width:auto;min-width:136px;">
                   <option value="all">All Statuses</option>
@@ -1076,15 +1073,15 @@
                     <input id="rcMax" class="input" type="number" min="100" step="100" value="45000" />
                   </div>
                   <div class="field">
-                    <label for="rrPlus">PLUS Plan Rate (Rs.)</label>
-                    <input id="rrPlus" class="input" type="number" min="0" value="500" />
+                    <label for="rdPro">PRO Plan Duration (Days · Default 25)</label>
+                    <input id="rdPro" class="input" type="number" min="1" max="3650" value="25" />
                   </div>
                   <div class="field">
-                    <label for="rrUltra">ULTRA Plan Rate (Rs.)</label>
-                    <input id="rrUltra" class="input" type="number" min="0" value="800" />
+                    <label for="rdMax">MAX Plan Duration (Days · Default 30)</label>
+                    <input id="rdMax" class="input" type="number" min="1" max="3650" value="30" />
                   </div>
                 </div>
-                <button id="saveResellerRatesBtn" type="button" class="btn btn-primary" style="margin-bottom:18px;">Save Rates &amp; Plan Credits</button>
+                <button id="saveResellerRatesBtn" type="button" class="btn btn-primary" style="margin-bottom:18px;">Save Rates, Credits &amp; Plan Days</button>
 
                 <div style="border-top:1px solid var(--border);padding-top:16px;">
                   <div class="card-title" style="margin-bottom:8px;">Reseller Partner Notice Board</div>
@@ -1564,18 +1561,15 @@
             <div class="field">
               <label for="uPlan">Subscription Plan</label>
               <select id="uPlan" class="select">
-                <option value="pro">Pro (20 Days · 25k Credits)</option>
+                <option value="pro">Pro (25 Days · 25k Credits)</option>
                 <option value="max">Max (30 Days · 45k Credits)</option>
                 <option value="demo">Demo (Timed Auto-Lock · 2h Default)</option>
-                <option value="plus">Plus</option>
-                <option value="ultra">Ultra</option>
-                <option value="vibe">Vibe</option>
                 <option value="basic">Basic (Free)</option>
               </select>
             </div>
             <div class="field" id="uDaysFieldWrap">
               <label for="uDays">Validity (Days)</label>
-              <input id="uDays" class="input" type="number" min="0" max="3650" value="20" />
+              <input id="uDays" class="input" type="number" min="0" max="3650" value="25" />
             </div>
             <div class="field hidden" id="uDemoHoursFieldWrap">
               <label for="uDemoHours">Demo Duration (Hours — Auto-Closes)</label>
@@ -1921,7 +1915,7 @@
       settings: ['Settings & Broadcast', 'Platform channels, support contacts & global announcements'],
     };
 
-    const PLAN_KEYS = ['vibe', 'plus', 'pro', 'max', 'ultra', 'heavy'];
+    const PLAN_KEYS = ['basic', 'pro', 'max', 'demo'];
 
     let state = {
       users: [],
@@ -2496,6 +2490,31 @@
       return 25000;
     }
 
+    function getDefaultDaysForPlan(plan) {
+      const p = String(plan || 'pro').toLowerCase();
+      const pd = (state.resellerConfig && state.resellerConfig.planDurations)
+        || (state.settings && state.settings.planDurations)
+        || {};
+      const pl = (state.settings && state.settings.plans) || {};
+      if (p === 'pro' || p === 'plus') return Math.max(1, Number(pd.pro || (pl.pro && pl.pro.days) || 25));
+      if (p === 'max' || p === 'ultra') return Math.max(1, Number(pd.max || (pl.max && pl.max.days) || 30));
+      if (p === 'basic' || p === 'free' || p === 'demo') return 0;
+      return Math.max(1, Number(pd.pro || 25));
+    }
+
+    function syncUserPlanOptionLabels() {
+      const sel = $('uPlan');
+      if (!sel) return;
+      const proDays = getDefaultDaysForPlan('pro');
+      const maxDays = getDefaultDaysForPlan('max');
+      const proCr = Math.round(getDefaultCreditsForPlan('pro') / 1000);
+      const maxCr = Math.round(getDefaultCreditsForPlan('max') / 1000);
+      const optPro = sel.querySelector('option[value="pro"]');
+      const optMax = sel.querySelector('option[value="max"]');
+      if (optPro) optPro.textContent = 'Pro (' + proDays + ' Days · ' + proCr + 'k Credits)';
+      if (optMax) optMax.textContent = 'Max (' + maxDays + ' Days · ' + maxCr + 'k Credits)';
+    }
+
     function syncUserPlanModeUI(applyDefaults) {
       const p = String($('uPlan').value || 'pro').toLowerCase();
       const isDemo = (p === 'demo');
@@ -2505,7 +2524,7 @@
         if (isDemo) {
           $('uDemoHours').value = 2;
         } else {
-          $('uDays').value = p === 'pro' ? 20 : 30;
+          $('uDays').value = getDefaultDaysForPlan(p);
         }
         $('uCredits').value = getDefaultCreditsForPlan(p);
       }
@@ -2524,8 +2543,10 @@
 
     function openUserModal(user) {
       $('userForm').reset();
+      syncUserPlanOptionLabels();
       if (user) {
-        const uPlanLow = String(user.plan || 'pro').toLowerCase();
+        const rawPlanLow = String(user.plan || 'pro').toLowerCase();
+        const uPlanLow = rawPlanLow === 'plus' ? 'pro' : (rawPlanLow === 'ultra' ? 'max' : (['basic', 'pro', 'max', 'demo'].includes(rawPlanLow) ? rawPlanLow : 'pro'));
         $('userModalTitle').textContent = 'Edit User';
         $('uEditId').value = user.id;
         $('uName').value = user.name || '';
@@ -2541,7 +2562,7 @@
             : (user.demoHours || 2);
           $('uDemoHours').value = Number.isFinite(remHrs) && remHrs > 0 ? remHrs : (user.demoHours || 2);
         } else {
-          $('uDays').value = user.daysRemaining ?? (uPlanLow === 'pro' ? 20 : 30);
+          $('uDays').value = user.daysRemaining ?? getDefaultDaysForPlan(uPlanLow);
         }
         $('uStatus').value = String(user.status || 'active').toLowerCase() === 'suspended' ? 'suspended' : 'active';
         $('uCredits').value = user.credits ?? getDefaultCreditsForPlan(uPlanLow);
@@ -3237,12 +3258,15 @@
       const rates = cfg.rates || {};
       $('rrPro').value = rates.pro ?? 500;
       $('rrMax').value = rates.max ?? 800;
-      $('rrPlus').value = rates.plus ?? 500;
-      $('rrUltra').value = rates.ultra ?? 800;
 
       const pc = cfg.planCredits || {};
       if ($('rcPro')) $('rcPro').value = pc.pro ?? 25000;
       if ($('rcMax')) $('rcMax').value = pc.max ?? 45000;
+
+      const pd = cfg.planDurations || (state.settings && state.settings.planDurations) || {};
+      if ($('rdPro')) $('rdPro').value = pd.pro ?? 25;
+      if ($('rdMax')) $('rdMax').value = pd.max ?? 30;
+      syncUserPlanOptionLabels();
 
       const bc = cfg.broadcast || {};
       $('rbcEnabled').checked = Boolean(bc.enabled);
@@ -3275,20 +3299,29 @@
       const btn = $('saveResellerRatesBtn');
       btn.disabled = true;
       try {
+        const proRateVal = parseFloat($('rrPro').value) || 0;
+        const maxRateVal = parseFloat($('rrMax').value) || 0;
+        const proDaysVal = Math.max(1, parseInt($('rdPro')?.value || '25', 10) || 25);
+        const maxDaysVal = Math.max(1, parseInt($('rdMax')?.value || '30', 10) || 30);
         const res = await api('/api/admin/settings/reseller-rates', {
           method: 'PUT',
           body: JSON.stringify({
-            pro: parseFloat($('rrPro').value) || 0,
-            max: parseFloat($('rrMax').value) || 0,
-            plus: parseFloat($('rrPlus').value) || 0,
-            ultra: parseFloat($('rrUltra').value) || 0,
+            pro: proRateVal,
+            max: maxRateVal,
+            plus: proRateVal,
+            ultra: maxRateVal,
             basic: 0,
             proCredits: parseInt($('rcPro')?.value || '25000', 10) || 25000,
             maxCredits: parseInt($('rcMax')?.value || '45000', 10) || 45000,
+            proDays: proDaysVal,
+            maxDays: maxDaysVal,
           }),
         });
         if (state.resellerConfig && res.planCredits) state.resellerConfig.planCredits = res.planCredits;
-        showToast(res.message || 'Reseller rates & credits updated');
+        if (state.resellerConfig && res.planDurations) state.resellerConfig.planDurations = res.planDurations;
+        if (state.settings && res.planDurations) state.settings.planDurations = res.planDurations;
+        syncUserPlanOptionLabels();
+        showToast(res.message || 'Reseller rates, credits & plan durations updated');
         await loadAll();
       } catch (err) { showToast(err.message, true); }
       finally { btn.disabled = false; }
@@ -3692,9 +3725,9 @@
       $('anPaidActiveVal').textContent = active.toLocaleString();
 
       // Distribution Bars
-      const distRows = ['pro', 'max', 'plus', 'ultra', 'vibe', 'basic', 'free']
+      const distRows = ['pro', 'max', 'demo', 'basic', 'plus', 'ultra', 'vibe', 'free']
         .map((k) => ({ key: k, count: Number(bd[k] || 0) }))
-        .filter((r) => r.count > 0 || ['pro', 'max', 'plus', 'basic'].includes(r.key));
+        .filter((r) => r.count > 0 || ['pro', 'max', 'demo', 'basic'].includes(r.key));
       const maxC = Math.max(1, ...distRows.map((r) => r.count));
       $('planDistContainer').innerHTML = distRows.map((r) => {
         const pct = Math.round((r.count / Math.max(1, total)) * 100);
@@ -3757,9 +3790,18 @@
     // ── Render & Save: Subscription Plans & Pricing ──
     function renderPlansEditor(st) {
       const plans = (st && st.plans) || {};
+      const pd = (st && st.planDurations) || {};
+      const defaultMeta = {
+        basic: { name: 'Basic', price: 0, credits: 0, days: 0, description: 'Free starter account' },
+        pro: { name: 'Pro', price: 3500, credits: 25000, days: Number(pd.pro || 25), description: 'High-speed Google Flow rendering & 25,000 credits' },
+        max: { name: 'Max', price: 5000, credits: 45000, days: Number(pd.max || 30), description: 'Heavy creators: 45,000 credits & VIP priority queue' },
+        demo: { name: 'Demo', price: 0, credits: 2000, days: 0, description: 'Timed 2-hour trial account (auto-locks on expiry)' },
+      };
       const grid = $('plansEditorGrid');
       grid.innerHTML = PLAN_KEYS.map((key) => {
-        const p = plans[key] || { name: key.toUpperCase(), price: 0, credits: 25000, visible: true, description: '' };
+        const def = defaultMeta[key] || { name: key.toUpperCase(), price: 0, credits: 0, days: 0, description: '' };
+        const p = Object.assign({}, def, plans[key] || {});
+        const daysVal = key === 'pro' ? Number(pd.pro ?? p.days ?? 25) : (key === 'max' ? Number(pd.max ?? p.days ?? 30) : Number(p.days ?? 0));
         return (
           '<div class="plan-card" data-plan-key="' + key + '">' +
             '<div class="plan-card-head">' +
@@ -3769,10 +3811,11 @@
                 '<input type="checkbox" class="switch" data-pf="visible" ' + (p.visible !== false ? 'checked' : '') + ' />' +
               '</label>' +
             '</div>' +
-            '<div class="field"><label>Plan Display Name</label><input class="input" type="text" data-pf="name" value="' + esc(p.name || key.toUpperCase()) + '" /></div>' +
-            '<div class="grid-2">' +
+            '<div class="field"><label>Plan Display Name</label><input class="input" type="text" data-pf="name" value="' + esc(p.name || def.name) + '" /></div>' +
+            '<div class="grid-3">' +
               '<div class="field"><label>Price (PKR)</label><input class="input" type="number" min="0" data-pf="price" value="' + Number(p.price || 0) + '" /></div>' +
               '<div class="field"><label>Credits</label><input class="input" type="number" min="0" data-pf="credits" value="' + Number(p.credits || 0) + '" /></div>' +
+              '<div class="field"><label>Duration (Days)</label><input class="input" type="number" min="0" max="3650" data-pf="days" value="' + daysVal + '"' + (key === 'demo' ? ' title="Demo uses hours (2h default)"' : '') + ' /></div>' +
             '</div>' +
             '<div class="field"><label>Description / Perks</label><textarea class="textarea" style="min-height:68px;" data-pf="description">' + esc(p.description || '') + '</textarea></div>' +
           '</div>'
@@ -3783,22 +3826,35 @@
     $('savePlansBtn').addEventListener('click', async () => {
       const btn = $('savePlansBtn');
       const existingPlans = (state.settings && state.settings.plans) || {};
-      const updated = Object.assign({}, existingPlans);
+      const updated = {};
+      const nextDurations = { basic: 0, pro: 25, max: 30, demo: 0 };
       document.querySelectorAll('#plansEditorGrid .plan-card').forEach((card) => {
         const key = card.dataset.planKey;
+        const daysNum = Math.max(0, Math.min(3650, parseInt(card.querySelector('[data-pf="days"]')?.value || '0', 10) || 0));
+        if (key === 'pro') nextDurations.pro = Math.max(1, daysNum || 25);
+        if (key === 'max') nextDurations.max = Math.max(1, daysNum || 30);
+        if (key === 'basic') nextDurations.basic = daysNum;
         updated[key] = Object.assign({}, existingPlans[key] || {}, {
           visible: card.querySelector('[data-pf="visible"]').checked,
           name: card.querySelector('[data-pf="name"]').value.trim() || key.toUpperCase(),
           price: parseInt(card.querySelector('[data-pf="price"]').value, 10) || 0,
           credits: parseInt(card.querySelector('[data-pf="credits"]').value, 10) || 0,
+          days: key === 'pro' ? nextDurations.pro : (key === 'max' ? nextDurations.max : daysNum),
           description: card.querySelector('[data-pf="description"]').value.trim(),
         });
       });
       btn.disabled = true;
       try {
-        await api('/api/admin/settings', { method: 'PUT', body: JSON.stringify({ plans: updated }) });
-        if (state.settings) state.settings.plans = updated;
-        showToast('All subscription plans saved');
+        await api('/api/admin/settings', { method: 'PUT', body: JSON.stringify({ plans: updated, planDurations: nextDurations }) });
+        if (state.settings) {
+          state.settings.plans = updated;
+          state.settings.planDurations = nextDurations;
+        }
+        if (state.resellerConfig) state.resellerConfig.planDurations = nextDurations;
+        if ($('rdPro')) $('rdPro').value = nextDurations.pro;
+        if ($('rdMax')) $('rdMax').value = nextDurations.max;
+        syncUserPlanOptionLabels();
+        showToast('All subscription plans & durations saved');
       } catch (err) { showToast(err.message, true); }
       finally { btn.disabled = false; }
     });

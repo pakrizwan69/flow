@@ -154,6 +154,7 @@ final class ResellerRoutes
                 'broadcast' => $settings['resellerBroadcast'] ?? $defaults['resellerBroadcast'],
                 'rates' => $settings['resellerRates'] ?? $defaults['resellerRates'],
                 'planCredits' => Helpers::getResellerPlanCredits(null, $settings),
+                'planDurations' => Helpers::getPlanDurations($settings),
             ]);
         }
         if ($method === 'PUT' && $path === '/admin/settings/reseller-bank') {
@@ -224,12 +225,33 @@ final class ResellerRoutes
             if (is_array($settings['plans']['max'] ?? null)) {
                 $settings['plans']['max']['credits'] = $nextMaxCr;
             }
+            $curDurations = Helpers::getPlanDurations($settings);
+            $inDurations = is_array($body['planDurations'] ?? null) ? $body['planDurations'] : [];
+            $nextProDays = isset($body['proDays']) && is_numeric($body['proDays'])
+                ? max(1, min(3650, (int)$body['proDays']))
+                : (isset($inDurations['pro']) && is_numeric($inDurations['pro']) ? max(1, min(3650, (int)$inDurations['pro'])) : (int)$curDurations['pro']);
+            $nextMaxDays = isset($body['maxDays']) && is_numeric($body['maxDays'])
+                ? max(1, min(3650, (int)$body['maxDays']))
+                : (isset($inDurations['max']) && is_numeric($inDurations['max']) ? max(1, min(3650, (int)$inDurations['max'])) : (int)$curDurations['max']);
+            $settings['planDurations'] = [
+                'basic' => (int)($curDurations['basic'] ?? 0),
+                'pro' => $nextProDays,
+                'max' => $nextMaxDays,
+                'demo' => 0,
+            ];
+            if (is_array($settings['plans']['pro'] ?? null)) {
+                $settings['plans']['pro']['days'] = $nextProDays;
+            }
+            if (is_array($settings['plans']['max'] ?? null)) {
+                $settings['plans']['max']['days'] = $nextMaxDays;
+            }
             Db::writeSettings($settings);
             Http::json([
                 'success' => true,
-                'message' => 'Reseller plan rates & default user credits updated successfully',
+                'message' => 'Reseller plan rates, credits & durations updated successfully',
                 'rates' => $settings['resellerRates'],
                 'planCredits' => $settings['resellerPlanCredits'],
+                'planDurations' => $settings['planDurations'],
             ]);
         }
 
@@ -374,6 +396,7 @@ final class ResellerRoutes
             'billing' => [
                 'rates' => $billingInfo['rates'],
                 'planCredits' => $billingInfo['planCredits'],
+                'planDurations' => Helpers::getPlanDurations($settings),
                 'usersCharges' => $billingInfo['usersCharges'],
                 'deletedCharges' => $billingInfo['deletedCharges'],
                 'rawTotalCharges' => $billingInfo['rawTotalCharges'],
@@ -579,6 +602,7 @@ final class ResellerRoutes
             'isOverdue' => (bool)($billing && $billing['isOverdue']),
             'balanceDue' => $billing ? $billing['balanceDue'] : 0,
             'planCredits' => $planCredits,
+            'planDurations' => Helpers::getPlanDurations($settings),
             'rates' => $billing ? $billing['rates'] : null,
         ]);
     }
@@ -621,7 +645,7 @@ final class ResellerRoutes
             $maxDevices = 1;
             $billedDevices = 1;
         } else {
-            $durationDays = $chosenPlan === 'pro' ? 20 : 30;
+            $durationDays = Helpers::getPlanDurationDays($chosenPlan, $settings);
             $expiresAt = Db::isoNow($durationDays * 86400);
             $assignedCredits = $chosenPlan === 'max' ? (int)$planCredits['max'] : (int)$planCredits['pro'];
             $rawMaxDev = $body['maxDevices'] ?? ($body['devices'] ?? 1);
@@ -916,12 +940,19 @@ final class ResellerRoutes
             $nextPlan = $reqPlanLow === 'demo' ? 'demo' : ($reqPlanLow === 'max' ? 'max' : 'pro');
             $prevPlan = $wasDemoBefore ? 'demo' : (strtolower((string)($user['plan'] ?? 'pro')) === 'max' ? 'max' : 'pro');
             if ($nextPlan !== $prevPlan) {
-                $planCr = Helpers::getResellerPlanCredits($reqReseller, Db::readSettings());
+                $curSettings = Db::readSettings();
+                $planCr = Helpers::getResellerPlanCredits($reqReseller, $curSettings);
+                $planDur = Helpers::getPlanDurations($curSettings);
                 $proCr = (int)$planCr['pro'];
                 $maxCr = (int)$planCr['max'];
+                $proDays = max(1, (int)($planDur['pro'] ?? 25));
+                $maxDays = max(1, (int)($planDur['max'] ?? 30));
+                $nowTs = time();
+                $curExpTs = !empty($user['planExpiresAt']) ? (strtotime((string)$user['planExpiresAt']) ?: 0) : 0;
+
                 if ($prevPlan === 'demo' && ($nextPlan === 'pro' || $nextPlan === 'max')) {
                     // Upgrading a Demo trial account to full paid Pro/Max plan
-                    $upgDays = $nextPlan === 'max' ? 30 : 20;
+                    $upgDays = $nextPlan === 'max' ? $maxDays : $proDays;
                     $upgCr = $nextPlan === 'max' ? $maxCr : $proCr;
                     $user['isDemo'] = false;
                     $user['demoHours'] = null;
@@ -934,12 +965,43 @@ final class ResellerRoutes
                     $user['createdAt'] = Db::isoNow();
                     $wasDemoBefore = false;
                 } elseif ($nextPlan === 'max') {
-                    $delta = max(0, $maxCr - $proCr);
-                    $user['credits'] = min($maxCr, max(0, (int)($user['credits'] ?? 0)) + $delta);
+                    // Upgrading Pro -> Max: top up credits AND adjust validity days to Max plan duration
+                    $deltaCr = max(0, $maxCr - $proCr);
+                    $user['credits'] = min($maxCr, max(0, (int)($user['credits'] ?? 0)) + $deltaCr);
                     $user['creditsTotal'] = $maxCr;
+
+                    $prevDays = (int)($user['requestedDays'] ?? $proDays);
+                    if ($prevDays <= 0 || $prevDays > $maxDays) {
+                        $prevDays = $proDays;
+                    }
+                    $deltaDays = max(0, $maxDays - $prevDays);
+                    if ($curExpTs > $nowTs) {
+                        $newExpTs = $curExpTs + ($deltaDays * 86400);
+                    } else {
+                        $newExpTs = $nowTs + ($maxDays * 86400);
+                        $user['status'] = 'active';
+                    }
+                    $remDays = max(1, (int)ceil(($newExpTs - $nowTs) / 86400));
+                    $user['planExpiresAt'] = Db::isoNow(max(86400, $newExpTs - $nowTs));
+                    $user['daysRemaining'] = $remDays;
+                    $user['requestedDays'] = $maxDays;
                 } elseif ($nextPlan === 'pro') {
+                    // Switching Max -> Pro: adjust credits AND validity days to Pro plan duration
                     $user['credits'] = min($proCr, max(0, (int)($user['credits'] ?? 0)));
                     $user['creditsTotal'] = $proCr;
+
+                    $prevDays = (int)($user['requestedDays'] ?? $maxDays);
+                    if ($prevDays <= 0) {
+                        $prevDays = $maxDays;
+                    }
+                    $deltaDays = max(0, $prevDays - $proDays);
+                    if ($curExpTs > $nowTs) {
+                        $newExpTs = max($nowTs + 86400, min($curExpTs - ($deltaDays * 86400), $nowTs + ($proDays * 86400)));
+                        $remDays = max(1, (int)ceil(($newExpTs - $nowTs) / 86400));
+                        $user['planExpiresAt'] = Db::isoNow(max(86400, $newExpTs - $nowTs));
+                        $user['daysRemaining'] = $remDays;
+                    }
+                    $user['requestedDays'] = $proDays;
                 }
             }
             $user['plan'] = $nextPlan;

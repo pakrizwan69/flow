@@ -371,6 +371,46 @@ public const ADMIN_PASSWORD = 'admin@123';
         ];
     }
 
+    public static function getPlanDurations(?array $settings = null): array
+    {
+        $settings = $settings ?? Db::readSettings();
+        $cfg = is_array($settings['planDurations'] ?? null) ? $settings['planDurations'] : [];
+        $plans = is_array($settings['plans'] ?? null) ? $settings['plans'] : [];
+
+        $proRaw = $cfg['pro'] ?? ($plans['pro']['days'] ?? ($plans['pro']['durationDays'] ?? null));
+        $maxRaw = $cfg['max'] ?? ($plans['max']['days'] ?? ($plans['max']['durationDays'] ?? null));
+        $basicRaw = $cfg['basic'] ?? ($plans['basic']['days'] ?? 0);
+
+        $pro = (is_numeric($proRaw) && (int)$proRaw > 0) ? max(1, min(3650, (int)$proRaw)) : 25;
+        $max = (is_numeric($maxRaw) && (int)$maxRaw > 0) ? max(1, min(3650, (int)$maxRaw)) : 30;
+        $basic = (is_numeric($basicRaw) && (int)$basicRaw >= 0) ? min(3650, (int)$basicRaw) : 0;
+
+        return [
+            'basic' => $basic,
+            'pro' => $pro,
+            'max' => $max,
+            'demo' => 0,
+            'plus' => $pro,
+            'ultra' => $max,
+        ];
+    }
+
+    public static function getPlanDurationDays(string $plan, ?array $settings = null): int
+    {
+        $p = strtolower(trim($plan));
+        $durations = self::getPlanDurations($settings);
+        if ($p === 'max' || $p === 'ultra') {
+            return (int)$durations['max'];
+        }
+        if ($p === 'pro' || $p === 'plus') {
+            return (int)$durations['pro'];
+        }
+        if ($p === 'basic' || $p === 'free' || $p === 'demo') {
+            return (int)($durations[$p] ?? 0);
+        }
+        return (int)$durations['pro'];
+    }
+
     public static function isUserPlanExpired(array $user): bool
     {
         if (($user['status'] ?? '') === 'expired') {

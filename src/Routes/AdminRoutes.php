@@ -74,7 +74,7 @@ final class AdminRoutes
                         'email' => (string)($row['email'] ?? ''),
                         'plainPasswordHint' => $row['plain_password_hint'] ?? null,
                         'plan' => $plan,
-                        'requestedDays' => (int)($extra['requestedDays'] ?? $row['days_remaining'] ?? ($plan === 'max' ? 30 : 20)),
+                        'requestedDays' => (int)($extra['requestedDays'] ?? $row['days_remaining'] ?? Helpers::getPlanDurationDays($plan)),
                         'resellerId' => $row['reseller_id'] !== null ? (int)$row['reseller_id'] : null,
                         'resellerName' => $extra['resellerName'] ?? null,
                         'resellerEmail' => $extra['resellerEmail'] ?? null,
@@ -95,7 +95,7 @@ final class AdminRoutes
                         'email' => $u['email'] ?? '',
                         'plainPasswordHint' => $u['plainPasswordHint'] ?? null,
                         'plan' => $u['plan'] ?? 'pro',
-                        'requestedDays' => (int)($u['requestedDays'] ?? $u['daysRemaining'] ?? (($u['plan'] ?? '') === 'max' ? 30 : 20)),
+                        'requestedDays' => (int)($u['requestedDays'] ?? $u['daysRemaining'] ?? Helpers::getPlanDurationDays((string)($u['plan'] ?? 'pro'))),
                         'resellerId' => $u['resellerId'] ?? null,
                         'resellerName' => $u['resellerName'] ?? null,
                         'resellerEmail' => $u['resellerEmail'] ?? null,
@@ -114,7 +114,7 @@ final class AdminRoutes
                 if (!$u) {
                     Http::json(['error' => 'NotFound', 'message' => 'User not found'], 404);
                 }
-                $days = (int)($u['requestedDays'] ?? $u['daysRemaining'] ?? (($u['plan'] ?? '') === 'max' ? 30 : 20));
+                $days = (int)($u['requestedDays'] ?? $u['daysRemaining'] ?? Helpers::getPlanDurationDays((string)($u['plan'] ?? 'pro')));
                 $u['status'] = 'active';
                 $u['planExpiresAt'] = Db::isoNow($days * 86400);
                 $u['daysRemaining'] = $days;
@@ -133,7 +133,7 @@ final class AdminRoutes
             $users = Db::readUsers();
             foreach ($users as $i => $u) {
                 if ((int)($u['id'] ?? 0) === $userId) {
-                    $days = (int)($u['requestedDays'] ?? $u['daysRemaining'] ?? (($u['plan'] ?? '') === 'max' ? 30 : 20));
+                    $days = (int)($u['requestedDays'] ?? $u['daysRemaining'] ?? Helpers::getPlanDurationDays((string)($u['plan'] ?? 'pro')));
                     $users[$i]['status'] = 'active';
                     $users[$i]['planExpiresAt'] = Db::isoNow($days * 86400);
                     $users[$i]['daysRemaining'] = $days;
@@ -232,7 +232,7 @@ final class AdminRoutes
                 }));
             }
             $merged = array_merge($current, $sanitized);
-            foreach (['windowsApp', 'broadcast', 'plans', 'maintenance', 'toolsVisibility', 'extensions'] as $k) {
+            foreach (['windowsApp', 'broadcast', 'plans', 'planDurations', 'maintenance', 'toolsVisibility', 'extensions'] as $k) {
                 if (is_array($current[$k] ?? null) || is_array($update[$k] ?? null)) {
                     $merged[$k] = array_merge($current[$k] ?? [], is_array($update[$k] ?? null) ? $update[$k] : []);
                 }
@@ -1249,7 +1249,7 @@ final class AdminRoutes
         $planKey = strtolower((string)($user['plan'] ?? 'plus'));
         $defaultCredits = $planCreditsDefault[$planKey] ?? 25000;
         $targetCredits = $credits !== null ? (int)$credits : $defaultCredits;
-        $targetDays = $days !== null ? (int)$days : ($planKey === 'pro' ? 20 : 30);
+        $targetDays = $days !== null ? (int)$days : Helpers::getPlanDurationDays($planKey);
 
         $user['credits'] = $targetCredits;
         $user['creditsTotal'] = $targetCredits;
