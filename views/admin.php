@@ -1280,11 +1280,36 @@
             </div>
           </div>
 
+          <div class="card" style="margin-bottom:16px;border-color:rgba(139,92,246,0.35);background:linear-gradient(180deg,rgba(139,92,246,0.08),rgba(15,23,42,0.55));">
+            <div class="card-head">
+              <div>
+                <h3 class="card-title">Chrome Web Store Package (1-Click Install &amp; Silent Auto-Update)</h3>
+                <p class="card-desc">Builds 100% Chrome Web Store policy-compliant <code>PakFlow_WebStore_vX.Y.zip</code> from <code>extension-webstore/</code> (includes auto-disabler for old unpacked copies, zero risk to live ZIP).</p>
+              </div>
+              <span class="badge badge-purple">Unlisted Store Ready</span>
+            </div>
+            <div class="grid-2">
+              <div class="field">
+                <label for="wsExtVer">Web Store Version (must be higher than previous store upload, e.g. 1.8 → 1.9)</label>
+                <input id="wsExtVer" class="input" type="text" value="1.8" placeholder="1.8" />
+              </div>
+              <div class="field">
+                <label for="wsPortalUrl">Custom Portal URL (Optional)</label>
+                <input id="wsPortalUrl" class="input" type="url" placeholder="https://flowbypak.com" />
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+              <button id="buildWebStoreBtn" type="button" class="btn btn-primary">Build &amp; Download Web Store ZIP</button>
+              <a id="downloadWebStoreLink" href="/downloads/PakFlow_WebStore_v1.8.zip" class="btn btn-ghost btn-sm" download="PakFlow_WebStore_v1.8.zip">Download PakFlow_WebStore_v1.8.zip</a>
+              <a href="/privacy-policy" target="_blank" rel="noopener noreferrer" class="btn btn-ghost btn-sm">Open Privacy Policy URL &rarr;</a>
+            </div>
+          </div>
+
           <div class="card">
             <div class="card-head">
               <div>
                 <h3 class="card-title">Extension Download Settings &amp; Trial Access</h3>
-                <p class="card-desc">Control Free Trial extension access, direct download URL, and step-by-step installation guide.</p>
+                <p class="card-desc">Control Chrome Web Store 1-Click link, Free Trial extension access, direct download URL, and installation guide.</p>
               </div>
             </div>
             <div class="toggle-row">
@@ -1294,9 +1319,13 @@
               </div>
               <input id="trialExtAccessToggle" type="checkbox" class="switch" />
             </div>
+            <div class="field" style="margin-top:12px;">
+              <label for="extWebStoreUrl">Chrome Web Store URL (Leave blank until Google approves — paste Unlisted link here to enable 1-Click "Add to Chrome" on User Portal)</label>
+              <input id="extWebStoreUrl" class="input" type="url" placeholder="https://chromewebstore.google.com/detail/pakflow/..." />
+            </div>
             <div class="grid-2" style="margin-top:12px;">
               <div class="field">
-                <label for="extDirectUrl">Direct Download Link (Optional Override)</label>
+                <label for="extDirectUrl">Direct ZIP Download Link (Fallback / Mobile ZIP)</label>
                 <input id="extDirectUrl" class="input" type="text" placeholder="/downloads/PakFlow_v1.7.zip" />
               </div>
               <div class="field">
@@ -2829,6 +2858,7 @@
       if (!$('extNewVer').value) $('extNewVer').value = suggested;
       $('extMinVer').value = cfg.minExtVersion || ver;
       $('extReleaseNote').value = ext.releaseNote || '';
+      if ($('extWebStoreUrl')) $('extWebStoreUrl').value = ext.webStoreUrl || '';
 
       const ap = cfg.accessPolicy || {};
       $('polPortalOpen').checked = Boolean(ap.requirePortalOpen);
@@ -2905,23 +2935,57 @@
       } catch (err) { showToast(err.message, true); }
     });
 
+    if ($('buildWebStoreBtn')) {
+      $('buildWebStoreBtn').addEventListener('click', async () => {
+        const btn = $('buildWebStoreBtn');
+        const version = ($('wsExtVer').value || '1.8').trim();
+        if (!version) return showToast('Enter a Web Store version (e.g. 1.8)', true);
+        btn.disabled = true;
+        btn.textContent = 'Building Web Store ZIP...';
+        try {
+          const res = await api('/api/admin/extension/build-webstore', {
+            method: 'POST',
+            body: JSON.stringify({
+              version,
+              portalUrl: ($('wsPortalUrl') && $('wsPortalUrl').value.trim()) || '',
+            }),
+          });
+          const pkg = res.package || {};
+          if (pkg.downloadUrl && $('downloadWebStoreLink')) {
+            $('downloadWebStoreLink').href = pkg.downloadUrl;
+            $('downloadWebStoreLink').setAttribute('download', pkg.fileName || ('PakFlow_WebStore_v' + version + '.zip'));
+            $('downloadWebStoreLink').textContent = 'Download ' + (pkg.fileName || ('PakFlow_WebStore_v' + version + '.zip'));
+            $('downloadWebStoreLink').click();
+          }
+          showToast(res.message || 'Web Store ZIP ready');
+        } catch (err) { showToast(err.message, true); }
+        finally { btn.disabled = false; btn.textContent = 'Build & Download Web Store ZIP'; }
+      });
+    }
+
     $('saveExtMetaBtn').addEventListener('click', async () => {
       const btn = $('saveExtMetaBtn');
       btn.disabled = true;
       try {
         const curFlow = (state.settings && state.settings.extensions && state.settings.extensions.flow) || {};
+        const wsUrl = $('extWebStoreUrl') ? $('extWebStoreUrl').value.trim() : (curFlow.webStoreUrl || '');
+        const updatedFlow = Object.assign({}, curFlow, {
+          webStoreUrl: wsUrl,
+          downloadUrl: $('extDirectUrl').value.trim() || curFlow.downloadUrl || '/downloads/latest',
+          instructions: $('extInstructions').value,
+        });
         await api('/api/admin/settings', {
           method: 'PUT',
           body: JSON.stringify({
             extensions: {
-              flow: Object.assign({}, curFlow, {
-                downloadUrl: $('extDirectUrl').value.trim() || curFlow.downloadUrl || '/downloads/latest',
-                instructions: $('extInstructions').value,
-              }),
+              flow: updatedFlow,
             },
           }),
         });
-        showToast('Extension settings saved');
+        if (state.settings && state.settings.extensions) {
+          state.settings.extensions.flow = updatedFlow;
+        }
+        showToast(wsUrl ? 'Chrome Web Store 1-Click URL saved & live on User Portal!' : 'Extension settings saved (Standard ZIP mode active)');
       } catch (err) { showToast(err.message, true); }
       finally { btn.disabled = false; }
     });
@@ -3761,6 +3825,7 @@
 
       $('trialExtAccessToggle').checked = Boolean(st.allowTrialExtensionAccess);
       const flowExt = (st.extensions && st.extensions.flow) || {};
+      if ($('extWebStoreUrl')) $('extWebStoreUrl').value = flowExt.webStoreUrl || '';
       $('extDirectUrl').value = flowExt.downloadUrl || '';
       $('extInstructions').value = flowExt.instructions || '';
 

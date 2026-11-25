@@ -2581,6 +2581,7 @@ $__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
         <a href="/signup">Sign Up</a>
         <a href="/pricing">Pricing</a>
         <a href="/about">About</a>
+        <a href="/privacy-policy">Privacy Policy</a>
         <a href="mailto:support@flowbypak.com">Support</a>
       </div>
       <span>&copy; 2026 PakFlow Studio &middot; All rights reserved.</span>
@@ -2658,6 +2659,7 @@ $__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
         <a href="/signup">Sign Up</a>
         <a href="/pricing">Pricing</a>
         <a href="/about">About</a>
+        <a href="/privacy-policy">Privacy Policy</a>
         <a href="mailto:support@flowbypak.com">Support</a>
       </div>
       <span>&copy; 2026 PakFlow Studio &middot; All rights reserved.</span>
@@ -2888,6 +2890,7 @@ $__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
               <span id="heroExtBtnText">Download Extension (v<?= $__pfExtSafeVer ?>)</span>
             </a>
+            <a href="/downloads/<?= $__pfExtZipName ?>" download="<?= $__pfExtZipName ?>" id="heroZipFallbackLink" style="display:none;align-items:center;gap:5px;font-size:12px;font-weight:600;color:#94a3b8;text-decoration:none;padding:6px 10px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.03);">Manual ZIP (Mobile)</a>
           </div>
         </div>
       </div>
@@ -2897,8 +2900,8 @@ $__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
         <div class="dash-step">
           <div class="dash-step-num">01</div>
           <div>
-            <h4>Install Latest Extension</h4>
-            <p>Download the Chrome extension above and load it once in Chrome Extensions.</p>
+            <h4 id="dashStep1Title">Install Latest Extension</h4>
+            <p id="dashStep1Desc">Download the Chrome extension above and load it once in Chrome Extensions.</p>
           </div>
         </div>
         <div class="dash-step">
@@ -3168,31 +3171,82 @@ $__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
           const ver = String(flowExt.version || '1.7').replace(/^v/i, '');
           const fileName = String(flowExt.fileName || ('PakFlow_v' + ver + '.zip'));
           const dlUrl = String(flowExt.downloadUrl || ('/downloads/' + fileName));
+          const webStoreUrl = String(flowExt.webStoreUrl || '').trim();
+          const storeCandidate = webStoreUrl || dlUrl;
+          const isWebStore = /^https:\/\/(?:chromewebstore\.google\.com|chrome\.google\.com\/webstore)\//i.test(storeCandidate);
+          const zipFallbackHref = '/downloads/' + encodeURIComponent(fileName);
           const releaseText = flowExt.releaseNote
             ? ('PakFlow v' + ver + ' — ' + String(flowExt.releaseNote))
-            : ('PakFlow v' + ver + ' is live now');
+            : (isWebStore ? ('PakFlow 1-Click Chrome Extension is live') : ('PakFlow v' + ver + ' is live now'));
           const topLink = document.getElementById('extReleaseLink');
           const topLabel = document.getElementById('extReleaseLabel');
+          const topCta = topLink ? topLink.querySelector('.topbar-notice-cta') : null;
           const ddLink = document.getElementById('ddExtLink');
           const ddText = document.getElementById('ddExtText');
           const heroExtBtn = document.getElementById('heroExtDownloadBtn');
           const heroExtTxt = document.getElementById('heroExtBtnText');
-          if (topLink) {
-            topLink.setAttribute('href', dlUrl);
-            topLink.setAttribute('download', fileName);
+          const heroZipFallback = document.getElementById('heroZipFallbackLink');
+          const step1Title = document.getElementById('dashStep1Title');
+          const step1Desc = document.getElementById('dashStep1Desc');
+
+          if (isWebStore) {
+            if (topLink) {
+              topLink.setAttribute('href', storeCandidate);
+              topLink.removeAttribute('download');
+              topLink.setAttribute('target', '_blank');
+              topLink.setAttribute('rel', 'noopener noreferrer');
+            }
+            if (topCta) topCta.innerHTML = 'Add to Chrome &rarr;';
+            if (ddLink) {
+              ddLink.setAttribute('href', storeCandidate);
+              ddLink.removeAttribute('download');
+              ddLink.setAttribute('target', '_blank');
+              ddLink.setAttribute('rel', 'noopener noreferrer');
+              if (ddText) ddText.textContent = 'Add to Chrome (1-Click)';
+              else ddLink.textContent = 'Add to Chrome (1-Click)';
+            }
+            if (heroExtBtn) {
+              heroExtBtn.setAttribute('href', storeCandidate);
+              heroExtBtn.removeAttribute('download');
+              heroExtBtn.setAttribute('target', '_blank');
+              heroExtBtn.setAttribute('rel', 'noopener noreferrer');
+            }
+            if (heroExtTxt) heroExtTxt.textContent = 'Add to Chrome (1-Click)';
+            if (heroZipFallback) {
+              heroZipFallback.setAttribute('href', zipFallbackHref);
+              heroZipFallback.setAttribute('download', fileName);
+              heroZipFallback.style.display = 'inline-flex';
+            }
+            if (step1Title) step1Title.textContent = 'Add 1-Click Chrome Extension';
+            if (step1Desc) step1Desc.textContent = 'Click Add to Chrome above — automatic updates install silently in the background.';
+          } else {
+            if (topLink) {
+              topLink.setAttribute('href', dlUrl);
+              topLink.setAttribute('download', fileName);
+              topLink.removeAttribute('target');
+              topLink.removeAttribute('rel');
+            }
+            if (topCta) topCta.innerHTML = 'Download &rarr;';
+            if (ddLink) {
+              ddLink.setAttribute('href', dlUrl);
+              ddLink.setAttribute('download', fileName);
+              ddLink.removeAttribute('target');
+              ddLink.removeAttribute('rel');
+              if (ddText) ddText.textContent = 'Get Extension (v' + ver + ')';
+              else ddLink.textContent = 'Get Extension (v' + ver + ')';
+            }
+            if (heroExtBtn) {
+              heroExtBtn.setAttribute('href', dlUrl);
+              heroExtBtn.setAttribute('download', fileName);
+              heroExtBtn.removeAttribute('target');
+              heroExtBtn.removeAttribute('rel');
+            }
+            if (heroExtTxt) heroExtTxt.textContent = 'Download Extension (v' + ver + ')';
+            if (heroZipFallback) heroZipFallback.style.display = 'none';
+            if (step1Title) step1Title.textContent = 'Install Latest Extension';
+            if (step1Desc) step1Desc.textContent = 'Download the Chrome extension above and load it once in Chrome Extensions.';
           }
           if (topLabel) topLabel.textContent = releaseText;
-          if (ddLink) {
-            ddLink.setAttribute('href', dlUrl);
-            ddLink.setAttribute('download', fileName);
-            if (ddText) ddText.textContent = 'Get Extension (v' + ver + ')';
-            else ddLink.textContent = 'Get Extension (v' + ver + ')';
-          }
-          if (heroExtBtn) {
-            heroExtBtn.setAttribute('href', dlUrl);
-            heroExtBtn.setAttribute('download', fileName);
-          }
-          if (heroExtTxt) heroExtTxt.textContent = 'Download Extension (v' + ver + ')';
         } catch (_) {}
       }
 

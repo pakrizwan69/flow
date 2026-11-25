@@ -275,6 +275,13 @@ $servePhpView = static function (string $viewFile): void {
     exit;
 };
 
+if (($method === 'GET' || $method === 'HEAD') && in_array($normalizedRoute, ['/privacy', '/privacy-policy'], true)) {
+    $privacyView = __DIR__ . DIRECTORY_SEPARATOR . 'views' . DIRECTORY_SEPARATOR . 'privacy.php';
+    if (is_file($privacyView)) {
+        $servePhpView($privacyView);
+    }
+}
+
 $cleanAppRoutes = ['/', '/about', '/login', '/register', '/signup', '/dashboard', '/settings', '/pricing', '/reset-password'];
 if (($method === 'GET' || $method === 'HEAD') && in_array($normalizedRoute, $cleanAppRoutes, true)) {
     $appView = __DIR__ . DIRECTORY_SEPARATOR . 'views' . DIRECTORY_SEPARATOR . 'app.php';

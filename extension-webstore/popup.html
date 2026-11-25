@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>PakFlow Extension</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <main class="app-container">
+    <!-- PORTAL-ONLY CONNECT VIEW (Shown when not signed in on Web Portal) -->
+    <div id="loginView" class="hidden">
+      <div class="connect-card">
+        <div class="connect-logo-glow">
+          <img src="logo.png" alt="PakFlow" class="connect-logo-img">
+        </div>
+        <div class="connect-ver-row">
+          <span class="top-brand">PakFlow</span>
+          <span class="top-version">v1.8</span>
+        </div>
+        <h1 class="auth-title">Connect via Web Portal</h1>
+        <p class="auth-sub">Sign in on your PakFlow dashboard to automatically sync your Google Flow Studio session.</p>
+
+        <a id="portalConnectBtn" class="btn-portal-connect" href="https://flowbypak.com/login" target="_blank" rel="noopener noreferrer">
+          <span>Sign In on Web Portal</span>
+          <span aria-hidden="true">&rarr;</span>
+        </a>
+        <a id="portalRegisterBtn" class="btn-glass-sec" href="https://flowbypak.com/signup" target="_blank" rel="noopener noreferrer">
+          <span>Create Account &#8599;</span>
+        </a>
+
+        <div class="connect-sync-hint">
+          <span class="dot-pulse"></span>
+          <span>Auto-connects instantly after portal login</span>
+        </div>
+      </div>
+
+      <!-- Hidden compatibility login elements for popup.js -->
+      <div class="hidden-element" aria-hidden="true">
+        <form id="loginForm" autocomplete="off">
+          <input id="userEmailInput" type="email" autocomplete="username">
+          <input id="userPasswordInput" type="password" autocomplete="current-password">
+          <button id="userLoginBtn" type="submit">Login</button>
+          <button id="quickLoginBtn" type="button"></button>
+          <button id="openLocalhostBtn" type="button"></button>
+        </form>
+        <p id="loginStatus"></p>
+      </div>
+    </div>
+
+    <!-- MAIN CONNECTED STUDIO VIEW -->
+    <div id="mainView" class="hidden">
+      <div class="top-header">
+        <div class="top-brand-wrap">
+          <img src="logo.png" alt="PakFlow" class="top-logo-img">
+          <div class="top-title-row">
+            <span class="top-brand">PakFlow</span>
+            <span class="top-version">v1.8</span>
+          </div>
+        </div>
+        <span class="connected-pill">
+          <span class="dot-green"></span>
+          <span id="pfCleanSessionStatus">Session 1</span>
+        </span>
+      </div>
+
+      <div id="userInfoBar" class="profile-card">
+        <div class="avatar-circle" id="customAvatar">PF</div>
+        <div class="profile-meta">
+          <div id="userEmailBadge" class="profile-name">user@pakflow.com</div>
+        </div>
+        <span id="userPlanBadge" class="profile-plan">MAX PLAN</span>
+      </div>
+
+      <div class="bento-stats-row">
+        <div class="bento-card bento-credits">
+          <div class="bento-label-row">
+            <span class="bento-micro-label">Credits</span>
+            <span class="bento-progress-pct" id="customCreditsPct">100%</span>
+          </div>
+          <div class="bento-val-inline">
+            <span class="bento-credits-num" id="customCreditsVal">45,000</span>
+            <span class="bento-credits-sub">/ <span id="customCreditsTotalVal">45,000</span></span>
+          </div>
+          <div class="bento-progress-track">
+            <div class="bento-progress-fill" id="customCreditsBarFill" style="width:100%"></div>
+          </div>
+        </div>
+        <div class="bento-card bento-validity">
+          <span class="bento-micro-label" id="customDaysLabel">Validity</span>
+          <div class="bento-validity-num" id="customDaysLeftVal">30 Days</div>
+          <div class="bento-validity-sub">Studio Access</div>
+          <span id="customSessionCookieVal" class="hidden-element">1</span>
+        </div>
+      </div>
+
+      <div id="sessionInjectorBox">
+        <div class="studio-launch-card" id="accessReadyCard">
+          <a id="openFlowDirectBtn" href="https://flow.google.com" target="_blank" rel="noopener noreferrer" class="btn-open-flow">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="6 4 20 12 6 20 6 4"/></svg>
+            <span>Launch Google Flow</span>
+          </a>
+        </div>
+
+        <div class="sessions-card">
+          <div class="sessions-section-head">
+            <span class="sessions-section-title">Sessions</span>
+            <span id="activeSessionsCount" class="sessions-count-badge">Active</span>
+          </div>
+          <div id="sessionButtonsGrid" class="session-buttons-grid" aria-label="Active Sessions"></div>
+        </div>
+      </div>
+
+      <div id="serverBasicLockedNotice" class="lock-notice-box hidden">
+        <strong>Sessions Locked on Basic Plan</strong>
+        <p>Upgrade your plan on the User Panel to unlock Google Flow sessions.</p>
+      </div>
+
+      <p id="status" class="status-pill hidden operation-message" role="status" aria-live="polite"></p>
+
+      <div class="bottom-panel-bar">
+        <a id="openUserPanelBtn" href="https://flowbypak.com/dashboard" target="_blank" rel="noopener noreferrer" class="btn-user-panel">
+          <span>User Panel &#8599;</span>
+        </a>
+      </div>
+
+      <!-- Hidden compatibility elements used by popup.js -->
+      <div class="hidden-element" aria-hidden="true">
+        <button id="logoutBtn" type="button"></button>
+        <div id="mainHeaderDaysBadge"><span id="mainHeaderDaysText">30 Days Left</span></div>
+        <span id="userDaysBadge">30 Days Left</span>
+        <div id="serverHubCard">
+          <span id="serverCountBadge">Active Sessions</span>
+          <span id="injectCycleIcon"></span>
+          <span id="injectCycleTitle">Server 1 Selected</span>
+          <span id="injectCycleSub">Connecting your session…</span>
+          <span id="injectCycleBadge">1 / 1</span>
+          <div id="sessionLoopDots"></div>
+          <span id="sessionLoopHint"></span>
+        </div>
+        <div id="serverDropdownRow">
+          <select id="serverFileSelect"></select>
+          <button id="refreshServerBtn" type="button"></button>
+        </div>
+        <div id="serverPillsLabelRow"><span id="serverHintText"></span></div>
+        <div id="serverPillsGrid"></div>
+        <div id="readyIconWrap"><span id="readyCheckIcon"></span></div>
+        <h2 id="readyTitleText">Flow AI Studio Ready</h2>
+        <span id="readyDescText">On Google Flow — Session Active</span>
+        <div id="readyPulseBadge"><span id="readyPulseDot"></span><span id="readySyncBadge">ONLINE</span></div>
+        <button id="injectCycleSessionBtn" type="button"></button>
+        <button id="launchFlowBtn" type="button"><span id="launchBtnIcon"></span><span id="launchBtnText">Open Google Flow</span></button>
+        <button id="fetchServerBtn" type="button"></button>
+        <button id="uploadServerBtn" type="button"></button>
+        <button id="injectButton" type="button"></button>
+        <button id="uploadButton" type="button"></button>
+        <textarea id="cookieInput"></textarea>
+        <input id="cookieFile" type="file">
+        <button id="openLocalhostMainBtn" type="button"></button>
+        <button id="openLocalhostLinkBtn" type="button"></button>
+        <span id="autoSyncBadge"></span>
+        <span id="autoSyncMeta"></span>
+      </div>
+    </div>
+
+    <!-- MAINTENANCE VIEW -->
+    <div id="maintenanceView" class="hidden">
+      <div class="connect-card">
+        <h2 class="auth-title">Scheduled Maintenance</h2>
+        <p id="maintenanceNoticeText" class="auth-sub">Service will resume shortly.</p>
+        <button id="retryMaintenanceBtn" class="btn-portal-connect" type="button">&#8635; Check Server Status</button>
+      </div>
+    </div>
+  </main>
+
+  <script src="popup-preinit.js"></script>
+  <script src="error-shield.js"></script>
+  <script src="cookie-core.js"></script>
+  <script src="flow-launch.js"></script>
+  <script src="popup.js"></script>
+  <script src="nano-mode-ui.js"></script>
+  <script src="popup-custom.js"></script>
+</body>
+</html>

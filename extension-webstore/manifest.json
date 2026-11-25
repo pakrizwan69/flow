@@ -1,0 +1,276 @@
+{
+  "manifest_version": 3,
+  "name": "PakFlow",
+  "version": "1.8",
+  "version_name": "v1.8",
+  "description": "PakFlow — AI Video Platform — Flow Access & Session Automation.",
+  "minimum_chrome_version": "119",
+  "permissions": [
+    "cookies",
+    "storage",
+    "alarms",
+    "tabs",
+    "declarativeNetRequestWithHostAccess",
+    "browsingData",
+    "management",
+    "scripting"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "host_permissions": [
+    "https://flow.google.com/*",
+    "*://labs.google/*",
+    "*://*.labs.google/*",
+    "https://aisandbox-pa.googleapis.com/*",
+    "https://ogs.google.com/*",
+    "https://accounts.google.com/*",
+    "https://clients6.google.com/*",
+    "*://*.google.com/*",
+    "https://*.googleusercontent.com/*",
+    "https://*.ggpht.com/*",
+    "https://flowbypak.com/*",
+    "https://*.flowbypak.com/*",
+    "https://flowbypak.site/*",
+    "https://*.flowbypak.site/*",
+    "https://flowbysparx.site/*",
+    "https://*.flowbysparx.site/*",
+    "https://*.pakaitools.com/*",
+    "http://localhost/*",
+    "http://127.0.0.1/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://flow.google.com/*",
+        "*://labs.google/*",
+        "*://*.labs.google/*",
+        "https://flowbypak.com/*",
+        "https://*.flowbypak.com/*",
+        "https://flowbypak.site/*",
+        "https://*.flowbypak.site/*",
+        "https://flowbysparx.site/*",
+        "https://*.flowbysparx.site/*",
+        "https://*.pakaitools.com/*",
+        "http://localhost/*",
+        "http://127.0.0.1/*"
+      ],
+      "js": [
+        "error-shield.js"
+      ],
+      "run_at": "document_start",
+      "all_frames": true
+    },
+    {
+      "matches": [
+        "https://flow.google.com/*",
+        "*://labs.google/*",
+        "*://*.labs.google/*"
+      ],
+      "js": [
+        "mobile-desktop-shim.js"
+      ],
+      "run_at": "document_start",
+      "world": "MAIN",
+      "all_frames": true
+    },
+    {
+      "matches": [
+        "https://flow.google.com/*",
+        "*://labs.google/*",
+        "*://*.labs.google/*"
+      ],
+      "js": [
+        "about-refresh.js"
+      ],
+      "run_at": "document_start",
+      "all_frames": false
+    },
+    {
+      "matches": [
+        "https://flow.google.com/*",
+        "*://labs.google/*",
+        "*://*.labs.google/*"
+      ],
+      "js": [
+        "flow-access-guard.js",
+        "session-watchdog.js"
+      ],
+      "run_at": "document_start",
+      "all_frames": false
+    },
+    {
+      "matches": [
+        "https://flowbypak.com/*",
+        "https://www.flowbypak.com/*",
+        "https://app.flowbypak.com/*",
+        "https://*.flowbypak.com/*",
+        "https://flowbypak.site/*",
+        "https://*.flowbypak.site/*",
+        "https://flowbysparx.site/*",
+        "https://*.flowbysparx.site/*",
+        "https://app.pakaitools.com/*",
+        "https://*.pakaitools.com/*",
+        "http://localhost/*",
+        "http://127.0.0.1/*"
+      ],
+      "js": [
+        "flowbypak-bridge.js",
+        "nano-bridge.js"
+      ],
+      "run_at": "document_start",
+      "all_frames": false
+    },
+    {
+      "matches": [
+        "*://*.labs.google/*",
+        "*://labs.google/*",
+        "https://flow.google.com/*",
+        "https://ogs.google.com/*",
+        "https://accounts.google.com/*"
+      ],
+      "js": [
+        "account-display.js",
+        "flow-create-switch.js",
+        "projects-ui.js",
+        "content.js"
+      ],
+      "run_at": "document_start",
+      "all_frames": true,
+      "css": [
+        "projects-ui.css"
+      ]
+    },
+    {
+      "matches": [
+        "https://flow.google.com/*"
+      ],
+      "js": [
+        "flow-main.js"
+      ],
+      "run_at": "document_start",
+      "world": "MAIN",
+      "all_frames": false
+    },
+    {
+      "matches": [
+        "https://flow.google.com/*"
+      ],
+      "js": [
+        "flow-redirect.js"
+      ],
+      "run_at": "document_start",
+      "all_frames": false
+    },
+    {
+      "matches": [
+        "*://flow.google.com/*",
+        "*://labs.google/fx/tools/flow*",
+        "*://*.labs.google/fx/tools/flow*"
+      ],
+      "js": [
+        "nano-flow-helper.js"
+      ],
+      "run_at": "document_start",
+      "all_frames": false
+    },
+    {
+      "matches": [
+        "*://flow.google.com/*"
+      ],
+      "js": [
+        "core_module.js"
+      ],
+      "run_at": "document_start",
+      "all_frames": false
+    },
+    {
+      "matches": [
+        "https://flow.google.com/*"
+      ],
+      "js": [
+        "pak-presence.js",
+        "ctp-presence.js"
+      ],
+      "css": [
+        "flow-appearance.css"
+      ],
+      "run_at": "document_start",
+      "all_frames": false
+    },
+    {
+      "matches": [
+        "https://flow.google.com/*",
+        "*://labs.google/*",
+        "*://*.labs.google/*",
+        "https://flowbypak.com/*",
+        "https://*.flowbypak.com/*",
+        "https://flowbypak.site/*",
+        "https://*.flowbypak.site/*",
+        "https://flowbysparx.site/*",
+        "https://*.flowbysparx.site/*",
+        "https://*.pakaitools.com/*",
+        "http://localhost/*",
+        "http://127.0.0.1/*"
+      ],
+      "js": [
+        "pak-presence.js",
+        "ctp-presence.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": false
+    },
+    {
+      "matches": [
+        "https://flow.google.com/*",
+        "*://labs.google/*",
+        "*://*.labs.google/*"
+      ],
+      "js": [
+        "credit-tracker-main.js"
+      ],
+      "run_at": "document_start",
+      "world": "MAIN",
+      "all_frames": true
+    },
+    {
+      "matches": [
+        "https://flow.google.com/*",
+        "*://labs.google/*",
+        "*://*.labs.google/*"
+      ],
+      "js": [
+        "credit-tracker-bridge.js"
+      ],
+      "run_at": "document_start",
+      "all_frames": true
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "golden_lock.png"
+      ],
+      "matches": [
+        "https://flow.google.com/*",
+        "*://*.labs.google/*"
+      ]
+    }
+  ],
+  "icons": {
+    "16": "icon16.png",
+    "32": "icon32.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "PakFlow",
+    "default_icon": {
+      "16": "icon16.png",
+      "32": "icon32.png",
+      "48": "icon48.png",
+      "128": "icon128.png"
+    }
+  }
+}

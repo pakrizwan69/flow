@@ -237,6 +237,9 @@ final class AdminRoutes
                     $merged[$k] = array_merge($current[$k] ?? [], is_array($update[$k] ?? null) ? $update[$k] : []);
                 }
             }
+            if (is_array($current['extensions']['flow'] ?? null) && is_array($update['extensions']['flow'] ?? null)) {
+                $merged['extensions']['flow'] = array_merge($current['extensions']['flow'], $update['extensions']['flow']);
+            }
             $merged['allowTrialExtensionAccess'] = array_key_exists('allowTrialExtensionAccess', $update)
                 ? (bool)$update['allowTrialExtensionAccess']
                 : (($current['allowTrialExtensionAccess'] ?? true) !== false);
@@ -317,6 +320,11 @@ final class AdminRoutes
         if ($method === 'POST' && $path === '/admin/extension/regenerate') {
             Helpers::requireAdmin();
             self::regenerateExtensionZip();
+            return true;
+        }
+        if ($method === 'POST' && $path === '/admin/extension/build-webstore') {
+            Helpers::requireAdmin();
+            self::buildWebStoreExtensionZip();
             return true;
         }
         if ($method === 'PUT' && $path === '/admin/controls/access-policy') {
@@ -1541,6 +1549,7 @@ final class AdminRoutes
         Http::json([
             'success' => true,
             'extensionSourceReady' => is_dir($extSrcDir) && is_file($extSrcDir . '/manifest.json'),
+            'webStoreSourceReady' => is_dir(dirname(__DIR__, 2) . '/extension-webstore') && is_file(dirname(__DIR__, 2) . '/extension-webstore/manifest.json'),
             'extension' => $settings['extensions']['flow'] ?? ($defaults['extensions']['flow'] ?? []),
             'minExtVersion' => Helpers::normalizeExtVersionString($settings['minExtVersion'] ?? $defaults['minExtVersion'], '1.5'),
             'accessPolicy' => array_merge($defaults['accessPolicy'], is_array($settings['accessPolicy'] ?? null) ? $settings['accessPolicy'] : []),
@@ -1747,6 +1756,139 @@ final class AdminRoutes
             'sizeBytes' => $finalLen,
             'sizeLabel' => $sizeLabel,
         ];
+    }
+
+    /**
+     * Builds Chrome Web Store policy-compliant PakFlow_WebStore_v{rawVer}.zip from extension-webstore/
+     * without touching extension-src/ or changing live user ZIP settings until Admin sets webStoreUrl.
+     */
+    public static function buildWebStoreZipToDisk(string $rawVer = '1.8', string $portalUrl = ''): ?array
+    {
+        if (!class_exists(\ZipArchive::class)) {
+            return null;
+        }
+        $rawVer = ltrim(trim($rawVer), 'vV');
+        if ($rawVer === '' || !preg_match('/^\d+(?:\.\d+){0,3}$/', $rawVer)) {
+            return null;
+        }
+        $portalUrl = trim($portalUrl) !== '' ? rtrim(trim($portalUrl), '/') : '';
+        if ($portalUrl !== '' && !preg_match('#^https?://#i', $portalUrl)) {
+            $portalUrl = 'https://' . $portalUrl;
+        }
+
+        $root = dirname(__DIR__, 2);
+        $wsSrcDir = $root . '/extension-webstore';
+        if (!is_dir($wsSrcDir) || !is_file($wsSrcDir . '/manifest.json')) {
+            return null;
+        }
+
+        $targetName = "PakFlow_WebStore_v{$rawVer}.zip";
+        $distDestDir = $root . '/dist/downloads';
+        $publicDestDir = $root . '/public/downloads';
+        if (!is_dir($distDestDir)) @mkdir($distDestDir, 0775, true);
+        if (!is_dir($publicDestDir)) @mkdir($publicDestDir, 0775, true);
+
+        $tmpZip = $distDestDir . '/' . $targetName . '.tmp.' . bin2hex(random_bytes(4));
+        $za = new \ZipArchive();
+        if ($za->open($tmpZip, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== true) {
+            return null;
+        }
+
+        $shortVer = preg_match('/^(\d+\.\d+)/', $rawVer, $vm) ? $vm[1] : $rawVer;
+        $it = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($wsSrcDir, \FilesystemIterator::SKIP_DOTS),
+            \RecursiveIteratorIterator::SELF_FIRST
+        );
+        $baseLen = strlen(rtrim($wsSrcDir, "/\\")) + 1;
+
+        foreach ($it as $item) {
+            if ($item->isDir()) {
+                continue;
+            }
+            $fullPath = $item->getPathname();
+            $rel = str_replace('\\', '/', substr($fullPath, $baseLen));
+            if ($rel === 'manifest.json') {
+                $man = json_decode((string)file_get_contents($fullPath), true);
+                if (is_array($man)) {
+                    $man['version'] = $rawVer;
+                    $man['version_name'] = 'v' . $rawVer;
+                    $content = json_encode($man, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n";
+                    $za->addFromString($rel, $content);
+                } else {
+                    $za->addFile($fullPath, $rel);
+                }
+            } elseif ($rel === 'popup.html') {
+                $txt = (string)file_get_contents($fullPath);
+                $txt = preg_replace('/(<span\s+class="top-version">)v?[^<]+(<\/span>)/i', '${1}v' . $rawVer . '${2}', $txt) ?? $txt;
+                if ($portalUrl !== '' && preg_match('#^https?://#i', $portalUrl)) {
+                    $txt = str_replace('https://flowbypak.com', $portalUrl, $txt);
+                }
+                $za->addFromString($rel, $txt);
+            } elseif (in_array($rel, ['ctp-background.js', 'background.js', 'popup.js', 'popup-custom.js'], true)) {
+                $txt = (string)file_get_contents($fullPath);
+                $txt = preg_replace('/("X-PakFlow-Extension-Version"\s*:\s*")[^"]+(")/', '${1}' . $shortVer . '${2}', $txt) ?? $txt;
+                $txt = preg_replace('/([?&]ext_v=)\d+(?:\.\d+)?/', '${1}' . $shortVer, $txt) ?? $txt;
+                $txt = preg_replace('/(var _v=")[^"]+(")/', '${1}' . $shortVer . '${2}', $txt) ?? $txt;
+                if ($portalUrl !== '' && preg_match('#^https?://#i', $portalUrl)) {
+                    $txt = str_replace('"https://flowbypak.com"', '"' . $portalUrl . '"', $txt);
+                }
+                $za->addFromString($rel, $txt);
+            } else {
+                $za->addFile($fullPath, $rel);
+            }
+            $za->setExternalAttributesName($rel, \ZipArchive::OPSYS_UNIX, 0100644 << 16);
+        }
+        $za->close();
+
+        clearstatcache(true, $tmpZip);
+        $len = @filesize($tmpZip) ?: 0;
+        if ($len < 50000) {
+            @unlink($tmpZip);
+            return null;
+        }
+
+        $finalDist = $distDestDir . '/' . $targetName;
+        if (!@rename($tmpZip, $finalDist)) {
+            @copy($tmpZip, $finalDist);
+            @unlink($tmpZip);
+        }
+        @copy($finalDist, $publicDestDir . '/' . $targetName);
+        clearstatcache(true, $finalDist);
+        $finalLen = @filesize($finalDist) ?: $len;
+        $sizeLabel = $finalLen > 1024 * 1024 ? number_format($finalLen / (1024 * 1024), 1) . ' MB' : round($finalLen / 1024) . ' KB';
+
+        return [
+            'path' => $finalDist,
+            'fileName' => $targetName,
+            'downloadUrl' => "/downloads/{$targetName}",
+            'version' => $rawVer,
+            'sizeBytes' => $finalLen,
+            'sizeLabel' => $sizeLabel,
+        ];
+    }
+
+    private static function buildWebStoreExtensionZip(): void
+    {
+        if (!class_exists(\ZipArchive::class)) {
+            Http::json(['success' => false, 'message' => 'PHP ZipArchive extension is not enabled on this server.'], 500);
+        }
+        $body = Http::body();
+        $rawVer = ltrim(trim((string)($body['version'] ?? '1.8')), 'vV');
+        if ($rawVer === '' || !preg_match('/^\d+(?:\.\d+){0,3}$/', $rawVer)) {
+            Http::json(['success' => false, 'message' => 'Please enter a valid version number (e.g. 1.8 or 1.9)'], 400);
+        }
+        $portalUrl = trim((string)($body['portalUrl'] ?? ''));
+
+        $built = self::buildWebStoreZipToDisk($rawVer, $portalUrl);
+        if (!$built) {
+            Http::json(['success' => false, 'message' => 'extension-webstore/ folder not found or unable to create ZIP archive.'], 500);
+        }
+
+        Http::json([
+            'success' => true,
+            'message' => "Chrome Web Store package v{$rawVer} ({$built['sizeLabel']}) built cleanly! Ready to upload to Chrome Developer Dashboard.",
+            'package' => $built,
+        ]);
     }
 
     private static function regenerateExtensionZip(): void

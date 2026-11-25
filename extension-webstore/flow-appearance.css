@@ -1,0 +1,82 @@
+/* Solid black privacy cover on Google Flow homepage (hides all shared users' projects)
+   while keeping:
+   1) Google Flow's genuine "+ New project" button (.new-project-button) in ALL languages (English, Vietnam, etc.)
+   2) Top-right User Profile / ULTRA pill + Account Menu popup
+   3) Bottom-left PakFlow My Projects button & drawer */
+html[data-pakflow-flow-home="true"],
+html[data-pakflow-flow-home="true"] body {
+  background: #050608 !important;
+  background-color: #050608 !important;
+  min-height: 100vh !important;
+  overflow: hidden !important;
+}
+
+/* Hide shared project grid, cards, headers, and banners on Flow homepage.
+   Never touches #pakflow-my-projects-root, #pakflow-home-ultra-root, or #pakflow-access-lock-overlay. */
+html[data-pakflow-flow-home="true"] body > *:not(#pakflow-my-projects-root):not(#pakflow-home-ultra-root):not(#pakflow-access-lock-overlay):not(.cdk-overlay-container),
+html[data-pakflow-flow-home="true"] body > *:not(#pakflow-my-projects-root):not(#pakflow-home-ultra-root):not(#pakflow-access-lock-overlay):not(.cdk-overlay-container) * {
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+/* 1) Reveal Google Flow's genuine native "+ New project" button in ALL languages (0ms pure CSS via .new-project-button). */
+html[data-pakflow-flow-home="true"] body > *:not(#pakflow-my-projects-root):not(#pakflow-home-ultra-root):not(#pakflow-access-lock-overlay) button.new-project-button,
+html[data-pakflow-flow-home="true"] body > *:not(#pakflow-my-projects-root):not(#pakflow-home-ultra-root):not(#pakflow-access-lock-overlay) button.new-project-button *,
+html[data-pakflow-flow-home="true"] body > *:not(#pakflow-my-projects-root):not(#pakflow-home-ultra-root):not(#pakflow-access-lock-overlay) .new-project-button,
+html[data-pakflow-flow-home="true"] body > *:not(#pakflow-my-projects-root):not(#pakflow-home-ultra-root):not(#pakflow-access-lock-overlay) .new-project-button *,
+html[data-pakflow-flow-home="true"] body > *:not(#pakflow-my-projects-root):not(#pakflow-home-ultra-root):not(#pakflow-access-lock-overlay) [data-pakflow-real-new-btn="true"],
+html[data-pakflow-flow-home="true"] body > *:not(#pakflow-my-projects-root):not(#pakflow-home-ultra-root):not(#pakflow-access-lock-overlay) [data-pakflow-real-new-btn="true"] * {
+  visibility: visible !important;
+  pointer-events: auto !important;
+}
+
+/* 2) Reveal Top-Right ULTRA + Native Google Avatar Pill & Account Credits Popover on the black homepage. */
+#pakflow-home-ultra-root,
+#pakflow-home-ultra-root * {
+  visibility: visible !important;
+  pointer-events: auto !important;
+}
+html[data-pakflow-flow-home="true"] body > *:not(#pakflow-my-projects-root):not(#pakflow-home-ultra-root):not(#pakflow-access-lock-overlay) [data-pakflow-top-profile="true"],
+html[data-pakflow-flow-home="true"] body > *:not(#pakflow-my-projects-root):not(#pakflow-home-ultra-root):not(#pakflow-access-lock-overlay) [data-pakflow-top-profile="true"] * {
+  visibility: visible !important;
+  pointer-events: none !important;
+}
+html[data-pakflow-flow-home="true"] body > .cdk-overlay-container,
+html[data-pakflow-flow-home="true"] body > .cdk-overlay-container * {
+  visibility: visible !important;
+  pointer-events: auto !important;
+}
+
+/* Keep 3-dots near ULTRA unclickable and block Delete Project trash buttons so shared users can NEVER delete main account projects */
+[data-pakflow-unclickable-dots="true"],
+[data-pakflow-unclickable-dots="true"] *,
+button[aria-label*="Delete project" i],
+button[aria-label*="Xóa dự án" i] {
+  pointer-events: none !important;
+  cursor: default !important;
+}
+button[aria-label*="Delete project" i],
+button[aria-label*="Xóa dự án" i] {
+  display: none !important;
+  visibility: hidden !important;
+}
+
+/* Suppress legacy #ct-blur-overlay from core_module.js so it never covers or dims Google's native UI. */
+#ct-blur-overlay {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+[data-pakflow-hide-reset="true"] {
+  display: none !important;
+  visibility: hidden !important;
+  height: 0 !important;
+  min-height: 0 !important;
+  max-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
