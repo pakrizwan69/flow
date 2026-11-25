@@ -40,6 +40,10 @@ final class AuthRoutes
             self::deductCredits($path);
             return true;
         }
+        if ($method === 'POST' && in_array($path, ['/auth/activate-demo', '/user/activate-demo'], true)) {
+            self::activateSelfDemo();
+            return true;
+        }
         if ($method === 'GET' && $path === '/user/projects') {
             self::getUserProjects($path);
             return true;
@@ -1352,5 +1356,151 @@ final class AuthRoutes
         Db::deletePasswordReset($token);
 
         Http::json(['success' => true, 'message' => 'Password reset successfully! You can now sign in.']);
+    }
+
+    private static function activateSelfDemo(): void
+    {
+        $token = Helpers::getBearerToken();
+        if (!$token) {
+            Http::json(['success' => false, 'error' => 'Unauthorized', 'message' => 'Please sign in or register first to activate your Free Demo.'], 401);
+        }
+        $payload = Db::verifyToken($token);
+        if (!$payload || empty($payload['userId'])) {
+            Http::json(['success' => false, 'error' => 'Unauthorized', 'message' => 'Session expired. Please sign in again.'], 401);
+        }
+
+        $settings = Db::readSettings();
+        $demoCfg = Helpers::getDemoConfig($settings);
+        if (empty($demoCfg['enabled'])) {
+            Http::json([
+                'success' => false,
+                'error' => 'DemoDisabled',
+                'message' => 'Free Demo is currently turned OFF by administrator. Please contact a reseller for Pro or Max plans.',
+            ], 403);
+        }
+
+        $body = Http::body();
+        $rawDeviceId = trim((string)($body['deviceId'] ?? Http::header('x-pakflow-device-id')));
+        $deviceId = preg_replace('/[^a-zA-Z0-9._:-]/', '', $rawDeviceId) ?? '';
+        if (strlen($deviceId) < 8) {
+            Http::json([
+                'success' => false,
+                'error' => 'DeviceIdRequired',
+                'message' => 'Device verification failed. Please refresh the page and try again.',
+            ], 400);
+        }
+        $deviceId = substr($deviceId, 0, 120);
+        $clientIp = Helpers::getClientIp();
+
+        $useMysql = \App\Database::isEnabled();
+        $users = null;
+        $idx = -1;
+        if ($useMysql) {
+            $user = Db::findUserByTokenMysql((string)$payload['userId'], Db::sanitizeEmail($payload['email'] ?? ''));
+            if (!$user) {
+                Http::json(['success' => false, 'error' => 'NotFound', 'message' => 'Account not found.'], 404);
+            }
+        } else {
+            $users = Db::readUsers(true);
+            foreach ($users as $i => $u) {
+                if ((string)($u['id'] ?? '') === (string)$payload['userId']) {
+                    $idx = $i;
+                    break;
+                }
+            }
+            if ($idx === -1) {
+                Http::json(['success' => false, 'error' => 'NotFound', 'message' => 'Account not found.'], 404);
+            }
+            $user = $users[$idx];
+        }
+
+        if (($user['status'] ?? '') === 'suspended' || !empty($user['isLocked'])) {
+            Http::json(['success' => false, 'error' => 'Suspended', 'message' => 'Your account is suspended. Contact support.'], 403);
+        }
+
+        $curPlan = strtolower(trim((string)($user['plan'] ?? 'basic')));
+        $isPaidActive = !in_array($curPlan, ['basic', 'free', 'trial', 'starter', 'vibe', 'demo'], true)
+            && !Helpers::isUserPlanExpired($user);
+        if ($isPaidActive) {
+            Http::json([
+                'success' => false,
+                'error' => 'AlreadySubscribed',
+                'message' => 'You already have an active paid plan (' . strtoupper($curPlan) . ').',
+            ], 409);
+        }
+        if ($curPlan === 'demo' || !empty($user['demoClaimedAt']) || !empty($user['isDemo'])) {
+            Http::json([
+                'success' => false,
+                'error' => 'DemoAlreadyUsed',
+                'message' => 'This account has already claimed a Free Demo. Please contact a reseller to upgrade to Pro or Max.',
+            ], 409);
+        }
+
+        // Strict anti-abuse check: 1 IP = 1 Demo AND 1 Device ID = 1 Demo
+        $claims = Db::readDemoClaims();
+        foreach ($claims as $c) {
+            if (!is_array($c)) {
+                continue;
+            }
+            $cIp = trim((string)($c['ip'] ?? ''));
+            $cDev = trim((string)($c['deviceId'] ?? ''));
+            if (!empty($demoCfg['onePerIp']) && $clientIp !== '' && $cIp !== '' && $cIp === $clientIp) {
+                Http::json([
+                    'success' => false,
+                    'error' => 'DemoIpLimit',
+                    'message' => 'A Free Demo has already been claimed from your IP address. Only 1 Free Demo is allowed per IP.',
+                ], 409);
+            }
+            if (!empty($demoCfg['onePerDevice']) && $cDev !== '' && $cDev === $deviceId) {
+                Http::json([
+                    'success' => false,
+                    'error' => 'DemoDeviceLimit',
+                    'message' => 'A Free Demo has already been claimed on this device. Only 1 Free Demo is allowed per device.',
+                ], 409);
+            }
+        }
+
+        $durationSec = max(60, (int)$demoCfg['durationSeconds']);
+        $credits = max(50, (int)$demoCfg['credits']);
+        $demoHours = $demoCfg['durationUnit'] === 'days'
+            ? ((float)$demoCfg['durationValue'] * 24.0)
+            : (float)$demoCfg['durationValue'];
+
+        $user['plan'] = 'demo';
+        $user['isDemo'] = true;
+        $user['status'] = 'active';
+        $user['demoHours'] = $demoHours;
+        $user['demoDurationValue'] = $demoCfg['durationValue'];
+        $user['demoDurationUnit'] = $demoCfg['durationUnit'];
+        $user['credits'] = $credits;
+        $user['creditsTotal'] = $credits;
+        $user['maxDevices'] = 1;
+        $user['planExpiresAt'] = Db::isoNow($durationSec);
+        $user['daysRemaining'] = max(1, (int)ceil($durationSec / 86400));
+        $user['requestedDays'] = $demoCfg['durationUnit'] === 'days' ? (int)$demoCfg['durationValue'] : 1;
+        $user['demoClaimedAt'] = Db::isoNow();
+        $user['demoClaimIp'] = $clientIp;
+        $user['demoClaimDeviceId'] = $deviceId;
+        $user['updatedAt'] = Db::isoNow();
+
+        Db::unmarkUserDeleted((string)($user['email'] ?? ''), $user['id'] ?? null);
+        if ($useMysql) {
+            Db::upsertSingleUser($user);
+        } else {
+            $users[$idx] = $user;
+            Db::writeUsers($users, ['immediate' => true]);
+        }
+
+        Db::recordDemoClaim($clientIp, $deviceId, (int)($user['id'] ?? 0), (string)($user['email'] ?? ''));
+        Helpers::recordActiveClientSession($user);
+
+        $safe = $user;
+        unset($safe['passwordHash']);
+        Http::json([
+            'success' => true,
+            'message' => "Free Demo activated for {$demoCfg['durationLabel']} ({$credits} AI Credits)!",
+            'user' => $safe,
+            'demoConfig' => $demoCfg,
+        ]);
     }
 }

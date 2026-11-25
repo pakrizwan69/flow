@@ -411,6 +411,45 @@ public const ADMIN_PASSWORD = 'admin@123';
         return (int)$durations['pro'];
     }
 
+    public static function getDemoConfig(?array $settings = null): array
+    {
+        $settings = $settings ?? Db::readSettings();
+        $cfg = is_array($settings['demoConfig'] ?? null) ? $settings['demoConfig'] : [];
+        $demoPlan = is_array($settings['plans']['demo'] ?? null) ? $settings['plans']['demo'] : [];
+
+        $enabled = !empty($cfg['enabled']);
+        $unit = strtolower(trim((string)($cfg['durationUnit'] ?? 'hours')));
+        if ($unit !== 'days' && $unit !== 'hours') {
+            $unit = 'hours';
+        }
+        $rawVal = $cfg['durationValue'] ?? ($demoPlan['demoHours'] ?? 2);
+        if ($unit === 'days') {
+            $val = is_numeric($rawVal) ? max(1, min(365, (int)round((float)$rawVal))) : 1;
+            $seconds = $val * 86400;
+            $label = $val === 1 ? '1 Day' : "{$val} Days";
+        } else {
+            $val = is_numeric($rawVal) ? max(0.5, min(720, round((float)$rawVal, 1))) : 2;
+            if ((float)$val === (float)(int)$val) {
+                $val = (int)$val;
+            }
+            $seconds = max(60, (int)round($val * 3600));
+            $label = ((float)$val == 1.0) ? '1 Hour' : "{$val} Hours";
+        }
+        $rawCr = $cfg['credits'] ?? ($demoPlan['credits'] ?? ($settings['resellerPlanCredits']['demo'] ?? 2000));
+        $credits = is_numeric($rawCr) ? max(50, min(1000000, (int)$rawCr)) : 2000;
+
+        return [
+            'enabled' => $enabled,
+            'durationValue' => $val,
+            'durationUnit' => $unit,
+            'durationSeconds' => $seconds,
+            'durationLabel' => $label,
+            'credits' => $credits,
+            'onePerIp' => !array_key_exists('onePerIp', $cfg) || !empty($cfg['onePerIp']),
+            'onePerDevice' => !array_key_exists('onePerDevice', $cfg) || !empty($cfg['onePerDevice']),
+        ];
+    }
+
     public static function isUserPlanExpired(array $user): bool
     {
         if (($user['status'] ?? '') === 'expired') {

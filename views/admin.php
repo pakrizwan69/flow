@@ -674,6 +674,14 @@
               <div class="kpi-val" id="kpiSuspended" style="color:#f87171;">0</div>
               <div class="kpi-sub">Restricted accounts</div>
             </div>
+            <div class="kpi-card">
+              <div class="kpi-top">
+                <span>Active Demo</span>
+                <span class="kpi-icon amber"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></span>
+              </div>
+              <div class="kpi-val" id="kpiActiveDemo" style="color:#a78bfa;">0</div>
+              <div class="kpi-sub" id="kpiActiveDemoSub">Live demo users</div>
+            </div>
           </div>
 
           <!-- Pending Approvals Card (Auto-visible when pending > 0) -->
@@ -1196,6 +1204,57 @@
 
         <!-- VIEW 5: SUBSCRIPTION PLANS & PRICING (RESTORED FROM OLD ADMIN PANEL) -->
         <section id="view-plans" class="view-pane hidden">
+          <!-- Public Self-Service Demo Control Card -->
+          <div class="card" style="margin-bottom:16px;border-color:rgba(139,92,246,0.32);">
+            <div class="card-head">
+              <div>
+                <h3 class="card-title">Public Free Demo Control <span id="demoStatusBadge" class="badge badge-muted" style="margin-left:8px;">OFF</span></h3>
+                <p class="card-desc">Turn Free Demo ON/OFF on the site pricing page. When ON, new users can self-activate 1 Demo per IP &amp; Device ID.</p>
+              </div>
+              <button id="saveDemoConfigBtn" type="button" class="btn btn-emerald">Save Demo Settings</button>
+            </div>
+            <div class="toggle-row" style="margin-bottom:14px;">
+              <div>
+                <strong>Enable Free Demo on Site (Plans &amp; Self-Activation)</strong>
+                <span id="demoToggleSub">When OFF, Free Demo card is hidden from Home &amp; Pricing pages and self-activation is blocked.</span>
+              </div>
+              <input id="demoEnabledToggle" type="checkbox" class="switch" />
+            </div>
+            <div class="grid-3">
+              <div class="field">
+                <label for="demoDurationVal">Demo Duration</label>
+                <input id="demoDurationVal" class="input" type="number" min="0.5" max="365" step="any" value="2" />
+              </div>
+              <div class="field">
+                <label for="demoDurationUnit">Duration Unit (Hours / Days)</label>
+                <select id="demoDurationUnit" class="select">
+                  <option value="hours">Hours</option>
+                  <option value="days">Days</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="demoCreditsVal">Demo AI Credits</label>
+                <input id="demoCreditsVal" class="input" type="number" min="50" step="100" value="2000" />
+              </div>
+            </div>
+            <div class="grid-2" style="margin-top:4px;">
+              <div class="toggle-row" style="margin-bottom:0;">
+                <div>
+                  <strong>1 IP = 1 Demo Account</strong>
+                  <span>Blocks repeat demo claims from the same IP address.</span>
+                </div>
+                <input id="demoOnePerIp" type="checkbox" class="switch" checked />
+              </div>
+              <div class="toggle-row" style="margin-bottom:0;">
+                <div>
+                  <strong>1 Device ID = 1 Demo Account</strong>
+                  <span>Tracks browser/device ID to block multiple demos on same PC/phone.</span>
+                </div>
+                <input id="demoOnePerDevice" type="checkbox" class="switch" checked />
+              </div>
+            </div>
+          </div>
+
           <div class="card">
             <div class="card-head">
               <div>
@@ -2337,11 +2396,15 @@
 
     // ── Render: Users ──
     function renderUsers() {
-      const stStats = state.usersStats || { total: 0, active: 0, expired: 0, suspended: 0 };
+      const stStats = state.usersStats || { total: 0, active: 0, activeDemo: 0, totalDemo: 0, expired: 0, suspended: 0 };
+      const activeDemoCount = Number(stStats.activeDemo ?? (state.stats && state.stats.activeDemoUsers) ?? 0);
+      const totalDemoCount = Number(stStats.totalDemo ?? (state.stats && state.stats.totalDemoUsers) ?? 0);
       $('kpiTotal').textContent = stStats.total.toLocaleString();
       $('kpiActive').textContent = stStats.active.toLocaleString();
       $('kpiExpired').textContent = stStats.expired.toLocaleString();
       $('kpiSuspended').textContent = stStats.suspended.toLocaleString();
+      if ($('kpiActiveDemo')) $('kpiActiveDemo').textContent = activeDemoCount.toLocaleString();
+      if ($('kpiActiveDemoSub')) $('kpiActiveDemoSub').textContent = totalDemoCount > 0 ? (totalDemoCount.toLocaleString() + ' total demo accounts') : 'Live demo users';
       $('navUsersCount').textContent = stStats.total.toLocaleString();
 
       const rows = state.users;
@@ -3788,9 +3851,68 @@
     });
 
     // ── Render & Save: Subscription Plans & Pricing ──
+    function syncDemoStatusBadge() {
+      const enabled = Boolean($('demoEnabledToggle')?.checked);
+      const badge = $('demoStatusBadge');
+      const sub = $('demoToggleSub');
+      if (badge) {
+        badge.textContent = enabled ? 'ON · LIVE ON SITE' : 'OFF · HIDDEN';
+        badge.className = enabled ? 'badge badge-emerald' : 'badge badge-muted';
+      }
+      if (sub) {
+        sub.textContent = enabled
+          ? 'Free Demo card is VISIBLE on Home & Pricing pages. Users can self-activate (1 per IP & Device).'
+          : 'When OFF, Free Demo card is hidden from Home & Pricing pages and self-activation is blocked.';
+      }
+    }
+
+    if ($('demoEnabledToggle')) {
+      $('demoEnabledToggle').addEventListener('change', syncDemoStatusBadge);
+    }
+
+    if ($('saveDemoConfigBtn')) {
+      $('saveDemoConfigBtn').addEventListener('click', async () => {
+        const btn = $('saveDemoConfigBtn');
+        const unit = ($('demoDurationUnit')?.value === 'days') ? 'days' : 'hours';
+        const rawVal = parseFloat($('demoDurationVal')?.value || '2');
+        const val = unit === 'days'
+          ? Math.max(1, Math.min(365, Math.round(Number.isFinite(rawVal) ? rawVal : 1)))
+          : Math.max(0.5, Math.min(720, Math.round((Number.isFinite(rawVal) ? rawVal : 2) * 10) / 10));
+        const credits = Math.max(50, parseInt($('demoCreditsVal')?.value || '2000', 10) || 2000);
+        const demoConfig = {
+          enabled: Boolean($('demoEnabledToggle')?.checked),
+          durationValue: val,
+          durationUnit: unit,
+          credits,
+          onePerIp: Boolean($('demoOnePerIp')?.checked),
+          onePerDevice: Boolean($('demoOnePerDevice')?.checked),
+        };
+        btn.disabled = true;
+        try {
+          const res = await api('/api/admin/settings', { method: 'PUT', body: JSON.stringify({ demoConfig }) });
+          if (state.settings) {
+            state.settings.demoConfig = (res.settings && res.settings.demoConfig) || demoConfig;
+            if (res.settings && res.settings.plans) state.settings.plans = res.settings.plans;
+          }
+          syncDemoStatusBadge();
+          renderPlansEditor(state.settings || { demoConfig });
+          showToast('Demo settings saved (' + (demoConfig.enabled ? 'ON' : 'OFF') + ' · ' + val + ' ' + unit + ')');
+        } catch (err) { showToast(err.message, true); }
+        finally { btn.disabled = false; }
+      });
+    }
+
     function renderPlansEditor(st) {
       const plans = (st && st.plans) || {};
       const pd = (st && st.planDurations) || {};
+      const dc = (st && st.demoConfig) || {};
+      if ($('demoEnabledToggle')) $('demoEnabledToggle').checked = Boolean(dc.enabled);
+      if ($('demoDurationVal')) $('demoDurationVal').value = dc.durationValue ?? 2;
+      if ($('demoDurationUnit')) $('demoDurationUnit').value = dc.durationUnit === 'days' ? 'days' : 'hours';
+      if ($('demoCreditsVal')) $('demoCreditsVal').value = dc.credits ?? (plans.demo && plans.demo.credits) ?? 2000;
+      if ($('demoOnePerIp')) $('demoOnePerIp').checked = dc.onePerIp !== false;
+      if ($('demoOnePerDevice')) $('demoOnePerDevice').checked = dc.onePerDevice !== false;
+      syncDemoStatusBadge();
       const defaultMeta = {
         basic: { name: 'Basic', price: 0, credits: 0, days: 0, description: 'Free starter account' },
         pro: { name: 'Pro', price: 3500, credits: 25000, days: Number(pd.pro || 20), description: 'High-speed Google Flow rendering & 25,000 credits' },

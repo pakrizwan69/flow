@@ -232,9 +232,30 @@ final class AdminRoutes
                 }));
             }
             $merged = array_merge($current, $sanitized);
-            foreach (['windowsApp', 'broadcast', 'plans', 'planDurations', 'maintenance', 'toolsVisibility', 'extensions'] as $k) {
+            foreach (['windowsApp', 'broadcast', 'plans', 'planDurations', 'demoConfig', 'maintenance', 'toolsVisibility', 'extensions'] as $k) {
                 if (is_array($current[$k] ?? null) || is_array($update[$k] ?? null)) {
                     $merged[$k] = array_merge($current[$k] ?? [], is_array($update[$k] ?? null) ? $update[$k] : []);
+                }
+            }
+            if (is_array($merged['demoConfig'] ?? null)) {
+                $dc = Helpers::getDemoConfig($merged);
+                $merged['demoConfig'] = [
+                    'enabled' => $dc['enabled'],
+                    'durationValue' => $dc['durationValue'],
+                    'durationUnit' => $dc['durationUnit'],
+                    'credits' => $dc['credits'],
+                    'onePerIp' => $dc['onePerIp'],
+                    'onePerDevice' => $dc['onePerDevice'],
+                ];
+                if (!is_array($merged['plans']['demo'] ?? null)) {
+                    $merged['plans']['demo'] = ['name' => 'Demo', 'price' => 0, 'credits' => $dc['credits'], 'days' => 0, 'visible' => $dc['enabled'], 'description' => 'Timed free demo account'];
+                }
+                $merged['plans']['demo']['credits'] = $dc['credits'];
+                $merged['plans']['demo']['demoHours'] = $dc['durationUnit'] === 'days' ? ($dc['durationValue'] * 24) : $dc['durationValue'];
+                $merged['plans']['demo']['days'] = $dc['durationUnit'] === 'days' ? (int)$dc['durationValue'] : 0;
+                $merged['plans']['demo']['visible'] = $dc['enabled'];
+                if (is_array($merged['resellerPlanCredits'] ?? null)) {
+                    $merged['resellerPlanCredits']['demo'] = $dc['credits'];
                 }
             }
             if (is_array($current['extensions']['flow'] ?? null) && is_array($update['extensions']['flow'] ?? null)) {
@@ -510,10 +531,12 @@ final class AdminRoutes
                     COUNT(*) AS total_users,
                     SUM(CASE WHEN LOWER(status) = 'suspended' OR COALESCE(is_locked, 0) = 1 THEN 1 ELSE 0 END) AS suspended_users,
                     SUM(CASE WHEN LOWER(status) <> 'suspended' AND COALESCE(is_locked, 0) = 0 AND plan_expires_at IS NOT NULL AND plan_expires_at > ? THEN 1 ELSE 0 END) AS active_users,
-                    SUM(CASE WHEN LOWER(status) <> 'suspended' AND COALESCE(is_locked, 0) = 0 AND (plan_expires_at IS NULL OR plan_expires_at <= ?) THEN 1 ELSE 0 END) AS expired_users
+                    SUM(CASE WHEN LOWER(status) <> 'suspended' AND COALESCE(is_locked, 0) = 0 AND (plan_expires_at IS NULL OR plan_expires_at <= ?) THEN 1 ELSE 0 END) AS expired_users,
+                    SUM(CASE WHEN LOWER(COALESCE(plan, '')) = 'demo' AND LOWER(status) <> 'suspended' AND COALESCE(is_locked, 0) = 0 AND plan_expires_at IS NOT NULL AND plan_expires_at > ? THEN 1 ELSE 0 END) AS active_demo_users,
+                    SUM(CASE WHEN LOWER(COALESCE(plan, '')) = 'demo' THEN 1 ELSE 0 END) AS total_demo_users
                  FROM users"
             );
-            $stAgg->execute([$nowIso, $nowIso]);
+            $stAgg->execute([$nowIso, $nowIso, $nowIso]);
             $agg = $stAgg->fetch() ?: [];
             $planRows = $pdo->query('SELECT LOWER(COALESCE(plan, "free")) AS p, COUNT(*) AS c FROM users GROUP BY LOWER(COALESCE(plan, "free"))')->fetchAll();
             foreach ($planRows as $pr) {
@@ -523,6 +546,8 @@ final class AdminRoutes
             Http::json([
                 'totalUsers' => (int)($agg['total_users'] ?? 0),
                 'activeSubscribers' => (int)($agg['active_users'] ?? 0),
+                'activeDemoUsers' => (int)($agg['active_demo_users'] ?? 0),
+                'totalDemoUsers' => (int)($agg['total_demo_users'] ?? 0),
                 'expiredUsers' => (int)($agg['expired_users'] ?? 0),
                 'suspendedUsers' => (int)($agg['suspended_users'] ?? 0),
                 'planBreakdown' => $planBreakdown,
@@ -530,15 +555,24 @@ final class AdminRoutes
         }
 
         $users = Db::readUsers();
+        $activeDemoCount = 0;
+        $totalDemoCount = 0;
         foreach ($users as $u) {
             $p = strtolower((string)($u['plan'] ?? 'free'));
+            $isDemoU = ($p === 'demo' || !empty($u['isDemo']));
+            if ($isDemoU) {
+                $totalDemoCount++;
+            }
             $planBreakdown[$p] = ($planBreakdown[$p] ?? 0) + 1;
-            if (($u['status'] ?? '') === 'suspended') {
+            if (($u['status'] ?? '') === 'suspended' || !empty($u['isLocked'])) {
                 $suspendedCount++;
             } else {
                 $exp = !empty($u['planExpiresAt']) ? (strtotime((string)$u['planExpiresAt']) ?: 0) : 0;
                 if ($exp > $now) {
                     $activeCount++;
+                    if ($isDemoU) {
+                        $activeDemoCount++;
+                    }
                 } else {
                     $expiredCount++;
                 }
@@ -548,6 +582,8 @@ final class AdminRoutes
         Http::json([
             'totalUsers' => count($users),
             'activeSubscribers' => $activeCount,
+            'activeDemoUsers' => $activeDemoCount,
+            'totalDemoUsers' => $totalDemoCount,
             'expiredUsers' => $expiredCount,
             'suspendedUsers' => $suspendedCount,
             'planBreakdown' => $planBreakdown,
@@ -575,14 +611,18 @@ final class AdminRoutes
                     COUNT(*) AS total_users,
                     SUM(CASE WHEN LOWER(status) = 'suspended' OR COALESCE(is_locked, 0) = 1 THEN 1 ELSE 0 END) AS suspended_users,
                     SUM(CASE WHEN LOWER(status) <> 'suspended' AND COALESCE(is_locked, 0) = 0 AND LOWER(plan) NOT IN ('basic', 'free') AND plan_expires_at IS NOT NULL AND plan_expires_at > ? THEN 1 ELSE 0 END) AS active_users,
-                    SUM(CASE WHEN LOWER(status) <> 'suspended' AND COALESCE(is_locked, 0) = 0 AND LOWER(plan) NOT IN ('basic', 'free') AND (plan_expires_at IS NULL OR plan_expires_at <= ?) THEN 1 ELSE 0 END) AS expired_users
+                    SUM(CASE WHEN LOWER(status) <> 'suspended' AND COALESCE(is_locked, 0) = 0 AND LOWER(plan) NOT IN ('basic', 'free') AND (plan_expires_at IS NULL OR plan_expires_at <= ?) THEN 1 ELSE 0 END) AS expired_users,
+                    SUM(CASE WHEN LOWER(COALESCE(plan, '')) = 'demo' AND LOWER(status) <> 'suspended' AND COALESCE(is_locked, 0) = 0 AND plan_expires_at IS NOT NULL AND plan_expires_at > ? THEN 1 ELSE 0 END) AS active_demo_users,
+                    SUM(CASE WHEN LOWER(COALESCE(plan, '')) = 'demo' THEN 1 ELSE 0 END) AS total_demo_users
                  FROM users"
             );
-            $stStats->execute([$nowIso, $nowIso]);
+            $stStats->execute([$nowIso, $nowIso, $nowIso]);
             $sRow = $stStats->fetch() ?: [];
             $stats = [
                 'total' => (int)($sRow['total_users'] ?? 0),
                 'active' => (int)($sRow['active_users'] ?? 0),
+                'activeDemo' => (int)($sRow['active_demo_users'] ?? 0),
+                'totalDemo' => (int)($sRow['total_demo_users'] ?? 0),
                 'expired' => (int)($sRow['expired_users'] ?? 0),
                 'suspended' => (int)($sRow['suspended_users'] ?? 0),
             ];
@@ -710,7 +750,7 @@ final class AdminRoutes
 
         $rawUsers = Db::readUsers();
         $withTs = [];
-        $stats = ['total' => count($rawUsers), 'active' => 0, 'expired' => 0, 'suspended' => 0];
+        $stats = ['total' => count($rawUsers), 'active' => 0, 'activeDemo' => 0, 'totalDemo' => 0, 'expired' => 0, 'suspended' => 0];
         foreach ($rawUsers as $u) {
             $expRaw = $u['planExpiresAt'] ?? null;
             $daysRem = 0;
@@ -725,11 +765,17 @@ final class AdminRoutes
             $stLower = strtolower((string)($u['status'] ?? 'active'));
             $plLower = strtolower((string)($u['plan'] ?? 'basic'));
             $isDemoFlag = ($plLower === 'demo') || !empty($u['isDemo']);
+            if ($isDemoFlag) {
+                $stats['totalDemo']++;
+            }
             if ($stLower === 'suspended' || !empty($u['isLocked'])) {
                 $stats['suspended']++;
-            } elseif ($plLower !== 'basic' && $plLower !== 'free' && $daysRem > 0) {
+            } elseif ($plLower !== 'basic' && $plLower !== 'free' && $remSec > 0) {
                 $stats['active']++;
-            } elseif ($plLower !== 'basic' && $plLower !== 'free' && $daysRem <= 0) {
+                if ($isDemoFlag) {
+                    $stats['activeDemo']++;
+                }
+            } elseif ($plLower !== 'basic' && $plLower !== 'free' && $remSec <= 0) {
                 $stats['expired']++;
             }
 
@@ -1495,6 +1541,8 @@ final class AdminRoutes
             'broadcast' => !empty($settings['broadcast']['enabled']) ? $settings['broadcast'] : null,
             'windowsApp' => $settings['windowsApp'] ?? $defaults['windowsApp'],
             'plans' => $settings['plans'] ?? $defaults['plans'],
+            'planDurations' => Helpers::getPlanDurations($settings),
+            'demoConfig' => Helpers::getDemoConfig($settings),
             'toolsVisibility' => [
                 'chatgpt' => false,
                 'supergrok' => false,

@@ -2830,6 +2830,30 @@ $__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
       max-width: 880px;
       margin: 0 auto;
     }
+    .pf-home-plans-grid.has-demo-card,
+    .pricing-grid.has-demo-card {
+      grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+      max-width: 1120px !important;
+    }
+    .p-card.demo {
+      border-color: rgba(16, 185, 129, 0.45) !important;
+      background: linear-gradient(180deg, rgba(16, 185, 129, 0.08), rgba(255, 255, 255, 0.98) 38%) !important;
+    }
+    .p-tag.emerald {
+      background: rgba(16, 185, 129, 0.14) !important;
+      color: #059669 !important;
+      border: 1px solid rgba(16, 185, 129, 0.32) !important;
+    }
+    .p-btn.demo {
+      background: linear-gradient(135deg, #059669, #10b981) !important;
+      color: #ffffff !important;
+      box-shadow: 0 10px 24px -8px rgba(16, 185, 129, 0.55) !important;
+    }
+    .p-btn.demo:hover { filter: brightness(1.06); transform: translateY(-1px); }
+    @media (max-width: 960px) {
+      .pf-home-plans-grid.has-demo-card,
+      .pricing-grid.has-demo-card { grid-template-columns: 1fr !important; max-width: 520px !important; }
+    }
     @media (max-width: 780px) {
       .pf-home-plans-grid { grid-template-columns: 1fr; }
       .steps4-grid { grid-template-columns: 1fr !important; }
@@ -3304,7 +3328,35 @@ $__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
           <h2>2 plans. <span>Unlimited power.</span></h2>
           <p>Choose Pro (20 Days) or Max (30 Days) — contact your authorized reseller for instant activation.</p>
         </div>
-        <div class="pf-home-plans-grid">
+        <div class="pf-home-plans-grid" id="homePlansGrid">
+          <!-- FREE DEMO PLAN (Visible ONLY when Admin enables Demo) -->
+          <div class="p-card demo hidden" id="homeDemoPlanCard">
+            <div class="p-title-row">
+              <h4>FREE DEMO</h4>
+              <span class="p-tag emerald">FREE TRIAL</span>
+            </div>
+            <div class="p-sub">Try Google Flow before you upgrade</div>
+            <div class="p-box">
+              <div class="p-credits" data-demo-credits>✨ 2,000 AI Credits</div>
+              <div class="p-duration" data-demo-duration>= Free Google Flow trial for 2 Hours</div>
+              <div class="p-tools-label">MAIN TOOLS</div>
+              <div class="p-tool-row">
+                <span>✓ Google Flow</span>
+                <span>Trial Access</span>
+              </div>
+            </div>
+            <button type="button" class="p-btn demo" data-start-demo="1">Start Free Demo</button>
+            <div class="p-reseller-note">Instant self-activation · 1 Demo per IP &amp; Device</div>
+            <div class="p-noads">● Auto-Expires Cleanly</div>
+            <ul class="p-list">
+              <li>Instant Google Flow Access</li>
+              <li>1-Click Chrome Extension Sync</li>
+              <li>Test Veo 3.1 Video &amp; Image Studio</li>
+              <li>1 Device at a Time</li>
+              <li>Upgrade to Pro or Max Anytime</li>
+            </ul>
+          </div>
+
           <div class="p-card pro">
             <div class="p-title-row">
               <h4>PRO</h4>
@@ -3993,7 +4045,35 @@ $__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
           <h3>Plan &amp; Pricing</h3>
           <button type="button" class="btn-ghost" id="pricingBackBtn">&larr; Back to Dashboard</button>
         </div>
-      <div class="pricing-grid">
+      <div class="pricing-grid" id="pricingPlansGrid">
+        <!-- FREE DEMO PLAN (Visible ONLY when Admin enables Demo) -->
+        <div class="p-card demo hidden" id="pricingDemoPlanCard">
+          <div class="p-title-row">
+            <h4>FREE DEMO</h4>
+            <span class="p-tag emerald">FREE TRIAL</span>
+          </div>
+          <div class="p-sub">Try Google Flow before you upgrade</div>
+          <div class="p-box">
+            <div class="p-credits" data-demo-credits>✨ 2,000 AI Credits</div>
+            <div class="p-duration" data-demo-duration>= Free Google Flow trial for 2 Hours</div>
+            <div class="p-tools-label">MAIN TOOLS</div>
+            <div class="p-tool-row">
+              <span>✓ Google Flow</span>
+              <span>Trial Access</span>
+            </div>
+          </div>
+          <button type="button" class="p-btn demo" data-start-demo="1">Start Free Demo</button>
+          <div class="p-reseller-note">Instant self-activation · 1 Demo per IP &amp; Device</div>
+          <div class="p-noads">● Auto-Expires Cleanly</div>
+          <ul class="p-list">
+            <li>Instant Google Flow Access</li>
+            <li>1-Click Chrome Extension Sync</li>
+            <li>Test Veo 3.1 Video &amp; Image Studio</li>
+            <li>1 Device at a Time</li>
+            <li>Upgrade to Pro or Max Anytime</li>
+          </ul>
+        </div>
+
         <!-- PRO PLAN -->
         <div class="p-card pro">
           <div class="p-title-row">
@@ -4220,6 +4300,7 @@ $__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
           const res = await fetch('/api/settings/public', { cache: 'no-store' });
           if (!res.ok) return;
           const data = await res.json();
+          applyPublicDemoConfig(data && data.demoConfig ? data.demoConfig : null);
           const flowExt = data && data.extensions && data.extensions.flow ? data.extensions.flow : null;
           if (!flowExt) return;
           const ver = String(flowExt.version || '1.7').replace(/^v/i, '');
@@ -4702,6 +4783,7 @@ $__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
         hideBootLoader();
         renderUser(user);
         updateWhatsappButton(user, true);
+        if (typeof checkPendingSelfDemoAfterAuth === 'function') checkPendingSelfDemoAfterAuth();
         landingView.classList.add('hidden');
         aboutView.classList.add('hidden');
         authView.classList.add('hidden');
@@ -5036,6 +5118,112 @@ $__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
           showCornerToast('Contact Your Reseller', 'To get the ' + planName + ' plan, please contact your reseller.');
         });
       });
+
+      let publicDemoConfig = null;
+
+      function getOrCreateBrowserDeviceId() {
+        const key = 'pakflow_device_id';
+        let stored = '';
+        try { stored = localStorage.getItem(key) || ''; } catch (_) {}
+        if (!stored) {
+          const m = document.cookie.match(/(?:^|;\s*)pf_did=([^;]+)/);
+          if (m && m[1]) stored = decodeURIComponent(m[1]);
+        }
+        if (!stored || stored.length < 12) {
+          const hw = [
+            navigator.platform || 'unk',
+            String(screen.width || 0) + 'x' + String(screen.height || 0),
+            String(navigator.hardwareConcurrency || 0),
+            Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
+          ].join('|');
+          let h = 2166136261;
+          for (let i = 0; i < hw.length; i++) {
+            h ^= hw.charCodeAt(i);
+            h = Math.imul(h, 16777619);
+          }
+          const rand = Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+          stored = 'pfd_' + (h >>> 0).toString(36) + '_' + rand;
+        }
+        try { localStorage.setItem(key, stored); } catch (_) {}
+        try { document.cookie = 'pf_did=' + encodeURIComponent(stored) + '; path=/; max-age=31536000; SameSite=Lax'; } catch (_) {}
+        return stored;
+      }
+
+      function applyPublicDemoConfig(dc) {
+        publicDemoConfig = dc || null;
+        const enabled = Boolean(dc && dc.enabled);
+        const homeCard = document.getElementById('homeDemoPlanCard');
+        const pricingCard = document.getElementById('pricingDemoPlanCard');
+        const homeGrid = document.getElementById('homePlansGrid');
+        const pricingGrid = document.getElementById('pricingPlansGrid');
+        if (homeCard) homeCard.classList.toggle('hidden', !enabled);
+        if (pricingCard) pricingCard.classList.toggle('hidden', !enabled);
+        if (homeGrid) homeGrid.classList.toggle('has-demo-card', enabled);
+        if (pricingGrid) pricingGrid.classList.toggle('has-demo-card', enabled);
+        if (enabled) {
+          const crTxt = '✨ ' + Number(dc.credits || 2000).toLocaleString() + ' AI Credits';
+          const durTxt = '= Free Google Flow trial for ' + String(dc.durationLabel || '2 Hours');
+          document.querySelectorAll('[data-demo-credits]').forEach((el) => { el.textContent = crTxt; });
+          document.querySelectorAll('[data-demo-duration]').forEach((el) => { el.textContent = durTxt; });
+        }
+      }
+
+      async function activateSelfDemo(triggerBtn) {
+        const token = localStorage.getItem('pakflow_token') || localStorage.getItem('token');
+        if (!token) {
+          try { sessionStorage.setItem('pakflow_pending_demo', '1'); } catch (_) {}
+          showAuth('register');
+          showCornerToast('Create Free Account', 'Register or sign in to activate your Free Demo instantly!');
+          return;
+        }
+        const origTxt = triggerBtn ? triggerBtn.textContent : '';
+        if (triggerBtn) {
+          triggerBtn.disabled = true;
+          triggerBtn.textContent = 'Activating Demo...';
+        }
+        try {
+          const deviceId = getOrCreateBrowserDeviceId();
+          const res = await fetch('/api/auth/activate-demo', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer ' + token,
+              'X-PakFlow-Device-Id': deviceId,
+            },
+            body: JSON.stringify({ deviceId }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok || !data.success) {
+            showCornerToast('Free Demo Unavailable', data.message || 'Unable to activate Free Demo.');
+            return;
+          }
+          if (data.user) {
+            currentUser = data.user;
+            try { localStorage.setItem('pakflow_user_cache', JSON.stringify(data.user)); } catch (_) {}
+            showDash(data.user);
+          }
+          showCornerToast('Free Demo Activated!', data.message || 'Your Free Demo is now active!');
+        } catch (err) {
+          showCornerToast('Error', 'Network error while activating Free Demo. Please try again.');
+        } finally {
+          if (triggerBtn) {
+            triggerBtn.disabled = false;
+            triggerBtn.textContent = origTxt || 'Start Free Demo';
+          }
+        }
+      }
+
+      document.querySelectorAll('[data-start-demo]').forEach((btn) => {
+        btn.addEventListener('click', () => activateSelfDemo(btn));
+      });
+
+      function checkPendingSelfDemoAfterAuth() {
+        let pending = false;
+        try { pending = sessionStorage.getItem('pakflow_pending_demo') === '1'; } catch (_) {}
+        if (!pending) return;
+        try { sessionStorage.removeItem('pakflow_pending_demo'); } catch (_) {}
+        setTimeout(() => activateSelfDemo(null), 400);
+      }
 
       modalClose.addEventListener('click', () => infoModal.classList.add('hidden'));
       infoModal.addEventListener('click', (e) => {

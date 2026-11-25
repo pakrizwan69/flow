@@ -1197,6 +1197,14 @@ final class Db
                 'max' => 30,
                 'demo' => 0,
             ],
+            'demoConfig' => [
+                'enabled' => false,
+                'durationValue' => 2,
+                'durationUnit' => 'hours',
+                'credits' => 2000,
+                'onePerIp' => true,
+                'onePerDevice' => true,
+            ],
             'resellerPlanCredits' => [
                 'pro' => 25000,
                 'max' => 45000,
@@ -1302,6 +1310,41 @@ final class Db
             return $stmt->execute([$key, json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), time()]);
         }
         return false;
+    }
+
+    public static function readDemoClaims(): array
+    {
+        if (Database::isEnabled()) {
+            $val = self::getMetaValue('demo_claims', []);
+            return is_array($val) ? $val : [];
+        }
+        $file = self::dataDir() . DIRECTORY_SEPARATOR . 'demo_claims.json';
+        if (!is_file($file)) {
+            return [];
+        }
+        $parsed = self::readJsonFile($file, []);
+        return is_array($parsed) ? $parsed : [];
+    }
+
+    public static function recordDemoClaim(string $ip, string $deviceId, int $userId, string $email): void
+    {
+        $claims = self::readDemoClaims();
+        $claims[] = [
+            'ip' => trim($ip),
+            'deviceId' => trim($deviceId),
+            'userId' => $userId,
+            'email' => self::sanitizeEmail($email),
+            'claimedAt' => self::isoNow(),
+        ];
+        if (count($claims) > 10000) {
+            $claims = array_slice($claims, -10000);
+        }
+        if (Database::isEnabled()) {
+            self::setMetaValue('demo_claims', array_values($claims));
+            return;
+        }
+        $file = self::dataDir() . DIRECTORY_SEPARATOR . 'demo_claims.json';
+        self::writeFileAtomic($file, array_values($claims), false);
     }
 
     public static function findAdminByEmail(string $email): ?array
