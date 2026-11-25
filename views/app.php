@@ -2580,7 +2580,7 @@ $__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
     .pf-hero-robot-wrap {
       position: relative;
       width: 100%;
-      max-width: 500px;
+      max-width: 450px;
       border: 0;
       box-shadow: none;
       background: transparent;
@@ -2590,7 +2590,7 @@ $__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
       height: auto;
       display: block;
       object-fit: contain;
-      filter: drop-shadow(0 20px 44px rgba(15, 4, 38, 0.50));
+      filter: drop-shadow(0 0 42px rgba(168, 85, 247, 0.52)) drop-shadow(0 22px 46px rgba(12, 4, 32, 0.55));
     }
     @media (max-width: 920px) {
       .pf-hero-band {
@@ -3076,7 +3076,7 @@ $__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
         </div>
         <div class="pf-hero-right">
           <div class="pf-hero-robot-wrap">
-            <img src="/assets/pakflow-hero-robot.png?v=3" alt="PakFlow 3D AI Cinema Studio" fetchpriority="high" />
+            <img src="/assets/pakflow-hero-robot.png?v=4" alt="PakFlow 3D AI Cinema Studio" fetchpriority="high" />
           </div>
         </div>
       </div>
