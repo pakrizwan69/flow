@@ -3458,7 +3458,7 @@ $__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
               <span>Which AI models do I get access to?</span>
               <svg class="qa-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
             </summary>
-            <div class="qa-ans">PakFlow gives you direct access to Google Flow powered by Veo 3.1 and Nano Banana Pro with 45,000 AI Credits on Pro and Max plans.</div>
+            <div class="qa-ans">PakFlow gives you direct access to Google Flow powered by Veo 3.1 and Nano Banana Pro with 25,000 AI Credits on Pro (20 Days) and 45,000 AI Credits on Max (30 Days).</div>
           </details>
           <details class="qa-item">
             <summary>
@@ -3673,7 +3673,7 @@ $__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
             <h2>Create Cinematic <em>AI Videos</em> in Seconds.</h2>
             <p>Access Google Flow (Veo 3.1) and Nano Banana Pro directly from one clean workspace.</p>
             <div class="auth-split-list">
-              <div class="auth-split-item"><span class="auth-split-dot">&#9889;</span><span>45,000 AI Credits on Pro &amp; Max plans</span></div>
+              <div class="auth-split-item"><span class="auth-split-dot">&#9889;</span><span>25,000 (Pro) &amp; 45,000 (Max) AI Credits</span></div>
               <div class="auth-split-item"><span class="auth-split-dot">&#128268;</span><span>1-Click Chrome Extension session sync</span></div>
               <div class="auth-split-item"><span class="auth-split-dot">&#128737;</span><span>OTP verified &amp; 1-device protected</span></div>
             </div>
