@@ -42,7 +42,11 @@ html[data-pakflow-flow-home="true"] body > *:not(#pakflow-my-projects-root):not(
   pointer-events: none !important;
 }
 html[data-pakflow-flow-home="true"] body > .cdk-overlay-container,
-html[data-pakflow-flow-home="true"] body > .cdk-overlay-container * {
+html[data-pakflow-flow-home="true"] body > .cdk-overlay-container *,
+html[data-pakflow-flow-home="true"] body > [data-radix-popper-content-wrapper],
+html[data-pakflow-flow-home="true"] body > [data-radix-popper-content-wrapper] *,
+html[data-pakflow-flow-home="true"] body [role="dialog"]:not(#pakflow-home-ultra-popover),
+html[data-pakflow-flow-home="true"] body [role="dialog"]:not(#pakflow-home-ultra-popover) * {
   visibility: visible !important;
   pointer-events: auto !important;
 }

@@ -849,6 +849,29 @@
     pillBtn?.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
+      // Prefer triggering Google's genuine native profile popover on homepage (identical to in-project UI)
+      try {
+        const nativeAnchor = (cachedTopProfileEl && cachedTopProfileEl.isConnected)
+          ? cachedTopProfileEl
+          : findNativeHomeAvatarControl();
+        const nativeBtn = nativeAnchor
+          ? (nativeAnchor.matches('button, a, [role="button"]')
+              ? nativeAnchor
+              : (nativeAnchor.closest('button, a, [role="button"]') || nativeAnchor.querySelector('button, a, [role="button"]') || nativeAnchor))
+          : null;
+        if (nativeBtn && typeof nativeBtn.click === 'function') {
+          setMenuOpen(false);
+          const hadDialogBefore = Boolean(document.querySelector('[data-radix-popper-content-wrapper], .cdk-overlay-pane, [role="dialog"]:not(#pakflow-home-ultra-popover)'));
+          nativeBtn.click();
+          if (!hadDialogBefore) {
+            setTimeout(() => {
+              const hasNativeOpen = Boolean(document.querySelector('[data-radix-popper-content-wrapper], .cdk-overlay-pane, [role="dialog"]:not(#pakflow-home-ultra-popover)'));
+              if (!hasNativeOpen) setMenuOpen(true);
+            }, 180);
+          }
+          return;
+        }
+      } catch {}
       setMenuOpen(!homeUltraMenuOpen);
     });
     closeBtn?.addEventListener('click', (e) => {
