@@ -12,7 +12,7 @@
     updatedAt: 'pakflowSessionUpdatedAt'
   };
 
-  const RULE_IDS = [78101, 78102, 78103, 78104, 78105, 78106, 78107];
+  const RULE_IDS = [78101, 78102, 78103, 78104, 78105, 78106, 78107, 78108];
   const DESKTOP_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
   const ALL_RESOURCE_TYPES = [
     'main_frame', 'sub_frame', 'stylesheet', 'script', 'image', 'font',
@@ -413,7 +413,7 @@
         });
         // Allow authenticated Google Account profile photos & monograms (lh3.googleusercontent.com/ogw/ & /a/) inside Flow
         addRules.push({
-          id: 78105,
+          id: 78108,
           priority: 2,
           action: {
             type: 'modifyHeaders',
@@ -562,13 +562,13 @@
       return false;
     }
 
-    // Verify in-memory DNR session rules (including 78105 for googleusercontent avatars) are actively mounted in Chrome
+    // Verify in-memory DNR session rules (including 78108 for googleusercontent avatars) are actively mounted in Chrome
     if (chrome.declarativeNetRequest) {
       try {
         const hasCompleteRuleSet = (rules) => {
           if (!Array.isArray(rules) || !rules.length) return false;
           const hasMain = rules.some(r => r && r.id === 78103);
-          const hasAvatar = rules.some(r => r && r.id === 78105);
+          const hasAvatar = rules.some(r => r && r.id === 78108);
           const hasLabs = rules.some(r => r && r.id === 78104);
           return (hasMain && hasAvatar) || (!hasMain && hasLabs);
         };
