@@ -178,14 +178,32 @@ $__pfUpdated = 'November 25, 2026';
     a { color: #7c3aed; text-decoration: none; }
     a:hover { text-decoration: underline; }
     footer {
-      background: #08070f;
+      background: #07060d;
       color: #94a3b8;
-      text-align: center;
-      font-size: 13px;
-      padding: 28px 24px;
       border-top: 1px solid rgba(255,255,255,0.08);
+      padding: 48px 24px 26px;
     }
-    footer a { color: #cbd5e1; margin: 0 10px; }
+    .pf-footer-inner { max-width: 1160px; margin: 0 auto; width: 100%; }
+    .pf-footer-grid {
+      display: grid;
+      grid-template-columns: 1.6fr 1fr 1fr 1.1fr;
+      gap: 32px;
+      padding-bottom: 32px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+    .pf-footer-brand p { margin-top: 12px; font-size: 13.5px; line-height: 1.6; color: #94a3b8; max-width: 300px; }
+    .pf-footer-col h4 { font-size: 12px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: #fff; margin-bottom: 14px; }
+    .pf-footer-col ul { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+    .pf-footer-col a { color: #94a3b8; text-decoration: none; font-size: 13.5px; font-weight: 500; }
+    .pf-footer-col a:hover { color: #c4b5fd; }
+    .pf-footer-bottom {
+      display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;
+      padding-top: 22px; font-size: 13px; color: #71717a;
+    }
+    .pf-footer-dev { color: #94a3b8; }
+    .pf-footer-dev a { color: #c4b5fd; font-weight: 700; text-decoration: none; border-bottom: 1px dashed rgba(196,181,253,0.5); }
+    @media (max-width: 820px) { .pf-footer-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (max-width: 520px) { .pf-footer-grid { grid-template-columns: 1fr; } .pf-footer-bottom { flex-direction: column; text-align: center; } }
   </style>
 </head>
 <body>
@@ -292,14 +310,45 @@ $__pfUpdated = 'November 25, 2026';
   </main>
 
   <footer>
-    <div style="margin-bottom:10px;">
-      <a href="/">Home</a>
-      <a href="/about">About</a>
-      <a href="/pricing">Pricing</a>
-      <a href="/login">Sign In</a>
-      <a href="/signup">Sign Up</a>
+    <div class="pf-footer-inner">
+      <div class="pf-footer-grid">
+        <div class="pf-footer-brand">
+          <a href="/" class="brand">
+            <img src="/flowbypak-logo.png" alt="PakFlow" />
+            <span>PakFlow</span>
+          </a>
+          <p>AI Video Creation Platform giving creators direct 1-click access to Google Flow (Veo 3.1) &amp; Cloud Project Vault.</p>
+        </div>
+        <div class="pf-footer-col">
+          <h4>Pages</h4>
+          <ul>
+            <li><a href="/">Home</a></li>
+            <li><a href="/about">About</a></li>
+            <li><a href="/pricing">Pricing</a></li>
+            <li><a href="/dashboard">Dashboard</a></li>
+          </ul>
+        </div>
+        <div class="pf-footer-col">
+          <h4>Account</h4>
+          <ul>
+            <li><a href="/login">Sign In</a></li>
+            <li><a href="/signup">Get Started Free</a></li>
+            <li><a href="/privacy-policy">Privacy Policy</a></li>
+          </ul>
+        </div>
+        <div class="pf-footer-col">
+          <h4>Support</h4>
+          <ul>
+            <li><a href="mailto:support@flowbypak.com">support@flowbypak.com</a></li>
+            <li><a href="/pricing">Authorized Resellers</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="pf-footer-bottom">
+        <span>&copy; <?= date('Y') ?> PakFlow Studio. All rights reserved.</span>
+        <span class="pf-footer-dev">Developed by <a href="https://wa.me/923430641457?text=I%20want%20a%20website%20for%20my%20business" target="_blank" rel="noopener noreferrer">Aivrasol Softwares</a></span>
+      </div>
     </div>
-    <div>&copy; <?= date('Y') ?> PakFlow Studio (<a href="https://wa.me/923430641457?text=I%20want%20a%20website%20for%20my%20business" target="_blank" rel="noopener noreferrer" style="margin:0;color:#c4b5fd;">Aivrasol Softwares</a>). All rights reserved.</div>
   </footer>
 
   <script>

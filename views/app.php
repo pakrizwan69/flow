@@ -2609,17 +2609,19 @@ $__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
     .pf-hero-robot-wrap {
       position: relative;
       width: 100%;
-      max-width: 440px;
-      border-radius: 28px;
-      overflow: hidden;
-      box-shadow: 0 30px 70px rgba(15, 4, 38, 0.55);
-      border: 1px solid rgba(255, 255, 255, 0.16);
+      max-width: 490px;
+      border: 0;
+      box-shadow: none;
+      background: transparent;
+      -webkit-mask-image: radial-gradient(ellipse 68% 72% at 50% 48%, #000 54%, transparent 94%);
+      mask-image: radial-gradient(ellipse 68% 72% at 50% 48%, #000 54%, transparent 94%);
     }
     .pf-hero-robot-wrap img {
       width: 100%;
       height: auto;
       display: block;
-      object-fit: cover;
+      object-fit: contain;
+      filter: drop-shadow(0 24px 48px rgba(15, 4, 38, 0.55));
     }
     @media (max-width: 920px) {
       .pf-hero-inner { grid-template-columns: 1fr; text-align: center; }
@@ -2892,6 +2894,135 @@ $__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
     .auth-split-left {
       background: radial-gradient(circle at 20% 15%, rgba(168, 85, 247, 0.42), transparent 55%),
                   linear-gradient(145deg, #1e0842 0%, #4c1d95 58%, #2e1065 100%) !important;
+    }
+
+    /* High-Contrast Option B Pricing Cards (Crisp on BOTH White & Dark Backgrounds) */
+    .p-card.pro,
+    .p-card.max {
+      background: linear-gradient(165deg, #160c2e 0%, #0f0a1f 55%, #090714 100%) !important;
+      border: 1px solid rgba(139, 92, 246, 0.34) !important;
+      border-radius: 22px !important;
+      color: #f8fafc !important;
+      box-shadow: 0 22px 55px rgba(30, 8, 66, 0.18) !important;
+    }
+    .p-card.max {
+      background: linear-gradient(160deg, #2b105e 0%, #170c33 52%, #0a0717 100%) !important;
+      border: 1.5px solid rgba(168, 85, 247, 0.62) !important;
+      box-shadow: 0 26px 65px rgba(109, 40, 217, 0.28) !important;
+    }
+    .p-card .p-title-row h4 { color: #ffffff !important; font-size: 24px !important; font-weight: 800 !important; }
+    .p-card .p-sub { color: #cbd5e1 !important; font-size: 13.5px !important; }
+    .p-card .p-box {
+      background: rgba(255, 255, 255, 0.06) !important;
+      border: 1px solid rgba(255, 255, 255, 0.12) !important;
+      border-radius: 14px !important;
+    }
+    .p-card.pro .p-credits { color: #fde047 !important; font-weight: 800 !important; }
+    .p-card.max .p-credits { color: #c4b5fd !important; font-weight: 800 !important; }
+    .p-card .p-duration { color: #e2e8f0 !important; }
+    .p-card .p-tools-label { color: #a78bfa !important; }
+    .p-card .p-tool-row { color: #ffffff !important; }
+    .p-card .p-btn.pro {
+      background: linear-gradient(135deg, #7c3aed, #6d28d9) !important;
+      color: #ffffff !important;
+      border: 0 !important;
+      box-shadow: 0 10px 26px rgba(124, 58, 237, 0.38) !important;
+    }
+    .p-card .p-btn.max {
+      background: linear-gradient(135deg, #a855f7, #7c3aed) !important;
+      color: #ffffff !important;
+      border: 0 !important;
+      box-shadow: 0 12px 30px rgba(168, 85, 247, 0.45) !important;
+    }
+    .p-card .p-reseller-note {
+      background: rgba(255, 255, 255, 0.05) !important;
+      border: 1px solid rgba(255, 255, 255, 0.10) !important;
+      color: #cbd5e1 !important;
+    }
+    .p-card .p-list li { color: #e2e8f0 !important; }
+
+    /* About Card High-Contrast Developer Link */
+    .about-section { color: #e4e4e7 !important; }
+    .about-dev-box { background: rgba(139, 92, 246, 0.14) !important; border-color: rgba(167, 139, 250, 0.34) !important; }
+    .about-dev-label { color: #c4b5fd !important; }
+    .about-dev-name {
+      color: #ffffff !important;
+      font-size: 16px !important;
+      font-weight: 800 !important;
+      border-bottom: 1px dashed rgba(196, 181, 253, 0.65);
+      padding-bottom: 1px;
+      transition: color 0.15s ease, border-color 0.15s ease;
+    }
+    .about-dev-name:hover { color: #ddd6fe !important; border-color: #ffffff; }
+
+    /* Professional Multi-Column SaaS Footer */
+    .pf-site-footer {
+      width: 100%;
+      background: #07060d;
+      color: #94a3b8;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 52px 24px 26px;
+    }
+    .pf-footer-inner { max-width: 1160px; margin: 0 auto; width: 100%; }
+    .pf-footer-grid {
+      display: grid;
+      grid-template-columns: 1.6fr 1fr 1fr 1.1fr;
+      gap: 32px;
+      padding-bottom: 36px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .pf-footer-brand p {
+      margin-top: 12px;
+      font-size: 13.5px;
+      line-height: 1.6;
+      color: #94a3b8;
+      max-width: 300px;
+    }
+    .pf-footer-col h4 {
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #ffffff;
+      margin-bottom: 14px;
+    }
+    .pf-footer-col ul { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+    .pf-footer-col a {
+      color: #94a3b8;
+      text-decoration: none;
+      font-size: 13.5px;
+      font-weight: 500;
+      transition: color 0.15s ease;
+    }
+    .pf-footer-col a:hover { color: #c4b5fd; }
+    .pf-footer-bottom {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+      padding-top: 22px;
+      font-size: 13px;
+      color: #71717a;
+    }
+    .pf-footer-dev {
+      color: #94a3b8;
+      font-size: 13px;
+    }
+    .pf-footer-dev a {
+      color: #c4b5fd;
+      font-weight: 700;
+      text-decoration: none;
+      border-bottom: 1px dashed rgba(196, 181, 253, 0.5);
+      transition: color 0.15s ease;
+    }
+    .pf-footer-dev a:hover { color: #ffffff; }
+    @media (max-width: 820px) {
+      .pf-footer-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 26px; }
+    }
+    @media (max-width: 520px) {
+      .pf-footer-grid { grid-template-columns: 1fr; gap: 24px; }
+      .pf-footer-bottom { flex-direction: column; text-align: center; }
     }
   </style>
 </head>
@@ -3390,20 +3521,46 @@ $__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
       </div>
     </div>
 
-    <footer class="landing-footer centered-footer">
-      <div>
-        <a href="/login">Sign In</a>
-        <a href="/signup">Sign Up</a>
-        <a href="/pricing">Pricing</a>
-        <a href="/about">About</a>
-        <a href="/privacy-policy">Privacy Policy</a>
-        <a href="mailto:support@flowbypak.com">Support</a>
+    <footer class="pf-site-footer">
+      <div class="pf-footer-inner">
+        <div class="pf-footer-grid">
+          <div class="pf-footer-brand">
+            <a href="/" class="landing-logo">
+              <img src="/flowbypak-logo.png" alt="PakFlow" />
+              <span>PakFlow</span>
+            </a>
+            <p>AI Video Creation Platform giving creators direct 1-click access to Google Flow (Veo 3.1) &amp; Cloud Project Vault.</p>
+          </div>
+          <div class="pf-footer-col">
+            <h4>Pages</h4>
+            <ul>
+              <li><a href="/">Home</a></li>
+              <li><a href="/about">About</a></li>
+              <li><a href="/pricing">Pricing</a></li>
+              <li><a href="/dashboard">Dashboard</a></li>
+            </ul>
+          </div>
+          <div class="pf-footer-col">
+            <h4>Account</h4>
+            <ul>
+              <li><a href="/login">Sign In</a></li>
+              <li><a href="/signup">Get Started Free</a></li>
+              <li><a href="/privacy-policy">Privacy Policy</a></li>
+            </ul>
+          </div>
+          <div class="pf-footer-col">
+            <h4>Support</h4>
+            <ul>
+              <li><a href="mailto:support@flowbypak.com">support@flowbypak.com</a></li>
+              <li><a href="/pricing">Authorized Resellers</a></li>
+            </ul>
+          </div>
+        </div>
+        <div class="pf-footer-bottom">
+          <span>&copy; 2026 PakFlow Studio. All rights reserved.</span>
+          <span class="pf-footer-dev">Developed by <a href="https://wa.me/923430641457?text=I%20want%20a%20website%20for%20my%20business" target="_blank" rel="noopener noreferrer">Aivrasol Softwares</a></span>
+        </div>
       </div>
-      <span>&copy; 2026 PakFlow Studio &middot; All rights reserved.</span>
-      <a class="footer-dev-link" href="https://wa.me/923430641457?text=I%20want%20a%20website%20for%20my%20business" target="_blank" rel="noopener noreferrer" title="Contact Aivrasol Softwares on WhatsApp">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.52 3.48A11.86 11.86 0 0 0 12.06 0C5.49 0 .14 5.35.14 11.92c0 2.1.55 4.15 1.6 5.96L0 24l6.29-1.65a11.87 11.87 0 0 0 5.77 1.47h.01c6.57 0 11.92-5.35 11.92-11.92 0-3.18-1.24-6.17-3.47-8.42zM12.07 21.8h-.01a9.87 9.87 0 0 1-5.04-1.38l-.36-.21-3.73.98 1-3.64-.24-.37a9.84 9.84 0 0 1-1.52-5.26c0-5.45 4.44-9.89 9.9-9.89 2.64 0 5.13 1.03 7 2.9a9.82 9.82 0 0 1 2.9 7c0 5.45-4.44 9.87-9.9 9.87zm5.42-7.4c-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.94 1.17-.17.2-.35.22-.65.07-.3-.15-1.26-.46-2.4-1.48-.89-.79-1.49-1.77-1.66-2.07-.17-.3-.02-.46.13-.61.13-.13.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.02-.52-.08-.15-.67-1.61-.92-2.2-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.79.37-.27.3-1.04 1.02-1.04 2.48 0 1.46 1.06 2.88 1.21 3.08.15.2 2.09 3.19 5.06 4.47.71.3 1.26.49 1.69.62.71.23 1.36.2 1.87.12.57-.08 1.76-.72 2.01-1.41.25-.7.25-1.29.17-1.41-.07-.12-.27-.2-.57-.35z"/></svg>
-        <span>Built by Aivrasol Softwares</span>
-      </a>
     </footer>
   </section>
 
@@ -3455,7 +3612,7 @@ $__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
           <div class="about-dev-box" style="justify-content:center;text-align:center;">
             <div class="about-dev-info" style="align-items:center;">
               <span class="about-dev-label">Designed &amp; Engineered By</span>
-              <a class="about-dev-name" href="https://wa.me/923430641457?text=I%20want%20a%20website%20for%20my%20business" target="_blank" rel="noopener noreferrer" style="color:inherit;text-decoration:none;">Aivrasol Softwares</a>
+              <a class="about-dev-name" href="https://wa.me/923430641457?text=I%20want%20a%20website%20for%20my%20business" target="_blank" rel="noopener noreferrer">Aivrasol Softwares</a>
             </div>
           </div>
         </div>
@@ -3476,20 +3633,46 @@ $__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
       </div>
     </div>
 
-    <footer class="landing-footer centered-footer">
-      <div>
-        <a href="/login">Sign In</a>
-        <a href="/signup">Sign Up</a>
-        <a href="/pricing">Pricing</a>
-        <a href="/about">About</a>
-        <a href="/privacy-policy">Privacy Policy</a>
-        <a href="mailto:support@flowbypak.com">Support</a>
+    <footer class="pf-site-footer">
+      <div class="pf-footer-inner">
+        <div class="pf-footer-grid">
+          <div class="pf-footer-brand">
+            <a href="/" class="landing-logo">
+              <img src="/flowbypak-logo.png" alt="PakFlow" />
+              <span>PakFlow</span>
+            </a>
+            <p>AI Video Creation Platform giving creators direct 1-click access to Google Flow (Veo 3.1) &amp; Cloud Project Vault.</p>
+          </div>
+          <div class="pf-footer-col">
+            <h4>Pages</h4>
+            <ul>
+              <li><a href="/">Home</a></li>
+              <li><a href="/about">About</a></li>
+              <li><a href="/pricing">Pricing</a></li>
+              <li><a href="/dashboard">Dashboard</a></li>
+            </ul>
+          </div>
+          <div class="pf-footer-col">
+            <h4>Account</h4>
+            <ul>
+              <li><a href="/login">Sign In</a></li>
+              <li><a href="/signup">Get Started Free</a></li>
+              <li><a href="/privacy-policy">Privacy Policy</a></li>
+            </ul>
+          </div>
+          <div class="pf-footer-col">
+            <h4>Support</h4>
+            <ul>
+              <li><a href="mailto:support@flowbypak.com">support@flowbypak.com</a></li>
+              <li><a href="/pricing">Authorized Resellers</a></li>
+            </ul>
+          </div>
+        </div>
+        <div class="pf-footer-bottom">
+          <span>&copy; 2026 PakFlow Studio. All rights reserved.</span>
+          <span class="pf-footer-dev">Developed by <a href="https://wa.me/923430641457?text=I%20want%20a%20website%20for%20my%20business" target="_blank" rel="noopener noreferrer">Aivrasol Softwares</a></span>
+        </div>
       </div>
-      <span>&copy; 2026 PakFlow Studio &middot; All rights reserved.</span>
-      <a class="footer-dev-link" href="https://wa.me/923430641457?text=I%20want%20a%20website%20for%20my%20business" target="_blank" rel="noopener noreferrer" title="Contact Aivrasol Softwares on WhatsApp">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.52 3.48A11.86 11.86 0 0 0 12.06 0C5.49 0 .14 5.35.14 11.92c0 2.1.55 4.15 1.6 5.96L0 24l6.29-1.65a11.87 11.87 0 0 0 5.77 1.47h.01c6.57 0 11.92-5.35 11.92-11.92 0-3.18-1.24-6.17-3.47-8.42zM12.07 21.8h-.01a9.87 9.87 0 0 1-5.04-1.38l-.36-.21-3.73.98 1-3.64-.24-.37a9.84 9.84 0 0 1-1.52-5.26c0-5.45 4.44-9.89 9.9-9.89 2.64 0 5.13 1.03 7 2.9a9.82 9.82 0 0 1 2.9 7c0 5.45-4.44 9.87-9.9 9.87zm5.42-7.4c-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.94 1.17-.17.2-.35.22-.65.07-.3-.15-1.26-.46-2.4-1.48-.89-.79-1.49-1.77-1.66-2.07-.17-.3-.02-.46.13-.61.13-.13.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.02-.52-.08-.15-.67-1.61-.92-2.2-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.79.37-.27.3-1.04 1.02-1.04 2.48 0 1.46 1.06 2.88 1.21 3.08.15.2 2.09 3.19 5.06 4.47.71.3 1.26.49 1.69.62.71.23 1.36.2 1.87.12.57-.08 1.76-.72 2.01-1.41.25-.7.25-1.29.17-1.41-.07-.12-.27-.2-.57-.35z"/></svg>
-        <span>Built by Aivrasol Softwares</span>
-      </a>
     </footer>
   </section>
 
@@ -3907,6 +4090,48 @@ $__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
       </div>
     </div>
     </div>
+
+    <footer class="pf-site-footer">
+      <div class="pf-footer-inner">
+        <div class="pf-footer-grid">
+          <div class="pf-footer-brand">
+            <a href="/" class="landing-logo">
+              <img src="/flowbypak-logo.png" alt="PakFlow" />
+              <span>PakFlow</span>
+            </a>
+            <p>AI Video Creation Platform giving creators direct 1-click access to Google Flow (Veo 3.1) &amp; Cloud Project Vault.</p>
+          </div>
+          <div class="pf-footer-col">
+            <h4>Pages</h4>
+            <ul>
+              <li><a href="/">Home</a></li>
+              <li><a href="/about">About</a></li>
+              <li><a href="/pricing">Pricing</a></li>
+              <li><a href="/dashboard">Dashboard</a></li>
+            </ul>
+          </div>
+          <div class="pf-footer-col">
+            <h4>Account</h4>
+            <ul>
+              <li><a href="/login">Sign In</a></li>
+              <li><a href="/signup">Get Started Free</a></li>
+              <li><a href="/privacy-policy">Privacy Policy</a></li>
+            </ul>
+          </div>
+          <div class="pf-footer-col">
+            <h4>Support</h4>
+            <ul>
+              <li><a href="mailto:support@flowbypak.com">support@flowbypak.com</a></li>
+              <li><a href="/pricing">Authorized Resellers</a></li>
+            </ul>
+          </div>
+        </div>
+        <div class="pf-footer-bottom">
+          <span>&copy; 2026 PakFlow Studio. All rights reserved.</span>
+          <span class="pf-footer-dev">Developed by <a href="https://wa.me/923430641457?text=I%20want%20a%20website%20for%20my%20business" target="_blank" rel="noopener noreferrer">Aivrasol Softwares</a></span>
+        </div>
+      </div>
+    </footer>
   </section>
 
   <!-- Corner Toast -->
