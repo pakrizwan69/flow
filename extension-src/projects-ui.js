@@ -455,9 +455,10 @@
         && !/ai\s*creative\s*studio|page\s*not\s*found|project\s*not\s*found/i.test(cleanDocTitle)
       );
       if (hasRealDocTitle) realTitles.set(pid, cleanDocTitle);
-      // Confirm & persist this active project (with exact URL + preview!) into My Projects & Cloud DB
-      if (thumb || hasRealDocTitle) {
-        const sig = pid + '|' + exactEditorUrl + '|' + (hasRealDocTitle ? cleanDocTitle : '') + '|' + (thumb ? thumb.slice(0, 48) : '');
+      // Confirm & persist this active project into My Projects & Cloud DB ONLY when an actual <video> exists in the project!
+      const hasGeneratedVideo = Boolean(document.querySelector('video'));
+      if (hasGeneratedVideo) {
+        const sig = pid + '|' + exactEditorUrl + '|' + (hasRealDocTitle ? cleanDocTitle : '') + '|' + (thumb ? thumb.slice(0, 48) : 'vid');
         if (sig !== globalThis.__pfLastConfirmedSig) {
           globalThis.__pfLastConfirmedSig = sig;
           try {
@@ -587,19 +588,83 @@
   }
 
   function upgradeGoogleAvatarUrl(rawUrl) {
-    const u = String(rawUrl || '').trim();
-    if (!u) return '';
-    // Normalize Google FIFE avatar parameters (=s32-c-mo -> =s96-c) for crisp retina quality & zero double-ring (-mo/-rg)
-    if (/(?:googleusercontent|ggpht)\.com\//i.test(u)) {
-      return u.replace(/=s\d+[^/?#]*$/i, '=s96-c');
-    }
-    return u;
+    // Keep Google's exact URL untouched so signed /ogw/ & /a/ avatars load directly from browser memory cache without 400 errors
+    return String(rawUrl || '').trim();
   }
 
   function isMaterialIconElement(el) {
     if (!el || el.nodeType !== 1) return false;
     if (el.matches('i, mat-icon, svg, path, .google-symbols, .material-icons, [class*="material-symbols"], [class*="google-symbols"]')) return true;
     return false;
+  }
+
+  function findNativeHomeAvatarControl() {
+    if (!document.body) return null;
+    let bestEl = null;
+
+    const candidates = document.querySelectorAll(
+      'a[aria-label*="Google Account" i], button[aria-label*="Google Account" i], a[aria-label*="Tài khoản Google" i], button[aria-label*="Tài khoản Google" i], img[src*="googleusercontent.com"], img[src*="ggpht.com"], [aria-label*="@"] img, [aria-label*="@"]'
+    );
+    for (const node of candidates) {
+      if (node.closest('#pakflow-my-projects-root') || node.closest('#pakflow-home-ultra-root') || node.closest('#pakflow-access-lock-overlay')) continue;
+      let box = node;
+      let cur = node.parentElement;
+      for (let d = 0; d < 5 && cur && cur !== document.body; d++) {
+        const cr = cur.getBoundingClientRect();
+        if (cr.top >= 0 && cr.top <= 120 && cr.right >= window.innerWidth * 0.70 && cr.width >= 24 && cr.width <= 68 && cr.height >= 24 && cr.height <= 68 && Math.abs(cr.width - cr.height) <= 14) {
+          box = cur;
+        } else if (cr.width > 68) {
+          break;
+        }
+        cur = cur.parentElement;
+      }
+      const br = box.getBoundingClientRect();
+      if (br.width >= 22 && br.width <= 68 && br.height >= 22 && br.height <= 68 && br.top >= 0 && br.top <= 120 && br.right >= window.innerWidth * 0.70) {
+        bestEl = box;
+        break;
+      }
+    }
+
+    // Fallback: rightmost circular avatar element in top-right corner
+    if (!bestEl) {
+      let bestRight = -1;
+      for (const el of document.body.querySelectorAll('button, a, [role="button"], div, span')) {
+        if (el.closest('#pakflow-my-projects-root') || el.closest('#pakflow-home-ultra-root') || el.closest('#pakflow-access-lock-overlay')) continue;
+        if (isMaterialIconElement(el) || el.querySelector('i, mat-icon, .google-symbols, .material-icons')) continue;
+        const r = el.getBoundingClientRect();
+        if (r.top < 0 || r.top > 110 || r.right < window.innerWidth * 0.78 || r.width < 26 || r.width > 64 || Math.abs(r.width - r.height) > 10) continue;
+        const hasImgOrRing = Boolean(el.querySelector('img, svg'));
+        const txt = String(el.textContent || '').trim();
+        const isMonogram = txt.length >= 1 && txt.length <= 2 && /^[A-Za-z0-9\u00C0-\u024F]+$/.test(txt);
+        if ((hasImgOrRing || isMonogram) && r.right >= bestRight) {
+          bestRight = r.right;
+          bestEl = el;
+        }
+      }
+    }
+
+    if (!bestEl) return null;
+    const outerRect = bestEl.getBoundingClientRect();
+    let visRect = outerRect;
+    // Measure tightest outer visual ring/avatar inside padded touch targets (e.g. 40x40 Google One SVG ring inside 48x48 <a>)
+    let maxInnerSize = 0;
+    for (const ch of bestEl.querySelectorAll('svg, img, span, div')) {
+      const cr = ch.getBoundingClientRect();
+      if (cr.width >= 26 && cr.height >= 26 && cr.width <= outerRect.width && Math.abs(cr.width - cr.height) <= 6) {
+        if (cr.width >= maxInnerSize && cr.width <= 46) {
+          maxInnerSize = cr.width;
+          visRect = cr;
+        }
+      }
+    }
+    if (visRect.width > 46 && outerRect.width > 46) {
+      const im = bestEl.querySelector('img');
+      if (im) {
+        const ir = im.getBoundingClientRect();
+        if (ir.width >= 24 && ir.width <= 46) visRect = ir;
+      }
+    }
+    return { el: bestEl, rect: outerRect, visRect };
   }
 
   function detectNativeGoogleAvatarInfo() {
@@ -806,12 +871,15 @@
     return el;
   }
 
-  function renderHomeUltraAccountDOM() {
+  function renderHomeUltraAccountDOM(navCtrlOpt) {
     if (!homeUltraRoot || !homeUltraRoot.isConnected) return;
+    const navCtrl = navCtrlOpt !== undefined ? navCtrlOpt : findNativeHomeAvatarControl();
     const nativeAv = detectNativeGoogleAvatarInfo();
     const initials = computeAvatarInitials(homeAccountState.email, nativeAv.initials);
     const pillBtn = homeUltraRoot.querySelector('#pakflow-home-ultra-pill');
+    const popBox = homeUltraRoot.querySelector('#pakflow-home-ultra-popover');
     const av1 = homeUltraRoot.querySelector('#pakflow-home-avatar-slot');
+    const ring1 = av1 ? av1.parentElement : null;
     const av2 = homeUltraRoot.querySelector('#pakflow-home-pop-avatar');
     const emailEl = homeUltraRoot.querySelector('#pakflow-home-pop-email');
     const credEl = homeUltraRoot.querySelector('#pakflow-home-pop-credits');
@@ -831,7 +899,6 @@
           im.dataset.pfRawSrc = nativeAv.imgSrc;
           im.src = nativeAv.imgSrc;
           im.alt = initials;
-          // Do NOT set no-referrer so Google's authenticated lh3.googleusercontent.com/ogw/ & /a/ photos load with cookies!
           im.addEventListener('error', () => {
             im.remove();
             slotEl.textContent = initials;
@@ -842,7 +909,64 @@
         slotEl.textContent = initials;
       }
     };
-    renderAvatarInto(av1);
+
+    // Dock pill around Google's 100% genuine native top-right avatar with a circular cutout window so real photo/Ti NEVER flickers or turns into a solid color circle!
+    if (navCtrl && navCtrl.el && navCtrl.visRect && pillBtn && ring1 && av1) {
+      if (isUserLoggedIn && document.documentElement?.getAttribute('data-pakflow-flow-home') === 'true') {
+        if (cachedTopProfileEl && cachedTopProfileEl !== navCtrl.el) {
+          try { cachedTopProfileEl.removeAttribute('data-pakflow-top-profile'); } catch {}
+        }
+        if (navCtrl.el.getAttribute('data-pakflow-top-profile') !== 'true') {
+          navCtrl.el.setAttribute('data-pakflow-top-profile', 'true');
+        }
+        cachedTopProfileEl = navCtrl.el;
+      }
+      const vr = navCtrl.visRect;
+      const avW = Math.max(28, Math.min(46, Math.round(vr.width)));
+      const avH = Math.max(28, Math.min(46, Math.round(vr.height)));
+      const padY = 4;
+      const padR = 5;
+      const pillH = avH + padY * 2;
+      const topPx = Math.max(4, Math.round(vr.top - padY));
+      const rightPx = Math.max(6, Math.round(window.innerWidth - vr.right - padR));
+
+      homeUltraRoot.style.top = topPx + 'px';
+      homeUltraRoot.style.right = rightPx + 'px';
+      pillBtn.style.height = pillH + 'px';
+      ring1.style.width = avW + 'px';
+      ring1.style.height = avH + 'px';
+      ring1.style.padding = '0';
+      ring1.style.background = 'transparent';
+      av1.style.setProperty('display', 'none', 'important');
+
+      const holeR = Math.max(12, (Math.min(avW, avH) / 2) - 0.4).toFixed(1);
+      const holeCxFromRight = (padR + avW / 2).toFixed(1);
+      const maskVal = 'radial-gradient(circle ' + holeR + 'px at calc(100% - ' + holeCxFromRight + 'px) 50%, transparent 97%, #000 100%)';
+      pillBtn.style.webkitMaskImage = maskVal;
+      pillBtn.style.maskImage = maskVal;
+
+      if (popBox) {
+        popBox.style.top = (topPx + pillH + 6) + 'px';
+        popBox.style.right = rightPx + 'px';
+      }
+    } else if (pillBtn && ring1 && av1) {
+      homeUltraRoot.style.top = '14px';
+      homeUltraRoot.style.right = '18px';
+      pillBtn.style.height = '48px';
+      pillBtn.style.webkitMaskImage = '';
+      pillBtn.style.maskImage = '';
+      ring1.style.width = '';
+      ring1.style.height = '';
+      ring1.style.padding = '';
+      ring1.style.background = '';
+      av1.style.removeProperty('display');
+      renderAvatarInto(av1);
+      if (popBox) {
+        popBox.style.top = '66px';
+        popBox.style.right = '18px';
+      }
+    }
+
     renderAvatarInto(av2);
 
     if (pillBtn && homeAccountState.email) {
@@ -903,6 +1027,10 @@
         try { cachedRealNewBtn.removeAttribute('data-pakflow-real-new-btn'); } catch {}
         cachedRealNewBtn = null;
       }
+      if (cachedTopProfileEl) {
+        try { cachedTopProfileEl.removeAttribute('data-pakflow-top-profile'); } catch {}
+        cachedTopProfileEl = null;
+      }
       if (homeUltraRoot) {
         homeUltraRoot.style.display = 'none';
         homeUltraMenuOpen = false;
@@ -925,6 +1053,10 @@
       ));
       if (hasSignInCta) {
         if (document.documentElement) document.documentElement.removeAttribute('data-pakflow-flow-home');
+        if (cachedTopProfileEl) {
+          try { cachedTopProfileEl.removeAttribute('data-pakflow-top-profile'); } catch {}
+          cachedTopProfileEl = null;
+        }
         if (homeUltraRoot) homeUltraRoot.style.display = 'none';
         return;
       }
@@ -942,10 +1074,24 @@
       cachedRealNewBtn = realNewBtn;
     }
 
+    const navCtrl = isUserLoggedIn ? findNativeHomeAvatarControl() : null;
+    if (navCtrl && navCtrl.el) {
+      if (cachedTopProfileEl && cachedTopProfileEl !== navCtrl.el) {
+        try { cachedTopProfileEl.removeAttribute('data-pakflow-top-profile'); } catch {}
+      }
+      if (navCtrl.el.getAttribute('data-pakflow-top-profile') !== 'true') {
+        navCtrl.el.setAttribute('data-pakflow-top-profile', 'true');
+      }
+      cachedTopProfileEl = navCtrl.el;
+    } else if (cachedTopProfileEl) {
+      try { cachedTopProfileEl.removeAttribute('data-pakflow-top-profile'); } catch {}
+      cachedTopProfileEl = null;
+    }
+
     const ultraUi = ensureHomeUltraProfileUI();
     if (ultraUi) {
       ultraUi.style.display = isUserLoggedIn ? 'block' : 'none';
-      renderHomeUltraAccountDOM();
+      renderHomeUltraAccountDOM(navCtrl);
     }
   }
 
@@ -958,6 +1104,7 @@
   }
 
   try {
+    window.addEventListener('resize', scheduleFlowHomeOverlaySync);
     const origPush = history.pushState;
     const origReplace = history.replaceState;
     if (typeof origPush === 'function') {

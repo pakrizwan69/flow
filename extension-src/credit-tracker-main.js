@@ -41,20 +41,35 @@
     return 20;
   }
 
-  function triggerDeduction() {
+  function isVideoGenerationEndpoint(url) {
+    var u = String(url || "");
+    if (/generateImage|image:batch|runImageFx|batchGenerateImages/i.test(u)) return false;
+    if (/generateVideo|batchAsyncGenerate|video:batch|runVideoFx|upsample|extendVideo|createClip/i.test(u)) return true;
+    try {
+      var modBtn = document.querySelector("button[data-fake-model]");
+      var modelName = modBtn ? String(modBtn.getAttribute("data-fake-model") || "") : "";
+      if (/veo|video/i.test(modelName)) return true;
+    } catch (_e) {}
+    return false;
+  }
+
+  function triggerDeduction(reqUrl) {
     var now = Date.now();
     if (now - lastDeductAt < 3000) return;
     lastDeductAt = now;
     var modelCost = readSelectedModelCost();
-    var mProj = String(location.pathname || "").match(/\/project\/([^/?#]+)/i);
+    var saveAsVideoProject = isVideoGenerationEndpoint(reqUrl);
+    var mProj = saveAsVideoProject ? String(location.pathname || "").match(/\/project\/([^/?#]+)/i) : null;
     var rawProjId = mProj && mProj[1] ? String(mProj[1]).trim() : "";
     var projId = rawProjId ? rawProjId.toLowerCase() : "";
     var projUrl = rawProjId ? String(location.href || ("https://flow.google.com/project/" + rawProjId)) : "";
     var promptTxt = "";
-    try {
-      var ta = document.querySelector('textarea, [contenteditable="true"]');
-      if (ta) promptTxt = String(ta.value || ta.textContent || "").replace(/\s+/g, " ").trim().slice(0, 140);
-    } catch (_e) {}
+    if (saveAsVideoProject) {
+      try {
+        var ta = document.querySelector('textarea, [contenteditable="true"]');
+        if (ta) promptTxt = String(ta.value || ta.textContent || "").replace(/\s+/g, " ").trim().slice(0, 140);
+      } catch (_e) {}
+    }
     window.postMessage({
       type: "PAKFLOW_DEDUCT_CREDITS",
       amount: modelCost,
@@ -78,7 +93,7 @@
       var p = origFetch.apply(this, arguments);
       if (isFlowGenerationRequest(url, method)) {
         p.then(function (res) {
-          if (res && res.ok) triggerDeduction();
+          if (res && res.ok) triggerDeduction(url);
         }).catch(function () {});
       }
       return p;
@@ -95,9 +110,10 @@
       return origOpen.apply(this, arguments);
     };
     XMLHttpRequest.prototype.send = function () {
+      var selfXhr = this;
       if (isFlowGenerationRequest(this.__pfUrl, this.__pfMethod)) {
         this.addEventListener("load", function () {
-          if (this.status >= 200 && this.status < 300) triggerDeduction();
+          if (selfXhr.status >= 200 && selfXhr.status < 300) triggerDeduction(selfXhr.__pfUrl);
         });
       }
       return origSend.apply(this, arguments);

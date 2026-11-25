@@ -562,16 +562,23 @@
       return false;
     }
 
-    // Verify in-memory DNR session rule 78103/78104 is actively mounted in Chrome
+    // Verify in-memory DNR session rules (including 78105 for googleusercontent avatars) are actively mounted in Chrome
     if (chrome.declarativeNetRequest) {
       try {
+        const hasCompleteRuleSet = (rules) => {
+          if (!Array.isArray(rules) || !rules.length) return false;
+          const hasMain = rules.some(r => r && r.id === 78103);
+          const hasAvatar = rules.some(r => r && r.id === 78105);
+          const hasLabs = rules.some(r => r && r.id === 78104);
+          return (hasMain && hasAvatar) || (!hasMain && hasLabs);
+        };
         if (typeof chrome.declarativeNetRequest.getSessionRules === 'function') {
           const ses = await chrome.declarativeNetRequest.getSessionRules();
-          if (Array.isArray(ses) && ses.some(r => r && (r.id === 78103 || r.id === 78104))) return true;
+          if (hasCompleteRuleSet(ses)) return true;
         }
         if (typeof chrome.declarativeNetRequest.getDynamicRules === 'function') {
           const dyn = await chrome.declarativeNetRequest.getDynamicRules();
-          if (Array.isArray(dyn) && dyn.some(r => r && (r.id === 78103 || r.id === 78104))) return true;
+          if (hasCompleteRuleSet(dyn)) return true;
         }
       } catch {}
     }

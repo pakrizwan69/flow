@@ -30,11 +30,16 @@ html[data-pakflow-flow-home="true"] body > *:not(#pakflow-my-projects-root):not(
   pointer-events: auto !important;
 }
 
-/* 2) Reveal Top-Right ULTRA + Avatar Pill & Account Credits Popover on the black homepage. */
+/* 2) Reveal Top-Right ULTRA + Native Google Avatar Pill & Account Credits Popover on the black homepage. */
 #pakflow-home-ultra-root,
 #pakflow-home-ultra-root * {
   visibility: visible !important;
   pointer-events: auto !important;
+}
+html[data-pakflow-flow-home="true"] body > *:not(#pakflow-my-projects-root):not(#pakflow-home-ultra-root):not(#pakflow-access-lock-overlay) [data-pakflow-top-profile="true"],
+html[data-pakflow-flow-home="true"] body > *:not(#pakflow-my-projects-root):not(#pakflow-home-ultra-root):not(#pakflow-access-lock-overlay) [data-pakflow-top-profile="true"] * {
+  visibility: visible !important;
+  pointer-events: none !important;
 }
 html[data-pakflow-flow-home="true"] body > .cdk-overlay-container,
 html[data-pakflow-flow-home="true"] body > .cdk-overlay-container * {

@@ -281,7 +281,7 @@
     ]);
     for (const element of candidates) {
       if (!element.isConnected) { attributes.delete(element); continue; }
-      if (element.closest && element.closest('#pakflow-my-projects-root,input,textarea')) continue;
+      if (element.closest && element.closest('#pakflow-my-projects-root,#pakflow-home-ultra-root,input,textarea')) continue;
       const stored = attributes.get(element) || {};
       for (const name of ['aria-label', 'title', 'data-email']) {
         const current = element.getAttribute(name);

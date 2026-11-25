@@ -238,21 +238,20 @@ globalThis.PakFlowProjects = (() => {
           || /^project\s*#?\d+$/i.test(t)
           || /page\s*not\s*found|project\s*not\s*found/i.test(t);
         const generic = isGenericTitle(title);
+        // Save a brand-new project ONLY when a video is actually generated (confirmed === true) or explicitly renamed by user
         const isRealConfirmed = Boolean(
           previous
           || input.confirmed === true
           || input.customTitle === true
-          || !generic
-          || prompt.length >= 2
-          || hasValidThumb
         );
         const now = Date.now();
-        // Do NOT save brand-new empty "+ New project" draft URLs until user actually generates or names the project!
+        // Hold empty "+ New project" draft URLs in memory until actual video generation confirms the project!
         if (!isRealConfirmed) {
           pendingDrafts.set(id, {
             id,
             rawId,
-            url: resolveCanonicalFlowUrl(input.url, '', rawId),
+            title: !generic ? title : (draft?.title || ''),
+            url: resolveCanonicalFlowUrl(input.url, draft?.url || '', rawId),
             slot: target,
             accountHash: ctx.accountHash || draft?.accountHash || undefined,
             ownerEmail: ctx.ownerEmail || draft?.ownerEmail || undefined,
@@ -281,6 +280,8 @@ globalThis.PakFlowProjects = (() => {
           project.customTitle = true;
         } else if (!previous?.customTitle && !generic) {
           project.title = title;
+        } else if (!previous?.customTitle && draft?.title && !isGenericTitle(draft.title)) {
+          project.title = draft.title;
         }
         if (!project.title || isGenericTitle(project.title)) {
           project.title = prompt ? prompt.slice(0, 60) : 'Project #' + number;
