@@ -1,4 +1,4 @@
-/* PakFlow Chrome Extension — Obsidian Dark-Glass Bento UI (Portal-Only Auth + Compact Scrollable Sessions) */
+/* PakFlow Chrome Extension — Compact Obsidian Micro-Bento UI (304px Sleek HUD) */
 *, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
@@ -6,12 +6,12 @@
 }
 
 :root {
-  --bg: #08080f;
-  --card: #12131e;
-  --card-elevated: #171927;
-  --card-hover: #1d2032;
-  --border: rgba(255, 255, 255, 0.08);
-  --border-strong: rgba(255, 255, 255, 0.14);
+  --bg: #07080e;
+  --card: rgba(17, 19, 30, 0.88);
+  --card-elevated: #161826;
+  --card-hover: #1c2033;
+  --border: rgba(255, 255, 255, 0.075);
+  --border-strong: rgba(255, 255, 255, 0.13);
   --violet: #7c3aed;
   --violet-bright: #8b5cf6;
   --indigo: #6366f1;
@@ -21,29 +21,35 @@
   --amber: #f59e0b;
   --text: #f8fafc;
   --text-secondary: #cbd5e1;
-  --text-muted: #8b95a7;
+  --text-muted: #7e889a;
   --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
+@keyframes pfDotGlow {
+  0%, 100% { box-shadow: 0 0 6px rgba(16, 185, 129, 0.65); opacity: 1; }
+  50% { box-shadow: 0 0 11px rgba(16, 185, 129, 0.95); opacity: 0.82; }
+}
+
 html, body {
-  width: 360px !important;
-  min-width: 360px !important;
-  max-width: 360px !important;
-  max-height: 560px;
+  width: 304px !important;
+  min-width: 304px !important;
+  max-width: 304px !important;
+  max-height: 490px;
   overflow-x: hidden;
   overflow-y: auto;
   background:
-    radial-gradient(ellipse 90% 45% at 50% -10%, rgba(124, 58, 237, 0.22), transparent 68%),
-    radial-gradient(ellipse 65% 40% at 95% 100%, rgba(34, 211, 238, 0.07), transparent 60%),
+    radial-gradient(ellipse 95% 42% at 50% -12%, rgba(124, 58, 237, 0.24), transparent 66%),
+    radial-gradient(ellipse 60% 36% at 95% 100%, rgba(34, 211, 238, 0.07), transparent 60%),
     var(--bg);
   color: var(--text);
   font-family: var(--font-sans);
-  font-size: 13px;
-  line-height: 1.4;
+  font-size: 12px;
+  line-height: 1.35;
   -webkit-font-smoothing: antialiased;
+  font-variant-numeric: tabular-nums;
   scrollbar-width: thin;
-  scrollbar-color: rgba(139, 92, 246, 0.32) transparent;
+  scrollbar-color: rgba(139, 92, 246, 0.3) transparent;
 }
 
 button, input, a { font-family: inherit; }
@@ -58,9 +64,9 @@ button:focus-visible, a:focus-visible {
 }
 
 .app-container {
-  width: 360px !important;
-  min-width: 360px !important;
-  padding: 13px 14px 12px;
+  width: 304px !important;
+  min-width: 304px !important;
+  padding: 10px 11px 10px;
 }
 
 .hidden,
@@ -68,111 +74,116 @@ button:focus-visible, a:focus-visible {
   display: none !important;
 }
 
-/* ── Top Header ── */
+/* ── Compact Top Header ── */
 .top-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 11px;
+  gap: 6px;
+  margin-bottom: 8px;
 }
 
 .top-brand-wrap {
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: 7px;
   min-width: 0;
 }
 
 .top-logo-img {
-  width: 30px;
-  height: 30px;
-  border-radius: 9px;
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
   object-fit: cover;
   background: #0d0e17;
-  border: 1px solid rgba(139, 92, 246, 0.35);
-  box-shadow: 0 4px 14px rgba(124, 58, 237, 0.25);
+  border: 1px solid rgba(139, 92, 246, 0.38);
+  box-shadow: 0 3px 10px rgba(124, 58, 237, 0.28);
   flex-shrink: 0;
 }
 
 .top-title-row {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
 }
 
 .top-brand {
-  font-size: 15px;
+  font-size: 13.5px;
   font-weight: 800;
   color: var(--text);
   letter-spacing: -0.025em;
-  line-height: 1.1;
+  line-height: 1;
 }
 
 .top-version {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 700;
   color: #c4b5fd;
   background: rgba(139, 92, 246, 0.14);
-  border: 1px solid rgba(139, 92, 246, 0.28);
-  padding: 1.5px 6px;
-  border-radius: 6px;
-  line-height: 1.3;
+  border: 1px solid rgba(139, 92, 246, 0.26);
+  padding: 1px 5px;
+  border-radius: 5px;
+  line-height: 1.25;
 }
 
 .connected-pill {
   display: inline-flex;
   align-items: center;
-  gap: 5.5px;
-  padding: 4px 10px;
+  gap: 5px;
+  padding: 3px 8px;
   border-radius: 999px;
-  background: rgba(16, 185, 129, 0.12);
-  border: 1px solid rgba(16, 185, 129, 0.32);
+  background: rgba(16, 185, 129, 0.11);
+  border: 1px solid rgba(16, 185, 129, 0.28);
   color: var(--emerald-soft);
-  font-size: 10.5px;
+  font-size: 9.8px;
   font-weight: 700;
+  letter-spacing: -0.01em;
   flex-shrink: 0;
+  max-width: 128px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .dot-green {
-  width: 6.5px;
-  height: 6.5px;
+  width: 5.5px;
+  height: 5.5px;
   border-radius: 999px;
   background: var(--emerald);
-  box-shadow: 0 0 8px rgba(16, 185, 129, 0.75);
+  animation: pfDotGlow 2.4s ease-in-out infinite;
   display: inline-block;
   flex-shrink: 0;
 }
 
-/* ── Profile Bento Card ── */
+/* ── Sleek Single-Row Identity Pill Card ── */
 .profile-card {
   display: flex;
   align-items: center;
-  gap: 11px;
-  padding: 10px 12px;
-  border-radius: 14px;
+  gap: 8px;
+  padding: 7px 9px;
+  border-radius: 11px;
   background: var(--card);
   border: 1px solid var(--border);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
-  margin-bottom: 9px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.045);
+  margin-bottom: 7px;
 }
 
 .avatar-circle {
-  width: 36px;
-  height: 36px;
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #7c3aed, #6366f1);
-  border: 1px solid rgba(196, 181, 253, 0.35);
+  background: linear-gradient(135deg, #8b5cf6, #4f46e5);
+  border: 1px solid rgba(196, 181, 253, 0.36);
   color: #ffffff;
-  font-size: 13px;
+  font-size: 10.5px;
   font-weight: 800;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
   text-transform: uppercase;
-  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.32);
+  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.32);
 }
 
 .profile-meta {
@@ -181,9 +192,9 @@ button:focus-visible, a:focus-visible {
 }
 
 .profile-name {
-  font-size: 12.5px;
+  font-size: 11.2px;
   font-weight: 600;
-  color: var(--text);
+  color: var(--text-secondary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -192,65 +203,106 @@ button:focus-visible, a:focus-visible {
 .profile-plan {
   display: inline-flex;
   align-items: center;
-  margin-top: 3px;
-  font-size: 9.5px;
+  flex-shrink: 0;
+  font-size: 8.8px;
   font-weight: 800;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.055em;
   text-transform: uppercase;
-  color: #d8b4fe;
-  background: rgba(139, 92, 246, 0.16);
-  border: 1px solid rgba(139, 92, 246, 0.32);
-  padding: 2px 8px;
+  color: #e9d5ff;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.24), rgba(99, 102, 241, 0.18));
+  border: 1px solid rgba(167, 139, 250, 0.36);
+  padding: 2.5px 7px;
   border-radius: 999px;
+  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.16);
 }
 
-/* ── Asymmetric Bento Stats Row (Credits + Validity) ── */
+.profile-plan[data-plan="pro"] {
+  color: #bae6fd;
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.2), rgba(99, 102, 241, 0.2));
+  border-color: rgba(56, 189, 248, 0.36);
+}
+
+.profile-plan[data-plan="demo"] {
+  color: #fde68a;
+  background: rgba(245, 158, 11, 0.18);
+  border-color: rgba(245, 158, 11, 0.38);
+}
+
+/* ── Asymmetric Micro-Bento Stats Row ── */
 .bento-stats-row {
   display: grid;
-  grid-template-columns: 1.55fr 1fr;
-  gap: 8px;
-  margin-bottom: 9px;
+  grid-template-columns: 1.48fr 1fr;
+  gap: 6px;
+  margin-bottom: 7px;
 }
 
 .bento-card {
-  padding: 10px 12px;
-  border-radius: 14px;
+  padding: 8px 10px;
+  border-radius: 11px;
   background: var(--card);
   border: 1px solid var(--border);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.045);
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: space-between;
+}
+
+.bento-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+}
+
+.bento-micro-label {
+  font-size: 8.8px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.bento-val-inline {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  margin: 3px 0 5px;
+  min-width: 0;
 }
 
 .bento-credits-num,
 .bento-validity-num {
   font-family: var(--font-mono);
-  font-size: 17px;
+  font-size: 14.5px;
   font-weight: 800;
   color: var(--text);
   letter-spacing: -0.03em;
-  line-height: 1.15;
+  line-height: 1.1;
 }
 
-.bento-credits-sub,
+.bento-validity-num {
+  margin: 3px 0 2px;
+}
+
+.bento-credits-sub {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  color: var(--text-muted);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .bento-validity-sub {
-  font-size: 10.5px;
+  font-size: 9.2px;
   color: var(--text-muted);
   font-weight: 500;
-  margin-top: 2px;
-}
-
-.bento-progress-row {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  margin-top: 7px;
 }
 
 .bento-progress-track {
-  flex: 1;
-  height: 5px;
+  width: 100%;
+  height: 4px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.07);
   overflow: hidden;
@@ -260,36 +312,21 @@ button:focus-visible, a:focus-visible {
   height: 100%;
   border-radius: 999px;
   background: linear-gradient(90deg, #8b5cf6 0%, #22d3ee 100%);
+  box-shadow: 0 0 8px rgba(34, 211, 238, 0.35);
   transition: width 0.25s ease;
 }
 
 .bento-progress-pct {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 700;
-  color: var(--text-secondary);
+  color: #a5f3fc;
   flex-shrink: 0;
 }
 
-/* ── Unified Studio Launch Card ── */
+/* ── Primary Hero Launch Action ── */
 .studio-launch-card {
-  padding: 10px 11px;
-  border-radius: 14px;
-  background: var(--card);
-  border: 1px solid var(--border);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
-  margin-bottom: 9px;
-}
-
-.session-status-line {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  margin-bottom: 8px;
-  padding: 0 2px;
+  margin-bottom: 7px;
 }
 
 .btn-open-flow,
@@ -297,46 +334,48 @@ button:focus-visible, a:focus-visible {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 7px;
   width: 100%;
-  padding: 10px 14px;
-  border-radius: 11px;
-  border: 1px solid rgba(196, 181, 253, 0.28);
-  background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+  padding: 8.5px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(196, 181, 253, 0.32);
+  background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 55%, #4f46e5 100%);
   color: #ffffff;
-  font-size: 12.8px;
+  font-size: 11.8px;
   font-weight: 700;
+  letter-spacing: -0.01em;
   text-decoration: none;
   cursor: pointer;
-  box-shadow: 0 8px 22px rgba(124, 58, 237, 0.36), inset 0 1px 0 rgba(255, 255, 255, 0.22);
-  transition: filter 0.15s ease, transform 0.12s ease;
+  box-shadow: 0 6px 18px rgba(124, 58, 237, 0.36), inset 0 1px 0 rgba(255, 255, 255, 0.26);
+  transition: filter 0.15s ease, transform 0.12s ease, box-shadow 0.15s ease;
 }
 
 .btn-open-flow:hover,
 .btn-portal-connect:hover {
-  filter: brightness(1.08);
+  filter: brightness(1.09);
+  box-shadow: 0 8px 22px rgba(124, 58, 237, 0.48), inset 0 1px 0 rgba(255, 255, 255, 0.32);
 }
 
-/* ── Compact Responsive Scrollable Sessions Card (Never Stretches Popup Tall!) ── */
+/* ── Compact Scrollable Sessions Grid (Never Stretches Popup!) ── */
 .sessions-card {
   background: var(--card);
   border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 10px 11px;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  border-radius: 11px;
+  padding: 8px 9px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.045);
 }
 
 .sessions-section-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 8px;
+  gap: 6px;
+  margin-bottom: 6px;
   padding: 0 1px;
 }
 
 .sessions-section-title {
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -345,39 +384,39 @@ button:focus-visible, a:focus-visible {
 
 .sessions-count-badge {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 700;
   color: var(--text-secondary);
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid var(--border);
-  padding: 1.5px 8px;
+  padding: 1px 6.5px;
   border-radius: 999px;
 }
 
 .session-buttons-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 7px;
-  max-height: 112px;
+  gap: 5px;
+  max-height: 92px;
   overflow-y: auto;
   overflow-x: hidden;
-  padding-right: 3px;
+  padding-right: 2px;
   scrollbar-width: thin;
   scrollbar-color: rgba(139, 92, 246, 0.38) transparent;
 }
 
 .session-buttons-grid::-webkit-scrollbar {
-  width: 4px;
+  width: 3px;
 }
 .session-buttons-grid::-webkit-scrollbar-track {
   background: transparent;
 }
 .session-buttons-grid::-webkit-scrollbar-thumb {
-  background: rgba(139, 92, 246, 0.35);
+  background: rgba(139, 92, 246, 0.36);
   border-radius: 999px;
 }
 .session-buttons-grid::-webkit-scrollbar-thumb:hover {
-  background: rgba(139, 92, 246, 0.6);
+  background: rgba(139, 92, 246, 0.65);
 }
 
 .session-buttons-grid:empty {
@@ -389,14 +428,14 @@ button:focus-visible, a:focus-visible {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  min-height: 33px;
+  gap: 5px;
+  min-height: 28px;
   border: 1px solid var(--border);
   background: var(--card-elevated);
   color: var(--text-secondary);
-  border-radius: 9px;
-  padding: 6px 8px;
-  font-size: 11.8px;
+  border-radius: 8px;
+  padding: 4px 7px;
+  font-size: 10.8px;
   font-weight: 600;
   cursor: pointer;
   text-align: center;
@@ -411,10 +450,10 @@ button:focus-visible, a:focus-visible {
 
 .session-slot-btn::before {
   content: "";
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
   border-radius: 999px;
-  background: rgba(148, 163, 184, 0.45);
+  background: rgba(148, 163, 184, 0.42);
   flex-shrink: 0;
   transition: background 0.15s ease, box-shadow 0.15s ease;
 }
@@ -430,16 +469,16 @@ button:focus-visible, a:focus-visible {
 }
 
 .session-slot-btn.is-active {
-  background: rgba(124, 58, 237, 0.16);
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.22), rgba(99, 102, 241, 0.14));
   border-color: rgba(139, 92, 246, 0.72);
   color: #ffffff;
   font-weight: 700;
-  box-shadow: 0 0 14px rgba(139, 92, 246, 0.18);
+  box-shadow: 0 0 12px rgba(139, 92, 246, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .session-slot-btn.is-active::before {
   background: var(--emerald);
-  box-shadow: 0 0 7px rgba(16, 185, 129, 0.85);
+  box-shadow: 0 0 6px rgba(16, 185, 129, 0.9);
 }
 
 .session-slot-btn.is-busy {
@@ -451,21 +490,21 @@ button:focus-visible, a:focus-visible {
   display: none;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  margin-top: 8px;
-  padding: 5px 9px;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.03);
+  gap: 5px;
+  margin-top: 6px;
+  padding: 4px 8px;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.025);
   border: 1px solid var(--border);
   color: var(--text-muted);
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 9.2px;
   font-weight: 600;
 }
 
-/* ── Bottom User Panel Action Bar ── */
+/* ── Slim Bottom User Panel Bar ── */
 .bottom-panel-bar {
-  margin-top: 9px;
+  margin-top: 7px;
 }
 
 .btn-user-panel,
@@ -473,14 +512,14 @@ button:focus-visible, a:focus-visible {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 5px;
   width: 100%;
-  padding: 9px 12px;
-  border-radius: 11px;
-  background: var(--card);
+  padding: 6.5px 10px;
+  border-radius: 9px;
+  background: rgba(17, 19, 30, 0.72);
   border: 1px solid var(--border-strong);
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   text-decoration: none;
   cursor: pointer;
@@ -490,34 +529,34 @@ button:focus-visible, a:focus-visible {
 .btn-user-panel:hover,
 .btn-glass-sec:hover {
   background: var(--card-hover);
-  border-color: rgba(139, 92, 246, 0.4);
+  border-color: rgba(139, 92, 246, 0.42);
   color: #ffffff;
 }
 
-/* ── Portal-Only Connect Card (#loginView & #maintenanceView) ── */
+/* ── Compact Portal-Only Connect Card (#loginView & #maintenanceView) ── */
 .connect-card {
-  padding: 22px 18px 18px;
-  border-radius: 18px;
+  padding: 16px 14px 14px;
+  border-radius: 14px;
   background: var(--card);
   border: 1px solid var(--border-strong);
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.06);
   text-align: center;
 }
 
 .connect-logo-glow {
-  width: 52px;
-  height: 52px;
-  margin: 0 auto 10px;
-  border-radius: 14px;
-  padding: 2px;
-  background: linear-gradient(135deg, rgba(139, 92, 246, 0.65), rgba(34, 211, 238, 0.45));
-  box-shadow: 0 8px 26px rgba(124, 58, 237, 0.35);
+  width: 42px;
+  height: 42px;
+  margin: 0 auto 8px;
+  border-radius: 11px;
+  padding: 1.5px;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.7), rgba(34, 211, 238, 0.45));
+  box-shadow: 0 6px 20px rgba(124, 58, 237, 0.32);
 }
 
 .connect-logo-img {
   width: 100%;
   height: 100%;
-  border-radius: 12px;
+  border-radius: 9.5px;
   object-fit: cover;
   background: #0b0c14;
   display: block;
@@ -527,67 +566,67 @@ button:focus-visible, a:focus-visible {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  margin-bottom: 10px;
+  gap: 5px;
+  margin-bottom: 7px;
 }
 
 .auth-title {
-  font-size: 16.5px;
+  font-size: 14.5px;
   font-weight: 800;
   letter-spacing: -0.025em;
   color: var(--text);
-  margin-bottom: 5px;
+  margin-bottom: 4px;
 }
 
 .auth-sub {
-  font-size: 12px;
-  line-height: 1.48;
+  font-size: 11px;
+  line-height: 1.42;
   color: var(--text-muted);
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
 .connect-card .btn-portal-connect {
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 .connect-sync-hint {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  margin-top: 13px;
-  font-size: 10.5px;
+  gap: 5px;
+  margin-top: 10px;
+  font-size: 9.8px;
   font-weight: 500;
   color: var(--text-muted);
 }
 
 .dot-pulse {
-  width: 6px;
-  height: 6px;
+  width: 5.5px;
+  height: 5.5px;
   border-radius: 50%;
   background: #8b5cf6;
   box-shadow: 0 0 8px rgba(139, 92, 246, 0.85);
 }
 
 .status-pill {
-  margin-top: 8px;
-  padding: 7px 10px;
-  border-radius: 9px;
+  margin-top: 6px;
+  padding: 5.5px 9px;
+  border-radius: 8px;
   background: var(--card);
   border: 1px solid var(--border);
   color: var(--text-secondary);
-  font-size: 11.5px;
+  font-size: 10.5px;
   text-align: center;
 }
 
 .lock-notice-box {
-  margin-top: 9px;
-  padding: 10px 12px;
-  border-radius: 11px;
+  margin-top: 7px;
+  padding: 8px 10px;
+  border-radius: 9px;
   background: rgba(245, 158, 11, 0.10);
   border: 1px solid rgba(245, 158, 11, 0.32);
   color: #fcd34d;
-  font-size: 11.5px;
+  font-size: 10.5px;
 }
 
 .lock-notice-box strong {
@@ -600,5 +639,5 @@ button:focus-visible, a:focus-visible {
 .btn-user-panel:active,
 .btn-glass-sec:active,
 .session-slot-btn:active {
-  transform: scale(0.98);
+  transform: scale(0.985);
 }

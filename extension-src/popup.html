@@ -60,7 +60,7 @@
         </div>
         <span class="connected-pill">
           <span class="dot-green"></span>
-          <span>Connected</span>
+          <span id="pfCleanSessionStatus">Session 1</span>
         </span>
       </div>
 
@@ -68,43 +68,43 @@
         <div class="avatar-circle" id="customAvatar">PF</div>
         <div class="profile-meta">
           <div id="userEmailBadge" class="profile-name">user@pakflow.com</div>
-          <div id="userPlanBadge" class="profile-plan">MAX PLAN &bull; 1 DEV</div>
         </div>
+        <span id="userPlanBadge" class="profile-plan">MAX PLAN</span>
       </div>
 
       <div class="bento-stats-row">
         <div class="bento-card bento-credits">
-          <div class="bento-credits-num" id="customCreditsVal">45,000</div>
-          <div class="bento-credits-sub">/ <span id="customCreditsTotalVal">45,000</span> Credits</div>
-          <div class="bento-progress-row">
-            <div class="bento-progress-track">
-              <div class="bento-progress-fill" id="customCreditsBarFill" style="width:100%"></div>
-            </div>
+          <div class="bento-label-row">
+            <span class="bento-micro-label">Credits</span>
             <span class="bento-progress-pct" id="customCreditsPct">100%</span>
+          </div>
+          <div class="bento-val-inline">
+            <span class="bento-credits-num" id="customCreditsVal">45,000</span>
+            <span class="bento-credits-sub">/ <span id="customCreditsTotalVal">45,000</span></span>
+          </div>
+          <div class="bento-progress-track">
+            <div class="bento-progress-fill" id="customCreditsBarFill" style="width:100%"></div>
           </div>
         </div>
         <div class="bento-card bento-validity">
+          <span class="bento-micro-label" id="customDaysLabel">Validity</span>
           <div class="bento-validity-num" id="customDaysLeftVal">30 Days</div>
-          <div class="bento-validity-sub" id="customDaysLabel">Validity Left</div>
+          <div class="bento-validity-sub">Studio Access</div>
           <span id="customSessionCookieVal" class="hidden-element">1</span>
         </div>
       </div>
 
       <div id="sessionInjectorBox">
         <div class="studio-launch-card" id="accessReadyCard">
-          <div class="session-status-line">
-            <span class="dot-green"></span>
-            <span id="pfCleanSessionStatus">Session 1 Active &mdash; Studio Ready</span>
-          </div>
           <a id="openFlowDirectBtn" href="https://flow.google.com" target="_blank" rel="noopener noreferrer" class="btn-open-flow">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="6 4 20 12 6 20 6 4"/></svg>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="6 4 20 12 6 20 6 4"/></svg>
             <span>Launch Google Flow</span>
           </a>
         </div>
 
         <div class="sessions-card">
           <div class="sessions-section-head">
-            <span class="sessions-section-title">Switch Session</span>
+            <span class="sessions-section-title">Sessions</span>
             <span id="activeSessionsCount" class="sessions-count-badge">Active</span>
           </div>
           <div id="sessionButtonsGrid" class="session-buttons-grid" aria-label="Active Sessions"></div>

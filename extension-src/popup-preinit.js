@@ -16,11 +16,9 @@
     return 45000;
   }
 
-  function formatPlanDevBadge(planRaw, maxDevices) {
+  function formatPlanDevBadge(planRaw) {
     var pLow = String(planRaw || "max").trim().toLowerCase();
-    var pLabel = pLow === "demo" ? "DEMO PLAN" : (pLow === "pro" || pLow === "plus") ? "PRO PLAN" : (pLow === "ultra" || pLow === "max") ? "MAX PLAN" : (pLow.toUpperCase() + " PLAN");
-    var devs = Math.max(1, Number(maxDevices) || 1);
-    return pLow === "demo" ? pLabel : (pLabel + " \u2022 " + devs + (devs > 1 ? " DEVS" : " DEV"));
+    return pLow === "demo" ? "DEMO PLAN" : (pLow === "pro" || pLow === "plus") ? "PRO PLAN" : (pLow === "ultra" || pLow === "max") ? "MAX PLAN" : (pLow.toUpperCase() + " PLAN");
   }
 
   function buildSnapshotFromStorage(st) {
@@ -152,7 +150,9 @@
 
     var planEl = document.getElementById("userPlanBadge");
     if (planEl) {
-      planEl.textContent = formatPlanDevBadge(snap.plan, snap.maxDevices);
+      var pLowSnap = String(snap.plan || "max").trim().toLowerCase();
+      planEl.textContent = formatPlanDevBadge(snap.plan);
+      planEl.setAttribute("data-plan", pLowSnap === "demo" ? "demo" : (pLowSnap === "pro" || pLowSnap === "plus") ? "pro" : "max");
     }
 
     var credNum = Math.max(0, Number(snap.credits) || 0);
@@ -174,7 +174,7 @@
     }
     var daysLbl = document.getElementById("customDaysLabel");
     if (daysLbl) {
-      daysLbl.textContent = snap.isDemo ? "Demo Time Left" : "Validity Left";
+      daysLbl.textContent = snap.isDemo ? "Demo Left" : "Validity";
     }
 
     var slotNum = Number(snap.activeSlot) || 1;
@@ -182,7 +182,7 @@
     if (cycleTitle) cycleTitle.textContent = "Session " + slotNum + " Selected";
     var cleanStatus = document.getElementById("pfCleanSessionStatus");
     if (cleanStatus) {
-      cleanStatus.textContent = "Session " + slotNum + " Active \u2014 Studio Ready";
+      cleanStatus.textContent = "Session " + slotNum + " Ready";
     }
 
     var grid = document.getElementById("sessionButtonsGrid");

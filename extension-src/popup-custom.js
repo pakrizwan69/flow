@@ -6,11 +6,16 @@
     return 45000;
   }
 
-  function formatPlanBadge(planRaw, maxDevs) {
+  function formatPlanBadge(planRaw) {
     var pLow = String(planRaw || "max").trim().toLowerCase();
-    var pLabel = pLow === "demo" ? "DEMO PLAN" : (pLow === "pro" || pLow === "plus") ? "PRO PLAN" : (pLow === "ultra" || pLow === "max") ? "MAX PLAN" : (pLow.toUpperCase() + " PLAN");
-    var devs = Math.max(1, Number(maxDevs) || 1);
-    return pLow === "demo" ? pLabel : (pLabel + " \u2022 " + devs + (devs > 1 ? " DEVS" : " DEV"));
+    return pLow === "demo" ? "DEMO PLAN" : (pLow === "pro" || pLow === "plus") ? "PRO PLAN" : (pLow === "ultra" || pLow === "max") ? "MAX PLAN" : (pLow.toUpperCase() + " PLAN");
+  }
+
+  function applyPlanChipTone(planEl, planRaw) {
+    if (!planEl) return;
+    var pLow = String(planRaw || "max").trim().toLowerCase();
+    planEl.textContent = formatPlanBadge(planRaw);
+    planEl.setAttribute("data-plan", pLow === "demo" ? "demo" : (pLow === "pro" || pLow === "plus") ? "pro" : "max");
   }
 
   function renderCreditsMeter(credVal, credTotalVal) {
@@ -117,7 +122,7 @@
           var pRaw = String(user.plan || data.userPlan || "max").trim();
           var pLow = pRaw.toLowerCase();
           var maxDevs = Math.max(1, Number(user.maxDevices || data.maxDevices || 1));
-          if (planEl) planEl.textContent = formatPlanBadge(pRaw, maxDevs);
+          applyPlanChipTone(planEl, pRaw);
 
           var isBasicPlan = /^(basic|free|trial|vibe|starter)$/.test(pLow);
           var defTot = defaultTotalForPlan(pLow);
@@ -145,7 +150,7 @@
                 var mins0 = Math.floor((remSecInit % 3600) / 60);
                 daysValEl.textContent = mins0 > 0 ? (hrs0 + "h " + mins0 + "m") : (hrs0 + "h");
               }
-              if (daysLblEl) daysLblEl.textContent = "Demo Time Left";
+              if (daysLblEl) daysLblEl.textContent = "Demo Left";
             } else {
               var dLeft = user.daysLeft != null
                 ? Number(user.daysLeft)
@@ -154,7 +159,7 @@
                   : (data.pakflow_days_cache != null && !isNaN(Number(data.pakflow_days_cache)) ? Number(data.pakflow_days_cache) : 30);
               var dClean0 = Math.max(0, Math.round(Number(dLeft) || 0));
               daysValEl.textContent = dClean0 + (dClean0 === 1 ? " Day" : " Days");
-              if (daysLblEl) daysLblEl.textContent = "Validity Left";
+              if (daysLblEl) daysLblEl.textContent = "Validity";
             }
           }
         }
@@ -166,7 +171,7 @@
           if (cookieValEl) cookieValEl.textContent = sNum;
           var cleanStatusInit = document.getElementById("pfCleanSessionStatus");
           if (cleanStatusInit) {
-            cleanStatusInit.textContent = "Session " + sNum + " Active \u2014 Studio Ready";
+            cleanStatusInit.textContent = "Session " + sNum + " Ready";
           }
         }
 
@@ -215,7 +220,7 @@
 
                 var planEl2 = document.getElementById("userPlanBadge");
                 var maxDevs2 = Math.max(1, Number(u.maxDevices || 1));
-                if (planEl2) planEl2.textContent = formatPlanBadge(u.plan || pLow2, maxDevs2);
+                applyPlanChipTone(planEl2, u.plan || pLow2);
 
                 var emailEl2 = document.getElementById("userEmailBadge");
                 if (emailEl2 && u.email) emailEl2.textContent = u.email;
@@ -239,11 +244,11 @@
                       var mins2 = Math.floor((remSec2 % 3600) / 60);
                       daysValEl2.textContent = mins2 > 0 ? (hrs2 + "h " + mins2 + "m") : (hrs2 + "h");
                     }
-                    if (daysLblEl2) daysLblEl2.textContent = "Demo Time Left";
+                    if (daysLblEl2) daysLblEl2.textContent = "Demo Left";
                   } else if (dLeft2 != null && !isNaN(dLeft2)) {
                     var dRound2 = Math.max(0, Math.round(dLeft2));
                     daysValEl2.textContent = dRound2 + (dRound2 === 1 ? " Day" : " Days");
-                    if (daysLblEl2) daysLblEl2.textContent = "Validity Left";
+                    if (daysLblEl2) daysLblEl2.textContent = "Validity";
                     chrome.storage.local.set({ pakflow_days_cache: String(dRound2) });
                   }
                 }
@@ -366,7 +371,7 @@
       var statusEl = document.getElementById("pfCleanSessionStatus");
       var cookieValEl = document.getElementById("customSessionCookieVal");
       if (cookieValEl) cookieValEl.textContent = String(num);
-      if (statusEl) statusEl.textContent = "Switching to Session " + num + "...";
+      if (statusEl) statusEl.textContent = "Session " + num + "...";
 
       var settled = false;
       var unlockFailsafe = setTimeout(function () {
@@ -399,9 +404,9 @@
             btn.textContent = "Session " + num;
             if (res && res.ok) {
               btn.classList.add("is-active");
-              if (statusEl) statusEl.textContent = "Session " + num + " Active \u2014 Studio Ready";
+              if (statusEl) statusEl.textContent = "Session " + num + " Ready";
             } else if (!res || !res.superseded) {
-              if (statusEl) statusEl.textContent = (res && res.error) || ("Session " + num + " Switch Failed");
+              if (statusEl) statusEl.textContent = "Session " + num + " Retry";
             }
           }
         );
@@ -597,7 +602,7 @@
     var cookieValEl = document.getElementById("customSessionCookieVal");
     if (cookieValEl) cookieValEl.textContent = String(slotNum);
     var cleanStatus = document.getElementById("pfCleanSessionStatus");
-    if (cleanStatus) cleanStatus.textContent = "Session " + slotNum + " Active \u2014 Studio Ready";
+    if (cleanStatus) cleanStatus.textContent = "Session " + slotNum + " Ready";
   }
 
   function initSessionButtons() {
