@@ -223,11 +223,17 @@
 
   try {
     var rawSnap = localStorage.getItem(SNAPSHOT_KEY);
+    var painted = false;
     if (rawSnap) {
       var parsedSnap = JSON.parse(rawSnap);
       if (parsedSnap) {
         applyPrePaintSnapshot(parsedSnap);
+        painted = true;
       }
+    }
+    if (!painted) {
+      var lv0 = document.getElementById("loginView");
+      if (lv0) lv0.classList.remove("hidden");
     }
   } catch (_e) {}
 
