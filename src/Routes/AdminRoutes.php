@@ -613,15 +613,20 @@ final class AdminRoutes
                     SUM(CASE WHEN LOWER(status) <> 'suspended' AND COALESCE(is_locked, 0) = 0 AND LOWER(plan) NOT IN ('basic', 'free') AND plan_expires_at IS NOT NULL AND plan_expires_at > ? THEN 1 ELSE 0 END) AS active_users,
                     SUM(CASE WHEN LOWER(status) <> 'suspended' AND COALESCE(is_locked, 0) = 0 AND LOWER(plan) NOT IN ('basic', 'free') AND (plan_expires_at IS NULL OR plan_expires_at <= ?) THEN 1 ELSE 0 END) AS expired_users,
                     SUM(CASE WHEN LOWER(COALESCE(plan, '')) = 'demo' AND LOWER(status) <> 'suspended' AND COALESCE(is_locked, 0) = 0 AND plan_expires_at IS NOT NULL AND plan_expires_at > ? THEN 1 ELSE 0 END) AS active_demo_users,
+                    SUM(CASE WHEN LOWER(COALESCE(plan, '')) = 'demo' AND reseller_id IS NOT NULL AND LOWER(status) <> 'suspended' AND COALESCE(is_locked, 0) = 0 AND plan_expires_at IS NOT NULL AND plan_expires_at > ? THEN 1 ELSE 0 END) AS active_demo_reseller,
                     SUM(CASE WHEN LOWER(COALESCE(plan, '')) = 'demo' THEN 1 ELSE 0 END) AS total_demo_users
                  FROM users"
             );
-            $stStats->execute([$nowIso, $nowIso, $nowIso]);
+            $stStats->execute([$nowIso, $nowIso, $nowIso, $nowIso]);
             $sRow = $stStats->fetch() ?: [];
+            $activeDemoAll = (int)($sRow['active_demo_users'] ?? 0);
+            $activeDemoRes = (int)($sRow['active_demo_reseller'] ?? 0);
             $stats = [
                 'total' => (int)($sRow['total_users'] ?? 0),
                 'active' => (int)($sRow['active_users'] ?? 0),
-                'activeDemo' => (int)($sRow['active_demo_users'] ?? 0),
+                'activeDemo' => $activeDemoAll,
+                'activeDemoReseller' => $activeDemoRes,
+                'activeDemoSite' => max(0, $activeDemoAll - $activeDemoRes),
                 'totalDemo' => (int)($sRow['total_demo_users'] ?? 0),
                 'expired' => (int)($sRow['expired_users'] ?? 0),
                 'suspended' => (int)($sRow['suspended_users'] ?? 0),
@@ -750,7 +755,7 @@ final class AdminRoutes
 
         $rawUsers = Db::readUsers();
         $withTs = [];
-        $stats = ['total' => count($rawUsers), 'active' => 0, 'activeDemo' => 0, 'totalDemo' => 0, 'expired' => 0, 'suspended' => 0];
+        $stats = ['total' => count($rawUsers), 'active' => 0, 'activeDemo' => 0, 'activeDemoSite' => 0, 'activeDemoReseller' => 0, 'totalDemo' => 0, 'expired' => 0, 'suspended' => 0];
         foreach ($rawUsers as $u) {
             $expRaw = $u['planExpiresAt'] ?? null;
             $daysRem = 0;
@@ -774,6 +779,11 @@ final class AdminRoutes
                 $stats['active']++;
                 if ($isDemoFlag) {
                     $stats['activeDemo']++;
+                    if (!empty($u['resellerId'])) {
+                        $stats['activeDemoReseller']++;
+                    } else {
+                        $stats['activeDemoSite']++;
+                    }
                 }
             } elseif ($plLower !== 'basic' && $plLower !== 'free' && $remSec <= 0) {
                 $stats['expired']++;

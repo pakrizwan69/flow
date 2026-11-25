@@ -2396,15 +2396,19 @@
 
     // ── Render: Users ──
     function renderUsers() {
-      const stStats = state.usersStats || { total: 0, active: 0, activeDemo: 0, totalDemo: 0, expired: 0, suspended: 0 };
+      const stStats = state.usersStats || { total: 0, active: 0, activeDemo: 0, activeDemoSite: 0, activeDemoReseller: 0, totalDemo: 0, expired: 0, suspended: 0 };
       const activeDemoCount = Number(stStats.activeDemo ?? (state.stats && state.stats.activeDemoUsers) ?? 0);
+      const activeDemoSite = Number(stStats.activeDemoSite ?? 0);
+      const activeDemoRes = Number(stStats.activeDemoReseller ?? 0);
       const totalDemoCount = Number(stStats.totalDemo ?? (state.stats && state.stats.totalDemoUsers) ?? 0);
       $('kpiTotal').textContent = stStats.total.toLocaleString();
       $('kpiActive').textContent = stStats.active.toLocaleString();
       $('kpiExpired').textContent = stStats.expired.toLocaleString();
       $('kpiSuspended').textContent = stStats.suspended.toLocaleString();
       if ($('kpiActiveDemo')) $('kpiActiveDemo').textContent = activeDemoCount.toLocaleString();
-      if ($('kpiActiveDemoSub')) $('kpiActiveDemoSub').textContent = totalDemoCount > 0 ? (totalDemoCount.toLocaleString() + ' total demo accounts') : 'Live demo users';
+      if ($('kpiActiveDemoSub')) {
+        $('kpiActiveDemoSub').textContent = 'Site: ' + activeDemoSite.toLocaleString() + ' · Reseller: ' + activeDemoRes.toLocaleString() + ' (' + totalDemoCount.toLocaleString() + ' total)';
+      }
       $('navUsersCount').textContent = stStats.total.toLocaleString();
 
       const rows = state.users;

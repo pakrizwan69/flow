@@ -342,14 +342,19 @@ final class ResellerRoutes
         }
 
         $activeUsers = 0;
+        $activeDemoUsers = 0;
         $expiredUsers = 0;
         foreach ($myUsers as $u) {
             $exp = !empty($u['planExpiresAt']) ? (strtotime((string)$u['planExpiresAt']) ?: 0) : 0;
             $bu = $billedMap[$u['id']] ?? null;
+            $isDm = Helpers::isDemoUser($u);
             if ($exp <= $now) {
                 $expiredUsers++;
             } elseif (!$bu || empty($bu['isUnpaidOverdue'])) {
                 $activeUsers++;
+                if ($isDm) {
+                    $activeDemoUsers++;
+                }
             }
         }
 
@@ -380,6 +385,8 @@ final class ResellerRoutes
             'metrics' => [
                 'totalUsers' => count($myUsers),
                 'activeUsers' => $activeUsers,
+                'activeDemoUsers' => $activeDemoUsers,
+                'demoPlans' => $planCounts['demo'] ?? 0,
                 'pendingUsers' => 0,
                 'expiredUsers' => $expiredUsers,
                 'graceUsersCount' => $billingInfo['graceUsersCount'],
