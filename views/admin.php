@@ -274,8 +274,19 @@
       grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 12px;
     }
-    @media (max-width: 1279px) { .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-    @media (max-width: 560px) { .kpi-grid { grid-template-columns: 1fr; } }
+    .kpi-grid.kpi-grid-5 {
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+    }
+    @media (max-width: 1279px) {
+      .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .kpi-grid.kpi-grid-5 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    }
+    @media (max-width: 820px) {
+      .kpi-grid.kpi-grid-5 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 560px) {
+      .kpi-grid, .kpi-grid.kpi-grid-5 { grid-template-columns: 1fr; }
+    }
 
     .kpi-card {
       background: var(--card); border: 1px solid var(--border);
@@ -641,7 +652,7 @@
       <main class="workspace">
         <!-- VIEW 1: USERS & APPROVALS -->
         <section id="view-users" class="view-pane">
-          <div class="kpi-grid" style="margin-bottom:16px;">
+          <div class="kpi-grid kpi-grid-5" style="margin-bottom:16px;">
             <div class="kpi-card">
               <div class="kpi-top">
                 <span>Total Users</span>
@@ -1982,7 +1993,7 @@
       usersLimit: 50,
       usersTotalFiltered: 0,
       usersTotalPages: 1,
-      usersStats: { total: 0, active: 0, expired: 0, suspended: 0 },
+      usersStats: { total: 0, active: 0, activeDemo: 0, activeDemoSite: 0, activeDemoReseller: 0, totalDemo: 0, expired: 0, suspended: 0 },
       pendingApprovals: [],
       stats: null,
       expiringUsers: [],
@@ -2267,6 +2278,10 @@
         state.usersStats = {
           total: Number(data.stats.total || 0),
           active: Number(data.stats.active || 0),
+          activeDemo: Number(data.stats.activeDemo || 0),
+          activeDemoSite: Number(data.stats.activeDemoSite || 0),
+          activeDemoReseller: Number(data.stats.activeDemoReseller || 0),
+          totalDemo: Number(data.stats.totalDemo || 0),
           expired: Number(data.stats.expired || 0),
           suspended: Number(data.stats.suspended || 0),
         };
