@@ -401,6 +401,12 @@ final class CookieSlotRoutes
             ? Db::readSlots()
             : ($isNanoMode ? Db::readSlotsByRange(11, 15) : Db::readSlotsByRange(1, 10));
 
+        // Lock Site Free Trial users to ONLY their assigned Cookie Slot (zero extension changes needed)
+        $forcedTrialSlot = !$isNanoMode ? Helpers::getSiteTrialAssignedSlot($access['user'] ?? null) : 0;
+        if ($forcedTrialSlot >= 1 && $forcedTrialSlot <= 10) {
+            $scopedSlots = array_values(array_filter($scopedSlots, fn($s) => (int)$s['slotNumber'] === $forcedTrialSlot));
+        }
+
         $files = [];
         $maxVer = 0;
         foreach ($scopedSlots as $s) {

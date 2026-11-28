@@ -2836,23 +2836,36 @@ $__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
       max-width: 1120px !important;
     }
     .p-card.demo {
-      border-color: rgba(16, 185, 129, 0.45) !important;
-      background: linear-gradient(180deg, rgba(16, 185, 129, 0.14) 0%, #091314 48%) !important;
+      background: linear-gradient(165deg, #072822 0%, #09191b 52%, #070d12 100%) !important;
+      border: 1px solid rgba(16, 185, 129, 0.44) !important;
+      box-shadow: 0 22px 46px -22px rgba(6, 78, 59, 0.55) !important;
+      color: #ffffff !important;
+    }
+    .p-card.demo h4 { color: #ffffff !important; }
+    .p-card.demo .p-sub { color: #a7f3d0 !important; opacity: 0.85; }
+    .p-card.demo .p-box {
+      background: rgba(255, 255, 255, 0.045) !important;
+      border: 1px solid rgba(52, 211, 153, 0.22) !important;
     }
     .p-card.demo .p-credits { color: #34d399 !important; }
+    .p-card.demo .p-duration { color: #cbd5e1 !important; }
+    .p-card.demo .p-tools-label { color: #6ee7b7 !important; }
+    .p-card.demo .p-tool-row span:first-child { color: #ffffff !important; }
+    .p-card.demo .p-tool-row span:last-child { color: #a7f3d0 !important; }
+    .p-card.demo .p-list li { color: #e2e8f0 !important; }
     .p-card.demo .p-list li::before { content: "✓ "; color: #34d399; font-weight: 700; }
     .p-tag.emerald {
-      background: rgba(16, 185, 129, 0.18) !important;
+      background: rgba(16, 185, 129, 0.20) !important;
       color: #34d399 !important;
-      border: 1px solid rgba(16, 185, 129, 0.36) !important;
+      border: 1px solid rgba(52, 211, 153, 0.40) !important;
     }
     .p-btn.demo {
-      background: linear-gradient(135deg, #10b981, #34d399) !important;
-      color: #042f2e !important;
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+      color: #ffffff !important;
       font-weight: 800 !important;
-      box-shadow: 0 10px 24px -8px rgba(16, 185, 129, 0.50) !important;
+      box-shadow: 0 10px 24px -8px rgba(16, 185, 129, 0.55) !important;
     }
-    .p-btn.demo:hover { filter: brightness(1.06); transform: translateY(-1px); }
+    .p-btn.demo:hover { filter: brightness(1.08); transform: translateY(-1px); }
     .trial-signup-banner {
       margin: 12px 0 16px;
       padding: 13px 15px;
