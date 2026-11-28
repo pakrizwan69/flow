@@ -1396,6 +1396,7 @@ final class ResellerRoutes
                 'id' => $r['id'],
                 'name' => $r['name'],
                 'email' => $r['email'],
+                'addedBy' => !empty($r['addedBy']) ? (string)$r['addedBy'] : 'Admin',
                 'plainPasswordHint' => $r['plainPasswordHint'] ?? null,
                 'allowedUsers' => $allowed,
                 'usersCreated' => $info['usersCount'],
@@ -1467,6 +1468,7 @@ final class ResellerRoutes
             'proCredits' => (isset($body['proCredits']) && $body['proCredits'] !== '' && $body['proCredits'] !== null) ? max(100, (int)$body['proCredits']) : null,
             'maxCredits' => (isset($body['maxCredits']) && $body['maxCredits'] !== '' && $body['maxCredits'] !== null) ? max(100, (int)$body['maxCredits']) : null,
             'whatsapp' => !empty($body['whatsapp']) ? trim((string)$body['whatsapp']) : '',
+            'addedBy' => !empty($body['addedBy']) ? substr(trim((string)$body['addedBy']), 0, 60) : 'Admin',
             'status' => $body['status'] ?? 'active',
             'createdAt' => Db::isoNow(),
         ];
@@ -1496,6 +1498,10 @@ final class ResellerRoutes
                 }
                 if (array_key_exists('creditsQuota', $body)) $r['creditsQuota'] = (int)$body['creditsQuota'];
                 if (array_key_exists('whatsapp', $body)) $r['whatsapp'] = trim((string)$body['whatsapp']);
+                if (array_key_exists('addedBy', $body)) {
+                    $rAb = trim((string)$body['addedBy']);
+                    $r['addedBy'] = $rAb !== '' ? substr($rAb, 0, 60) : 'Admin';
+                }
                 if (!empty($body['status'])) $r['status'] = $body['status'];
                 if (array_key_exists('discount', $body)) $r['discount'] = max(0, (float)$body['discount']);
                 if (array_key_exists('discountPercent', $body)) $r['discountPercent'] = max(0, min(100, (float)$body['discountPercent']));

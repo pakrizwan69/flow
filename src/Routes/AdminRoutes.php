@@ -596,6 +596,7 @@ final class AdminRoutes
         $q = Http::query('q');
         $plan = Http::query('plan');
         $status = Http::query('status');
+        $addedByFilter = trim((string)(Http::query('addedBy') ?? ''));
         $rawPage = Http::query('page');
         $rawLimit = Http::query('limit');
         $isPaginated = ($rawPage !== null || $rawLimit !== null);
@@ -670,6 +671,15 @@ final class AdminRoutes
                     $params[] = $stLower;
                 }
             }
+            if ($addedByFilter !== '' && strtolower($addedByFilter) !== 'all') {
+                $abLow = strtolower($addedByFilter);
+                if ($abLow === 'admin') {
+                    $where[] = "(reseller_id IS NULL AND (extra_json IS NULL OR extra_json = '' OR extra_json NOT LIKE '%\"addedBy\"%' OR LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(extra_json, '$.addedBy')), 'admin')) IN ('', 'null', 'admin')))";
+                } else {
+                    $where[] = "LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(extra_json, '$.addedBy')), '')) = ?";
+                    $params[] = $abLow;
+                }
+            }
 
             $whereSql = !empty($where) ? (' WHERE ' . implode(' AND ', $where)) : '';
             $countStmt = $pdo->prepare('SELECT COUNT(*) FROM users' . $whereSql);
@@ -693,6 +703,7 @@ final class AdminRoutes
                 $resellerName = null;
                 $requestedDays = null;
                 $demoHours = null;
+                $addedByRow = '';
                 $isDemoFlag = strtolower((string)($r['plan'] ?? '')) === 'demo';
                 if ($extraRaw !== '') {
                     $extra = json_decode($extraRaw, true);
@@ -702,8 +713,12 @@ final class AdminRoutes
                         $resellerName = $extra['resellerName'] ?? null;
                         $requestedDays = $extra['requestedDays'] ?? null;
                         $demoHours = isset($extra['demoHours']) ? (float)$extra['demoHours'] : null;
+                        $addedByRow = trim((string)($extra['addedBy'] ?? ''));
                         if (!empty($extra['isDemo'])) $isDemoFlag = true;
                     }
+                }
+                if ($addedByRow === '' && ($r['reseller_id'] === null || $r['reseller_id'] === '')) {
+                    $addedByRow = 'Admin';
                 }
                 $expRaw = $r['plan_expires_at'] ?? null;
                 $daysRem = 0;
@@ -733,6 +748,7 @@ final class AdminRoutes
                     'status' => ($isDemoFlag && $remSec <= 0 && strtolower((string)($r['status'] ?? 'active')) !== 'suspended') ? 'expired' : (string)($r['status'] ?? 'active'),
                     'isLocked' => !empty($r['is_locked']),
                     'deviceSwitchCount' => $deviceSwitchCount,
+                    'addedBy' => $addedByRow !== '' ? $addedByRow : ($resellerName ?: 'Admin'),
                     'createdAt' => $r['created_at'],
                 ];
                 if ($r['reseller_id'] !== null && $r['reseller_id'] !== '') {
@@ -747,6 +763,16 @@ final class AdminRoutes
                 $users[] = $rowOut;
             }
             $totalPages = $isPaginated ? max(1, (int)ceil($totalFiltered / $limit)) : 1;
+            $addedByOptions = ['Admin'];
+            try {
+                $abRows = $pdo->query("SELECT DISTINCT TRIM(JSON_UNQUOTE(JSON_EXTRACT(extra_json, '$.addedBy'))) AS ab FROM users WHERE extra_json LIKE '%\"addedBy\"%'")->fetchAll();
+                foreach ($abRows as $abr) {
+                    $v = trim((string)($abr['ab'] ?? ''));
+                    if ($v !== '' && strtolower($v) !== 'null' && strtolower($v) !== 'admin' && !in_array($v, $addedByOptions, true)) {
+                        $addedByOptions[] = $v;
+                    }
+                }
+            } catch (\Throwable $_abErr) {}
             Http::json([
                 'users' => $users,
                 'total' => $totalFiltered,
@@ -755,6 +781,7 @@ final class AdminRoutes
                 'limit' => $isPaginated ? $limit : count($users),
                 'totalPages' => $totalPages,
                 'stats' => $stats,
+                'addedByOptions' => $addedByOptions,
             ]);
         }
 
@@ -889,6 +916,8 @@ final class AdminRoutes
         $days = $body['days'] ?? 30;
         $credits = $body['credits'] ?? null;
         $status = $body['status'] ?? 'active';
+        $addedBy = trim((string)($body['addedBy'] ?? ''));
+        $addedBy = $addedBy !== '' ? substr(Db::sanitizeCredential($addedBy), 0, 60) : 'Admin';
 
         if (!$email || !$password) {
             Http::json(['error' => 'ValidationError', 'message' => 'Email and password are required'], 400);
@@ -959,6 +988,7 @@ final class AdminRoutes
                 $existing['lockedAt'] = null;
                 $existing['onboardingAccepted'] = true;
                 $existing['emailVerified'] = true;
+                $existing['addedBy'] = $addedBy;
                 $existing['updatedAt'] = $nowIso;
 
                 Db::unmarkUserDeleted($cleanEmail, $existing['id']);
@@ -988,6 +1018,7 @@ final class AdminRoutes
                 'isLocked' => false,
                 'onboardingAccepted' => true,
                 'emailVerified' => true,
+                'addedBy' => $addedBy,
                 'createdAt' => $nowIso,
                 'updatedAt' => $nowIso,
             ];
@@ -1022,6 +1053,7 @@ final class AdminRoutes
                 $existing['lockedAt'] = null;
                 $existing['onboardingAccepted'] = true;
                 $existing['emailVerified'] = true;
+                $existing['addedBy'] = $addedBy;
                 $existing['updatedAt'] = $nowIso;
 
                 Db::unmarkUserDeleted($cleanEmail, $existing['id']);
@@ -1053,6 +1085,7 @@ final class AdminRoutes
             'isLocked' => false,
             'onboardingAccepted' => true,
             'emailVerified' => true,
+            'addedBy' => $addedBy,
             'createdAt' => $nowIso,
             'updatedAt' => $nowIso,
         ];
@@ -1090,6 +1123,10 @@ final class AdminRoutes
             $user = $users[$index];
         }
         if (array_key_exists('name', $body)) $user['name'] = Db::sanitizeCredential($body['name']);
+        if (array_key_exists('addedBy', $body)) {
+            $abUpd = trim((string)$body['addedBy']);
+            $user['addedBy'] = $abUpd !== '' ? substr(Db::sanitizeCredential($abUpd), 0, 60) : 'Admin';
+        }
         if (array_key_exists('email', $body)) {
             $nextEmail = Db::sanitizeEmail($body['email']);
             if ($nextEmail !== '' && $nextEmail !== Db::sanitizeEmail($user['email'] ?? '')) {

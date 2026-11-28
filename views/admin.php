@@ -480,6 +480,13 @@
       border-radius: 14px; display: flex; flex-direction: column; overflow: hidden;
       margin: auto; box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
     }
+    .modal > form {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+    }
     .modal.modal-lg { max-width: min(96vw, 940px); }
     .modal-head {
       padding: 14px 18px; border-bottom: 1px solid var(--border);
@@ -487,11 +494,20 @@
       background: var(--bg-elevated); flex-shrink: 0;
     }
     .modal-head h3 { font-size: 15px; font-weight: 700; }
-    .modal-body { padding: 16px 18px; overflow-y: auto; flex: 1; min-height: 0; }
+    .modal-body { padding: 16px 18px; overflow-y: auto; -webkit-overflow-scrolling: touch; flex: 1; min-height: 0; }
     .modal-foot {
       padding: 12px 18px; border-top: 1px solid var(--border);
       display: flex; justify-content: flex-end; align-items: center; gap: 8px;
       flex-wrap: wrap; background: var(--bg-elevated); flex-shrink: 0;
+    }
+    @media (max-width: 640px) {
+      .modal-backdrop { padding: 10px; align-items: flex-end; }
+      .modal { max-width: 100%; max-height: 92dvh; border-radius: 16px 16px 12px 12px; }
+      .modal-head { padding: 12px 14px; }
+      .modal-body { padding: 14px; }
+      .modal .grid-2, .modal .grid-3 { grid-template-columns: 1fr !important; gap: 10px !important; }
+      .modal-foot { padding: 10px 14px; }
+      .modal-foot .btn { flex: 1 1 120px; justify-content: center; }
     }
 
     /* ── Toast & Alerts ── */
@@ -749,6 +765,10 @@
                   <option value="expiring">Expiring (&le; 7d)</option>
                   <option value="expired">Expired</option>
                   <option value="suspended">Suspended / Locked</option>
+                </select>
+                <select id="userAddedByFilter" class="select" style="width:auto;min-width:136px;">
+                  <option value="all">All Added By</option>
+                  <option value="Admin">Admin</option>
                 </select>
               </div>
             </div>
@@ -1697,6 +1717,10 @@
               <input id="uMaxDevices" class="input" type="number" min="1" max="50" value="1" />
             </div>
           </div>
+          <div class="field">
+            <label for="uAddedBy">Added By (Admin Name)</label>
+            <input id="uAddedBy" class="input" type="text" maxlength="60" placeholder="Admin" value="Admin" />
+          </div>
           <!-- Edit-only Quick Actions -->
           <div id="uEditQuickTools" class="hidden" style="margin-top:10px;padding:12px;border-radius:10px;background:var(--bg-elevated);border:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
             <div>
@@ -1844,6 +1868,10 @@
               <label for="rDiscountPct">Discount (%)</label>
               <input id="rDiscountPct" class="input" type="number" min="0" max="100" value="0" />
             </div>
+          </div>
+          <div class="field">
+            <label for="rAddedBy">Added By (Admin Name)</label>
+            <input id="rAddedBy" class="input" type="text" maxlength="60" placeholder="Admin" value="Admin" />
           </div>
           <div class="field" id="rTotalPaidWrap">
             <label for="rTotalPaid">Recorded Paid Balance (Rs. PKR) — Adjust directly if needed</label>
@@ -2288,10 +2316,29 @@
       const q = $('userSearchInput').value.trim();
       const planF = $('userPlanFilter').value;
       const statusF = $('userStatusFilter').value;
+      const addedByF = $('userAddedByFilter') ? $('userAddedByFilter').value : 'all';
       if (q) params.set('q', q);
       if (planF && planF !== 'all') params.set('plan', planF);
       if (statusF && statusF !== 'all') params.set('status', statusF);
+      if (addedByF && addedByF !== 'all') params.set('addedBy', addedByF);
       return '/api/admin/users?' + params.toString();
+    }
+
+    function syncAddedByFilterOptions(opts) {
+      const sel = $('userAddedByFilter');
+      if (!sel || !Array.isArray(opts)) return;
+      const curVal = sel.value || 'all';
+      const seen = new Set(['all']);
+      const list = ['Admin'];
+      opts.forEach((v) => {
+        const clean = String(v || '').trim();
+        if (clean && !list.some((x) => x.toLowerCase() === clean.toLowerCase())) list.push(clean);
+      });
+      sel.innerHTML = '<option value="all">All Added By</option>' + list.map((name) => {
+        seen.add(name);
+        return '<option value="' + esc(name) + '">' + esc(name) + '</option>';
+      }).join('');
+      sel.value = seen.has(curVal) ? curVal : 'all';
     }
 
     function applyUsersResponse(data) {
@@ -2300,6 +2347,7 @@
       state.usersLimit = Math.max(10, Number(data.limit || state.usersLimit || 50));
       state.usersTotalFiltered = Number(data.totalFiltered ?? data.total ?? state.users.length);
       state.usersTotalPages = Math.max(1, Number(data.totalPages || 1));
+      if (Array.isArray(data.addedByOptions)) syncAddedByFilterOptions(data.addedByOptions);
       if (data.stats && typeof data.stats === 'object') {
         state.usersStats = {
           total: Number(data.stats.total || 0),
@@ -2506,7 +2554,9 @@
             validityLabel = dm > 0 ? (dh + 'h ' + dm + 'm left') : (dh + 'h left');
           }
         }
-        const resellerTag = u.resellerName ? (' <span class="badge badge-muted" style="margin-left:4px;font-size:10px;">' + esc(u.resellerName) + '</span>') : '';
+        const resellerTag = u.resellerName
+          ? (' <span class="badge badge-muted" style="margin-left:4px;font-size:10px;">' + esc(u.resellerName) + '</span>')
+          : (' <span class="badge badge-muted" style="margin-left:4px;font-size:10px;opacity:0.85;">by ' + esc(u.addedBy || 'Admin') + '</span>');
         const credNum = Number(u.credits ?? 0);
         return (
           '<tr>' +
@@ -2541,6 +2591,7 @@
     });
     $('userPlanFilter').addEventListener('change', () => loadUsersPage(1));
     $('userStatusFilter').addEventListener('change', () => loadUsersPage(1));
+    if ($('userAddedByFilter')) $('userAddedByFilter').addEventListener('change', () => loadUsersPage(1));
     $('usersPrevBtn').addEventListener('click', () => { if (state.usersPage > 1) loadUsersPage(state.usersPage - 1); });
     $('usersNextBtn').addEventListener('click', () => { if (state.usersPage < state.usersTotalPages) loadUsersPage(state.usersPage + 1); });
 
@@ -2682,6 +2733,7 @@
         $('uStatus').value = String(user.status || 'active').toLowerCase() === 'suspended' ? 'suspended' : 'active';
         $('uCredits').value = user.credits ?? getDefaultCreditsForPlan(uPlanLow);
         $('uMaxDevices').value = Math.max(1, Number(user.maxDevices || 1));
+        if ($('uAddedBy')) $('uAddedBy').value = user.addedBy || 'Admin';
         $('uEditQuickTools').classList.remove('hidden');
         $('userFormSubmitBtn').textContent = 'Save Changes';
       } else {
@@ -2692,6 +2744,11 @@
         $('uPlan').value = 'pro';
         $('uStatus').value = 'active';
         $('uMaxDevices').value = 1;
+        if ($('uAddedBy')) {
+          let lastAb = 'Admin';
+          try { lastAb = localStorage.getItem('pakflow_last_added_by') || 'Admin'; } catch (_) {}
+          $('uAddedBy').value = lastAb;
+        }
         syncUserPlanModeUI(true);
         $('uEditQuickTools').classList.add('hidden');
         $('userFormSubmitBtn').textContent = 'Create User';
@@ -2731,6 +2788,8 @@
       const demoHours = Number.isFinite(demoHrsVal) && demoHrsVal > 0 ? demoHrsVal : 2;
       const rawMaxDevs = parseInt($('uMaxDevices').value, 10);
       const maxDevices = Number.isFinite(rawMaxDevs) && rawMaxDevs >= 1 ? Math.min(50, rawMaxDevs) : 1;
+      const addedByVal = ($('uAddedBy') && $('uAddedBy').value.trim()) ? $('uAddedBy').value.trim() : 'Admin';
+      try { localStorage.setItem('pakflow_last_added_by', addedByVal); } catch (_) {}
       const payload = {
         name: $('uName').value.trim(),
         email: $('uEmail').value.trim(),
@@ -2738,6 +2797,7 @@
         status: $('uStatus').value,
         credits: Number.isFinite(rawCredits) && rawCredits >= 0 ? rawCredits : getDefaultCreditsForPlan(chosenPlan),
         maxDevices,
+        addedBy: addedByVal,
       };
       if (isDemo) {
         payload.demoHours = demoHours;
@@ -3731,6 +3791,11 @@
       if ($('rMaxCredits')) $('rMaxCredits').value = '';
       $('rDiscount').value = 0;
       $('rDiscountPct').value = 0;
+      if ($('rAddedBy')) {
+        let lastAb = 'Admin';
+        try { lastAb = localStorage.getItem('pakflow_last_added_by') || 'Admin'; } catch (_) {}
+        $('rAddedBy').value = lastAb;
+      }
       $('rTotalPaidWrap').classList.add('hidden');
       $('resellerModal').classList.remove('hidden');
     });
@@ -3763,6 +3828,7 @@
         if ($('rMaxCredits')) $('rMaxCredits').value = r.maxCredits != null ? r.maxCredits : '';
         $('rDiscount').value = r.discount ?? 0;
         $('rDiscountPct').value = r.discountPercent ?? 0;
+        if ($('rAddedBy')) $('rAddedBy').value = r.addedBy || 'Admin';
         $('rTotalPaid').value = Math.round(Number(r.totalPaid || 0));
         $('rTotalPaidWrap').classList.remove('hidden');
         $('resellerModal').classList.remove('hidden');
@@ -3791,7 +3857,9 @@
         maxCredits: ($('rMaxCredits') && $('rMaxCredits').value.trim() !== '') ? parseInt($('rMaxCredits').value, 10) : null,
         discount: Math.max(0, parseFloat($('rDiscount').value) || 0),
         discountPercent: Math.max(0, Math.min(100, parseFloat($('rDiscountPct').value) || 0)),
+        addedBy: ($('rAddedBy') && $('rAddedBy').value.trim()) ? $('rAddedBy').value.trim() : 'Admin',
       };
+      try { localStorage.setItem('pakflow_last_added_by', payload.addedBy); } catch (_) {}
       if (editId && $('rTotalPaid').value.trim() !== '') {
         payload.totalPaid = Math.max(0, parseFloat($('rTotalPaid').value) || 0);
       }

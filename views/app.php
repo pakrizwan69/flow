@@ -2837,19 +2837,49 @@ $__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
     }
     .p-card.demo {
       border-color: rgba(16, 185, 129, 0.45) !important;
-      background: linear-gradient(180deg, rgba(16, 185, 129, 0.08), rgba(255, 255, 255, 0.98) 38%) !important;
+      background: linear-gradient(180deg, rgba(16, 185, 129, 0.14) 0%, #091314 48%) !important;
     }
+    .p-card.demo .p-credits { color: #34d399 !important; }
+    .p-card.demo .p-list li::before { content: "✓ "; color: #34d399; font-weight: 700; }
     .p-tag.emerald {
-      background: rgba(16, 185, 129, 0.14) !important;
-      color: #059669 !important;
-      border: 1px solid rgba(16, 185, 129, 0.32) !important;
+      background: rgba(16, 185, 129, 0.18) !important;
+      color: #34d399 !important;
+      border: 1px solid rgba(16, 185, 129, 0.36) !important;
     }
     .p-btn.demo {
-      background: linear-gradient(135deg, #059669, #10b981) !important;
-      color: #ffffff !important;
-      box-shadow: 0 10px 24px -8px rgba(16, 185, 129, 0.55) !important;
+      background: linear-gradient(135deg, #10b981, #34d399) !important;
+      color: #042f2e !important;
+      font-weight: 800 !important;
+      box-shadow: 0 10px 24px -8px rgba(16, 185, 129, 0.50) !important;
     }
     .p-btn.demo:hover { filter: brightness(1.06); transform: translateY(-1px); }
+    .trial-signup-banner {
+      margin: 12px 0 16px;
+      padding: 13px 15px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, rgba(16, 185, 129, 0.16), rgba(6, 182, 212, 0.12));
+      border: 1px solid rgba(52, 211, 153, 0.42);
+      text-align: left;
+    }
+    .trial-signup-banner-title {
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: #34d399;
+      margin-bottom: 4px;
+    }
+    .trial-signup-banner-meta {
+      font-size: 13px;
+      font-weight: 600;
+      color: #ecfdf5;
+      line-height: 1.45;
+    }
+    .trial-signup-banner-sub {
+      font-size: 11.5px;
+      color: #a7f3d0;
+      margin-top: 4px;
+    }
     @media (max-width: 960px) {
       .pf-home-plans-grid.has-demo-card,
       .pricing-grid.has-demo-card { grid-template-columns: 1fr !important; max-width: 520px !important; }
@@ -3745,6 +3775,11 @@ $__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
             <span><b>&#10003;</b> Basic Plan</span>
             <span><b>&#10003;</b> No card needed</span>
             <span><b>&#10003;</b> Instant signup</span>
+          </div>
+          <div id="trialSignupBanner" class="trial-signup-banner hidden">
+            <div class="trial-signup-banner-title">&#10024; Free Trial Selected</div>
+            <div class="trial-signup-banner-meta" id="trialSignupBannerMeta">2,000 AI Credits &middot; 2 Hours Google Flow Access</div>
+            <div class="trial-signup-banner-sub">Sign up or log in below &mdash; your Free Trial activates automatically (1 per IP &amp; Device).</div>
           </div>
         </div>
 
@@ -5168,12 +5203,32 @@ $__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
         }
       }
 
+      function syncTrialSignupBanner() {
+        const banner = document.getElementById('trialSignupBanner');
+        const meta = document.getElementById('trialSignupBannerMeta');
+        if (!banner) return;
+        let isPending = false;
+        try { isPending = sessionStorage.getItem('pakflow_pending_demo') === '1'; } catch (_) {}
+        const show = isPending && Boolean(publicDemoConfig && publicDemoConfig.enabled);
+        banner.classList.toggle('hidden', !show);
+        if (show && meta) {
+          const cr = Number(publicDemoConfig.credits || 2000).toLocaleString();
+          const dur = String(publicDemoConfig.durationLabel || '2 Hours');
+          meta.textContent = cr + ' AI Credits · ' + dur + ' Full Google Flow Access';
+          const hd = document.getElementById('authHeading');
+          const sub = document.getElementById('authSubheading');
+          if (hd) hd.textContent = 'Start Your Free Trial';
+          if (sub) sub.textContent = 'Create your account to activate Free Trial instantly';
+        }
+      }
+
       async function activateSelfDemo(triggerBtn) {
         const token = localStorage.getItem('pakflow_token') || localStorage.getItem('token');
         if (!token) {
           try { sessionStorage.setItem('pakflow_pending_demo', '1'); } catch (_) {}
           showAuth('register');
-          showCornerToast('Create Free Account', 'Register or sign in to activate your Free Demo instantly!');
+          syncTrialSignupBanner();
+          showCornerToast('Free Trial Ready', 'Sign up or log in to activate your Free Trial instantly!');
           return;
         }
         const origTxt = triggerBtn ? triggerBtn.textContent : '';
