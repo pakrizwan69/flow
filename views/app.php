@@ -5287,7 +5287,43 @@ $__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
           });
           const data = await res.json().catch(() => ({}));
           if (!res.ok || !data.success) {
-            showCornerToast('Free Demo Unavailable', data.message || 'Unable to activate Free Demo.');
+            try { sessionStorage.removeItem('pakflow_pending_demo'); } catch (_) {}
+            const errCode = String(data.error || '');
+            const reasonMsg = String(data.message || 'Unable to activate Free Trial.');
+            const isLimitErr = ['DemoIpLimit', 'DemoDeviceLimit', 'DemoAlreadyUsed', 'DemoDisabled'].includes(errCode);
+            if (infoModal && modalTitle && modalBody) {
+              const titleTxt = errCode === 'DemoIpLimit'
+                ? 'Free Trial Limit — IP Already Used'
+                : (errCode === 'DemoDeviceLimit'
+                  ? 'Free Trial Limit — Device Already Used'
+                  : (errCode === 'DemoAlreadyUsed' ? 'Free Trial Already Claimed' : 'Free Trial Unavailable'));
+              modalTitle.textContent = titleTxt;
+              modalBody.innerHTML =
+                '<div style="padding:14px 16px;border-radius:12px;background:rgba(244,63,94,0.12);border:1px solid rgba(244,63,94,0.38);color:#fecdd3;font-size:13.5px;line-height:1.55;margin-bottom:14px;">' +
+                  '<strong style="display:block;color:#fb7185;margin-bottom:4px;">Reason:</strong>' +
+                  reasonMsg.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') +
+                '</div>' +
+                '<div style="font-size:12.5px;color:#94a3b8;margin-bottom:16px;">Only 1 Free Trial is allowed per IP address &amp; device. Upgrade to Pro or Max for instant unlimited Google Flow access.</div>' +
+                '<div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;">' +
+                  '<button type="button" id="trialErrPricingBtn" style="padding:9px 16px;border-radius:10px;border:0;background:linear-gradient(135deg,#7c3aed,#9333ea);color:#fff;font-weight:700;font-size:13px;cursor:pointer;">View Pro &amp; Max Plans</button>' +
+                  '<button type="button" id="trialErrCloseBtn" style="padding:9px 16px;border-radius:10px;border:1px solid rgba(255,255,255,0.14);background:rgba(255,255,255,0.06);color:#e2e8f0;font-weight:600;font-size:13px;cursor:pointer;">OK, Close</button>' +
+                '</div>';
+              infoModal.classList.remove('hidden');
+              const closeBtn = document.getElementById('trialErrCloseBtn');
+              const pricingBtn = document.getElementById('trialErrPricingBtn');
+              if (closeBtn) closeBtn.addEventListener('click', () => infoModal.classList.add('hidden'));
+              if (pricingBtn) pricingBtn.addEventListener('click', () => {
+                infoModal.classList.add('hidden');
+                showPricing();
+              });
+              if (isLimitErr) {
+                setTimeout(() => {
+                  if (modalTitle.textContent === titleTxt) infoModal.classList.add('hidden');
+                }, 8000);
+              }
+            } else {
+              showCornerToast('Free Trial Unavailable', reasonMsg);
+            }
             return;
           }
           if (data.user) {
