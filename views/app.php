@@ -1761,7 +1761,7 @@ $__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
       content: "";
       position: absolute;
       inset: 0;
-      background: linear-gradient(180deg, rgba(11, 17, 32, 0.25) 0%, rgba(11, 17, 32, 0.72) 55%, rgba(11, 17, 32, 0.96) 100%);
+      background: linear-gradient(180deg, rgba(11, 17, 32, 0.04) 0%, rgba(11, 17, 32, 0.14) 58%, rgba(11, 17, 32, 0.88) 100%);
     }
     .hero-banner-content {
       position: relative;
@@ -3955,9 +3955,6 @@ $__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
       <!-- Studio Launch Hero Card -->
       <div class="hero-banner" aria-label="Google Flow AI Video Studio">
         <div class="hero-banner-content">
-          <div class="hero-eyebrow"><span class="topbar-notice-dot"></span>Google Flow · Veo 3.1 Ready</div>
-          <h2>Create Cinematic AI Videos in One Click.</h2>
-          <p>Your PakFlow Chrome Extension automatically syncs your active session. Keep this portal open and launch Google Flow directly below.</p>
           <div class="cta-wrap">
             <a href="https://flow.google.com" target="_blank" rel="noopener noreferrer" class="btn-generate" id="generateVideoBtn">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="6 4 20 12 6 20 6 4"/></svg>
@@ -3966,6 +3963,10 @@ $__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
             <a href="/downloads/latest" download="<?= $__pfExtZipName ?>" class="btn-ext-sec" id="heroExtDownloadBtn">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
               <span id="heroExtBtnText">Download Extension (v<?= $__pfExtSafeVer ?>)</span>
+            </a>
+            <a href="/downloads/mobile-app" download class="btn-ext-sec" id="heroMobileAppBtn" style="display:none;border-color:rgba(16,185,129,0.45);background:rgba(16,185,129,0.16);color:#ecfdf5;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+              <span id="heroMobileAppText">Download Mobile App</span>
             </a>
             <a href="/downloads/<?= $__pfExtZipName ?>" download="<?= $__pfExtZipName ?>" id="heroZipFallbackLink" style="display:none;align-items:center;gap:5px;font-size:12px;font-weight:600;color:#94a3b8;text-decoration:none;padding:6px 10px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.03);">Manual ZIP (Mobile)</a>
           </div>
@@ -4349,6 +4350,30 @@ $__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
           if (!res.ok) return;
           const data = await res.json();
           applyPublicDemoConfig(data && data.demoConfig ? data.demoConfig : null);
+          const mobApp = data && data.mobileApp ? data.mobileApp : null;
+          const heroMobBtn = document.getElementById('heroMobileAppBtn');
+          const heroMobTxt = document.getElementById('heroMobileAppText');
+          if (heroMobBtn) {
+            const mobUrl = mobApp && mobApp.downloadUrl ? String(mobApp.downloadUrl).trim() : '';
+            if (mobApp && mobApp.enabled && mobUrl) {
+              heroMobBtn.style.display = 'inline-flex';
+              heroMobBtn.setAttribute('href', mobUrl);
+              if (/^https?:\/\//i.test(mobUrl)) {
+                heroMobBtn.removeAttribute('download');
+                heroMobBtn.setAttribute('target', '_blank');
+                heroMobBtn.setAttribute('rel', 'noopener noreferrer');
+              } else {
+                heroMobBtn.setAttribute('download', mobApp.fileName || 'PakFlow_Android.apk');
+                heroMobBtn.removeAttribute('target');
+              }
+              if (heroMobTxt) {
+                const mv = mobApp.version ? (' (v' + String(mobApp.version).replace(/^v/i, '') + ')') : '';
+                heroMobTxt.textContent = 'Download Mobile App' + mv;
+              }
+            } else {
+              heroMobBtn.style.display = 'none';
+            }
+          }
           const flowExt = data && data.extensions && data.extensions.flow ? data.extensions.flow : null;
           if (!flowExt) return;
           const ver = String(flowExt.version || '1.7').replace(/^v/i, '');

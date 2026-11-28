@@ -130,6 +130,29 @@ if (($method === 'GET' || $method === 'HEAD') && str_starts_with($reqPath, '/dow
 
     $rel = substr($reqPath, strlen('/downloads/'));
     $exactBase = basename($rel);
+    $isMobileAppReq = ($reqPath === '/downloads/mobile-app' || str_ends_with(strtolower($exactBase), '.apk'));
+    if ($isMobileAppReq) {
+        $mobDir = __DIR__ . DIRECTORY_SEPARATOR . 'data' . DIRECTORY_SEPARATOR . 'mobile_app';
+        $targetApk = null;
+        if (str_ends_with(strtolower($exactBase), '.apk')) {
+            $cand = $safeResolve($mobDir, $exactBase);
+            if ($cand !== null) {
+                $targetApk = $cand;
+            }
+        }
+        if ($targetApk === null && is_dir($mobDir)) {
+            $apks = glob($mobDir . DIRECTORY_SEPARATOR . '*.apk') ?: [];
+            if (!empty($apks)) {
+                usort($apks, static fn($a, $b) => ((@filemtime($b) ?: 0) <=> (@filemtime($a) ?: 0)));
+                $targetApk = $apks[0];
+            }
+        }
+        if ($targetApk !== null && is_file($targetApk) && is_readable($targetApk)) {
+            Http::sendFile($targetApk, 'application/vnd.android.package-archive', basename($targetApk), 'no-cache, must-revalidate');
+        }
+        Http::json(['success' => false, 'error' => 'MobileAppNotFound', 'message' => 'Mobile App APK has not been uploaded yet.'], 404);
+    }
+
     $isLatestReq = ($reqPath === '/downloads/latest' || $reqPath === '/downloads/PakFlow_latest.zip');
     $isZipReq = $isLatestReq || str_ends_with(strtolower($exactBase), '.zip');
 

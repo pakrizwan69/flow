@@ -232,7 +232,7 @@ final class AdminRoutes
                 }));
             }
             $merged = array_merge($current, $sanitized);
-            foreach (['windowsApp', 'broadcast', 'plans', 'planDurations', 'demoConfig', 'maintenance', 'toolsVisibility', 'extensions'] as $k) {
+            foreach (['windowsApp', 'broadcast', 'plans', 'planDurations', 'demoConfig', 'mobileApp', 'maintenance', 'toolsVisibility', 'extensions'] as $k) {
                 if (is_array($current[$k] ?? null) || is_array($update[$k] ?? null)) {
                     $merged[$k] = array_merge($current[$k] ?? [], is_array($update[$k] ?? null) ? $update[$k] : []);
                 }
@@ -347,6 +347,11 @@ final class AdminRoutes
         if ($method === 'POST' && $path === '/admin/extension/build-webstore') {
             Helpers::requireAdmin();
             self::buildWebStoreExtensionZip();
+            return true;
+        }
+        if ($method === 'POST' && $path === '/admin/mobile-app/upload') {
+            Helpers::requireAdmin();
+            self::uploadMobileAppApk();
             return true;
         }
         if ($method === 'PUT' && $path === '/admin/controls/access-policy') {
@@ -1600,6 +1605,10 @@ final class AdminRoutes
             'plans' => $settings['plans'] ?? $defaults['plans'],
             'planDurations' => Helpers::getPlanDurations($settings),
             'demoConfig' => Helpers::getDemoConfig($settings),
+            'mobileApp' => array_merge(
+                $defaults['mobileApp'] ?? ['enabled' => false, 'version' => '1.0', 'downloadUrl' => ''],
+                is_array($settings['mobileApp'] ?? null) ? $settings['mobileApp'] : []
+            ),
             'toolsVisibility' => [
                 'chatgpt' => false,
                 'supergrok' => false,
@@ -2361,6 +2370,76 @@ final class AdminRoutes
             'message' => $entry['status'] === 'done'
                 ? 'Done! Your Surfshark extension will log in automatically within seconds â€” connect to United States!'
                 : 'Code submitted! Waiting for Admin approval â€” once Done appears, your extension logs in automatically!',
+        ]);
+    }
+
+    private static function uploadMobileAppApk(): void
+    {
+        if (empty($_FILES['apk']) || !is_array($_FILES['apk'])) {
+            Http::json(['success' => false, 'error' => 'NoFile', 'message' => 'Please select an .apk file to upload.'], 400);
+        }
+        $file = $_FILES['apk'];
+        if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+            $errCode = (int)($file['error'] ?? 0);
+            $msg = ($errCode === UPLOAD_ERR_INI_SIZE || $errCode === UPLOAD_ERR_FORM_SIZE)
+                ? 'APK file exceeds server upload_max_filesize limit. Increase upload_max_filesize/post_max_size in CloudPanel PHP settings or paste a direct download link.'
+                : ('Upload failed (error code ' . $errCode . ').');
+            Http::json(['success' => false, 'error' => 'UploadError', 'message' => $msg], 400);
+        }
+        $origName = (string)($file['name'] ?? 'PakFlow_Android.apk');
+        $tmpPath = (string)($file['tmp_name'] ?? '');
+        if (!str_ends_with(strtolower($origName), '.apk')) {
+            Http::json(['success' => false, 'error' => 'InvalidFile', 'message' => 'Only .apk Android package files are allowed.'], 400);
+        }
+        if ($tmpPath === '' || !is_uploaded_file($tmpPath)) {
+            Http::json(['success' => false, 'error' => 'InvalidUpload', 'message' => 'Invalid uploaded file.'], 400);
+        }
+        // Verify APK ZIP magic header (PK\x03\x04)
+        $fh = @fopen($tmpPath, 'rb');
+        $sig = $fh ? fread($fh, 4) : '';
+        if ($fh) fclose($fh);
+        if ($sig !== "PK\x03\x04") {
+            Http::json(['success' => false, 'error' => 'InvalidApk', 'message' => 'Uploaded file is not a valid Android APK archive.'], 400);
+        }
+
+        $rawVer = trim((string)($_POST['version'] ?? '1.0'));
+        $cleanVer = preg_replace('/[^0-9A-Za-z._-]/', '', ltrim($rawVer, 'vV')) ?: '1.0';
+        $safeFileName = 'PakFlow_Android_v' . $cleanVer . '.apk';
+        $mobDir = Db::dataDir() . DIRECTORY_SEPARATOR . 'mobile_app';
+        if (!is_dir($mobDir)) {
+            @mkdir($mobDir, 0775, true);
+        }
+        // Remove older APKs to save disk space
+        foreach (glob($mobDir . DIRECTORY_SEPARATOR . '*.apk') ?: [] as $oldApk) {
+            @unlink($oldApk);
+        }
+        $destPath = $mobDir . DIRECTORY_SEPARATOR . $safeFileName;
+        if (!@move_uploaded_file($tmpPath, $destPath)) {
+            Http::json(['success' => false, 'error' => 'SaveFailed', 'message' => 'Could not save APK to data/mobile_app/. Check folder permissions.'], 500);
+        }
+
+        $bytes = @filesize($destPath) ?: 0;
+        $sizeLabel = $bytes >= 1048576
+            ? (round($bytes / 1048576, 1) . ' MB')
+            : (max(1, (int)round($bytes / 1024)) . ' KB');
+
+        $settings = Db::readSettings();
+        $mobileApp = [
+            'enabled' => true,
+            'title' => 'PakFlow Android App',
+            'version' => $cleanVer,
+            'fileName' => $safeFileName,
+            'fileSize' => $sizeLabel,
+            'downloadUrl' => '/downloads/mobile-app',
+            'updatedAt' => Db::isoNow(),
+        ];
+        $settings['mobileApp'] = $mobileApp;
+        Db::writeSettings($settings);
+
+        Http::json([
+            'success' => true,
+            'message' => "Android APK v{$cleanVer} ({$sizeLabel}) uploaded and enabled on User Portal!",
+            'mobileApp' => $mobileApp,
         ]);
     }
 }

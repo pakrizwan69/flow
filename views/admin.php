@@ -1326,8 +1326,44 @@
           </div>
         </section>
 
-        <!-- VIEW 6: EXTENSION BUILDER & RELEASES -->
+        <!-- VIEW 6: EXTENSION BUILDER & MOBILE APP RELEASES -->
         <section id="view-extension" class="view-pane hidden">
+          <!-- Android Mobile App (APK) Manager -->
+          <div class="card" style="margin-bottom:16px;border-color:rgba(16,185,129,0.34);">
+            <div class="card-head">
+              <div>
+                <h3 class="card-title">Android Mobile App (APK) <span id="mobAppLivePill" class="badge badge-muted" style="margin-left:8px;">OFF</span></h3>
+                <p id="mobAppLiveMeta" class="card-desc">Upload your Android .apk file or paste a direct link — shows a "Download Mobile App" button on User Dashboard.</p>
+              </div>
+              <a id="mobAppDownloadLink" href="/downloads/mobile-app" class="btn btn-ghost btn-sm hidden" download>Test APK Download</a>
+            </div>
+            <div class="toggle-row" style="margin-bottom:14px;">
+              <div>
+                <strong>Show "Download Mobile App" Button on User Portal</strong>
+                <span>When ON, logged-in users see the green Mobile App button next to Launch Google Flow.</span>
+              </div>
+              <input id="mobAppEnabled" type="checkbox" class="switch" />
+            </div>
+            <div class="grid-2" style="margin-bottom:10px;">
+              <div class="field">
+                <label for="mobAppVersion">App Version (e.g. 1.0)</label>
+                <input id="mobAppVersion" class="input" type="text" placeholder="1.0" value="1.0" />
+              </div>
+              <div class="field">
+                <label for="mobAppFile">Upload Android APK (.apk)</label>
+                <div style="display:flex;gap:8px;align-items:center;">
+                  <input id="mobAppFile" class="input" type="file" accept=".apk,application/vnd.android.package-archive" style="padding:6px 8px;" />
+                  <button id="uploadMobAppBtn" type="button" class="btn btn-emerald" style="white-space:nowrap;">Upload APK</button>
+                </div>
+              </div>
+            </div>
+            <div class="field" style="margin-bottom:12px;">
+              <label for="mobAppUrl">Direct Download URL (Auto-filled after APK upload, or paste Google Drive / Play Store link)</label>
+              <input id="mobAppUrl" class="input" type="text" placeholder="/downloads/mobile-app or https://..." />
+            </div>
+            <button id="saveMobAppBtn" type="button" class="btn btn-primary">Save Mobile App Settings</button>
+          </div>
+
           <div class="card" style="margin-bottom:16px;">
             <div class="card-head" style="margin-bottom:0;">
               <div>
@@ -3186,6 +3222,80 @@
       finally { btn.disabled = false; }
     });
 
+    function renderMobileAppSettings(ma) {
+      const enabled = Boolean(ma && ma.enabled);
+      const ver = (ma && ma.version) ? String(ma.version) : '1.0';
+      const url = (ma && ma.downloadUrl) ? String(ma.downloadUrl) : '';
+      const fName = (ma && ma.fileName) ? String(ma.fileName) : '';
+      const fSize = (ma && ma.fileSize) ? String(ma.fileSize) : '';
+      if ($('mobAppEnabled')) $('mobAppEnabled').checked = enabled;
+      if ($('mobAppVersion')) $('mobAppVersion').value = ver;
+      if ($('mobAppUrl')) $('mobAppUrl').value = url;
+      if ($('mobAppLivePill')) {
+        $('mobAppLivePill').textContent = enabled && url ? ('LIVE · v' + ver) : 'OFF';
+        $('mobAppLivePill').className = (enabled && url) ? 'badge badge-emerald' : 'badge badge-muted';
+      }
+      if ($('mobAppLiveMeta')) {
+        $('mobAppLiveMeta').textContent = (fName && fSize)
+          ? ('Current APK: ' + fName + ' (' + fSize + ') — ' + (enabled ? 'Visible on User Dashboard' : 'Hidden from users'))
+          : (url ? ('Active Link: ' + url) : 'Upload your Android .apk file or paste a direct link — shows a "Download Mobile App" button on User Dashboard.');
+      }
+      if ($('mobAppDownloadLink')) {
+        $('mobAppDownloadLink').classList.toggle('hidden', !url);
+        if (url) $('mobAppDownloadLink').href = url;
+      }
+    }
+
+    if ($('uploadMobAppBtn')) {
+      $('uploadMobAppBtn').addEventListener('click', async () => {
+        const fileIn = $('mobAppFile');
+        const f = fileIn && fileIn.files && fileIn.files[0];
+        if (!f) return showToast('Please choose an .apk file first', true);
+        if (!f.name.toLowerCase().endsWith('.apk')) return showToast('Only .apk files are allowed', true);
+        const btn = $('uploadMobAppBtn');
+        btn.disabled = true;
+        btn.textContent = 'Uploading...';
+        try {
+          const fd = new FormData();
+          fd.append('apk', f);
+          fd.append('version', ($('mobAppVersion')?.value || '1.0').trim() || '1.0');
+          const res = await fetch('/api/admin/mobile-app/upload', {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + getToken() },
+            body: fd,
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok || !data.success) throw new Error(data.message || 'APK upload failed');
+          if (state.settings) state.settings.mobileApp = data.mobileApp;
+          renderMobileAppSettings(data.mobileApp);
+          fileIn.value = '';
+          showToast(data.message || 'APK uploaded & enabled!');
+        } catch (err) { showToast(err.message, true); }
+        finally { btn.disabled = false; btn.textContent = 'Upload APK'; }
+      });
+    }
+
+    if ($('saveMobAppBtn')) {
+      $('saveMobAppBtn').addEventListener('click', async () => {
+        const btn = $('saveMobAppBtn');
+        btn.disabled = true;
+        try {
+          const cur = (state.settings && state.settings.mobileApp) || {};
+          const next = Object.assign({}, cur, {
+            enabled: Boolean($('mobAppEnabled')?.checked),
+            version: ($('mobAppVersion')?.value || '1.0').trim() || '1.0',
+            downloadUrl: ($('mobAppUrl')?.value || '').trim(),
+            updatedAt: new Date().toISOString(),
+          });
+          await api('/api/admin/settings', { method: 'PUT', body: JSON.stringify({ mobileApp: next }) });
+          if (state.settings) state.settings.mobileApp = next;
+          renderMobileAppSettings(next);
+          showToast('Mobile App settings saved!');
+        } catch (err) { showToast(err.message, true); }
+        finally { btn.disabled = false; }
+      });
+    }
+
     // Policy, Public Registration & Maintenance
     $('savePolicyBtn').addEventListener('click', async () => {
       const btn = $('savePolicyBtn');
@@ -4133,6 +4243,7 @@
       if ($('extWebStoreUrl')) $('extWebStoreUrl').value = flowExt.webStoreUrl || '';
       $('extDirectUrl').value = flowExt.downloadUrl || '';
       $('extInstructions').value = flowExt.instructions || '';
+      renderMobileAppSettings(st.mobileApp || {});
 
       const bc = st.broadcast || {};
       $('bcEnabled').checked = Boolean(bc.enabled);

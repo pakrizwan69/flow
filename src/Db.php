@@ -1238,6 +1238,15 @@ final class Db
                     'instructions' => "1. Download Google Flow Extension .zip\n2. Extract it to a folder on your PC\n3. Go to chrome://extensions and enable Developer mode\n4. Click Load unpacked and select the extracted folder\n5. Open Google Flow and enjoy auto-login cookies!",
                 ],
             ],
+            'mobileApp' => [
+                'enabled' => false,
+                'title' => 'PakFlow Android App',
+                'version' => '1.0',
+                'fileName' => 'PakFlow_Android.apk',
+                'fileSize' => '',
+                'downloadUrl' => '',
+                'updatedAt' => null,
+            ],
             'resellerBankDetails' => [
                 'bankName' => 'Raqami Islamic Digital Bank',
                 'accountTitle' => 'Muhammad Usman',
