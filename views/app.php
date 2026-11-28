@@ -3224,7 +3224,7 @@ $__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
         </div>
       </div>
       <div class="veo-cta-wrap">
-        <button type="button" class="btn-veo-start" onclick="showAuth('signup')">
+        <button type="button" class="btn-veo-start" data-smart-signup="1">
           Start creating free &rarr;
         </button>
       </div>
@@ -4990,9 +4990,32 @@ $__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
         }
       });
 
-      heroCreateBtn.addEventListener('click', () => showAuth('signup'));
-      navLoginBtn.addEventListener('click', () => showAuth('login'));
-      navSignupBtn.addEventListener('click', () => showAuth('signup'));
+      function openSignupSmart() {
+        const trialOn = Boolean(publicDemoConfig && publicDemoConfig.enabled);
+        if (trialOn) {
+          try { sessionStorage.setItem('pakflow_pending_demo', '1'); } catch (_) {}
+          showAuth('signup');
+          syncTrialSignupBanner();
+        } else {
+          try { sessionStorage.removeItem('pakflow_pending_demo'); } catch (_) {}
+          showAuth('signup');
+          syncTrialSignupBanner();
+        }
+      }
+
+      heroCreateBtn.addEventListener('click', () => openSignupSmart());
+      navLoginBtn.addEventListener('click', () => {
+        try { sessionStorage.removeItem('pakflow_pending_demo'); } catch (_) {}
+        showAuth('login');
+        syncTrialSignupBanner();
+      });
+      navSignupBtn.addEventListener('click', () => openSignupSmart());
+      document.querySelectorAll('a[href="/signup"], a[href="/register"], [data-smart-signup]').forEach((el) => {
+        el.addEventListener('click', (e) => {
+          e.preventDefault();
+          openSignupSmart();
+        });
+      });
       authBackBtn.addEventListener('click', () => {
         history.replaceState(null, '', '/');
         showLanding();
@@ -5194,6 +5217,38 @@ $__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
 
       let publicDemoConfig = null;
 
+      function getDeterministicDeviceFingerprint() {
+        let gpu = '';
+        try {
+          const c = document.createElement('canvas');
+          const gl = c.getContext('webgl') || c.getContext('experimental-webgl');
+          if (gl) {
+            const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+            gpu = dbg ? String(gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) || '') : String(gl.getParameter(gl.RENDERER) || '');
+          }
+        } catch (_) {}
+        const traits = [
+          navigator.platform || 'unk',
+          String(screen.width || 0) + 'x' + String(screen.height || 0) + 'x' + String(screen.colorDepth || 0),
+          String(window.devicePixelRatio || 1),
+          String(navigator.hardwareConcurrency || 0),
+          String(navigator.deviceMemory || 0),
+          String(navigator.maxTouchPoints || 0),
+          Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
+          navigator.language || 'en',
+          gpu,
+        ].join('|');
+        let h1 = 2166136261;
+        let h2 = 5381;
+        for (let i = 0; i < traits.length; i++) {
+          const ch = traits.charCodeAt(i);
+          h1 ^= ch;
+          h1 = Math.imul(h1, 16777619);
+          h2 = ((h2 << 5) + h2) ^ ch;
+        }
+        return 'fp_' + (h1 >>> 0).toString(36) + '_' + (h2 >>> 0).toString(36);
+      }
+
       function getOrCreateBrowserDeviceId() {
         const key = 'pakflow_device_id';
         let stored = '';
@@ -5238,6 +5293,11 @@ $__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
           const durTxt = '= Free Google Flow trial for ' + String(dc.durationLabel || '2 Hours');
           document.querySelectorAll('[data-demo-credits]').forEach((el) => { el.textContent = crTxt; });
           document.querySelectorAll('[data-demo-duration]').forEach((el) => { el.textContent = durTxt; });
+          // If user is currently on Signup view while Trial is enabled, auto-enable Trial Signup banner
+          if (!authView.classList.contains('hidden') && mode === 'signup') {
+            try { sessionStorage.setItem('pakflow_pending_demo', '1'); } catch (_) {}
+            syncTrialSignupBanner();
+          }
         }
       }
 
@@ -5276,14 +5336,16 @@ $__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
         }
         try {
           const deviceId = getOrCreateBrowserDeviceId();
+          const deviceFingerprint = getDeterministicDeviceFingerprint();
           const res = await fetch('/api/auth/activate-demo', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
               'Authorization': 'Bearer ' + token,
               'X-PakFlow-Device-Id': deviceId,
+              'X-PakFlow-Device-Fp': deviceFingerprint,
             },
-            body: JSON.stringify({ deviceId }),
+            body: JSON.stringify({ deviceId, deviceFingerprint }),
           });
           const data = await res.json().catch(() => ({}));
           if (!res.ok || !data.success) {

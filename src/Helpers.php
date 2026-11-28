@@ -66,6 +66,10 @@ public const ADMIN_PASSWORD = 'admin@123';
             $parts = explode(',', $xff);
             return trim($parts[0]);
         }
+        $xri = Http::header('x-real-ip');
+        if ($xri !== '') {
+            return trim($xri);
+        }
         $raw = (string)($_SERVER['REMOTE_ADDR'] ?? '127.0.0.1');
         return ($raw === '::1' || $raw === '::ffff:127.0.0.1') ? '127.0.0.1' : $raw;
     }

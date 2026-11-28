@@ -1336,12 +1336,13 @@ final class Db
         return is_array($parsed) ? $parsed : [];
     }
 
-    public static function recordDemoClaim(string $ip, string $deviceId, int $userId, string $email): void
+    public static function recordDemoClaim(string $ip, string $deviceId, int $userId, string $email, string $deviceFingerprint = ''): void
     {
         $claims = self::readDemoClaims();
         $claims[] = [
             'ip' => trim($ip),
             'deviceId' => trim($deviceId),
+            'deviceFingerprint' => trim($deviceFingerprint),
             'userId' => $userId,
             'email' => self::sanitizeEmail($email),
             'claimedAt' => self::isoNow(),

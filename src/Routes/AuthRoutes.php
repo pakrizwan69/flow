@@ -1390,6 +1390,8 @@ final class AuthRoutes
             ], 400);
         }
         $deviceId = substr($deviceId, 0, 120);
+        $rawFp = trim((string)($body['deviceFingerprint'] ?? Http::header('x-pakflow-device-fp')));
+        $deviceFp = substr(preg_replace('/[^a-zA-Z0-9._:-]/', '', $rawFp) ?? '', 0, 120);
         $clientIp = Helpers::getClientIp();
 
         $useMysql = \App\Database::isEnabled();
@@ -1444,6 +1446,7 @@ final class AuthRoutes
             }
             $cIp = trim((string)($c['ip'] ?? ''));
             $cDev = trim((string)($c['deviceId'] ?? ''));
+            $cFp = trim((string)($c['deviceFingerprint'] ?? ''));
             if (!empty($demoCfg['onePerIp']) && $clientIp !== '' && $cIp !== '' && $cIp === $clientIp) {
                 Http::json([
                     'success' => false,
@@ -1451,7 +1454,7 @@ final class AuthRoutes
                     'message' => 'A Free Demo has already been claimed from your IP address. Only 1 Free Demo is allowed per IP.',
                 ], 409);
             }
-            if (!empty($demoCfg['onePerDevice']) && $cDev !== '' && $cDev === $deviceId) {
+            if (!empty($demoCfg['onePerDevice']) && (($cDev !== '' && $cDev === $deviceId) || ($deviceFp !== '' && $cFp !== '' && $cFp === $deviceFp))) {
                 Http::json([
                     'success' => false,
                     'error' => 'DemoDeviceLimit',
@@ -1492,7 +1495,7 @@ final class AuthRoutes
             Db::writeUsers($users, ['immediate' => true]);
         }
 
-        Db::recordDemoClaim($clientIp, $deviceId, (int)($user['id'] ?? 0), (string)($user['email'] ?? ''));
+        Db::recordDemoClaim($clientIp, $deviceId, (int)($user['id'] ?? 0), (string)($user['email'] ?? ''), $deviceFp);
         Helpers::recordActiveClientSession($user);
 
         $safe = $user;
