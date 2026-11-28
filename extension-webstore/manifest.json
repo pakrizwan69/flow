@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "PakFlow",
-  "version": "1.8",
-  "version_name": "v1.8",
+  "version": "1.9",
+  "version_name": "v1.9",
   "description": "PakFlow — AI Video Platform — Flow Access & Session Automation.",
   "minimum_chrome_version": "119",
   "permissions": [
