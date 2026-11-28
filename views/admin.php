@@ -3987,7 +3987,10 @@
     }
 
     if ($('demoEnabledToggle')) {
-      $('demoEnabledToggle').addEventListener('change', syncDemoStatusBadge);
+      $('demoEnabledToggle').addEventListener('change', () => {
+        syncDemoStatusBadge();
+        if ($('saveDemoConfigBtn')) $('saveDemoConfigBtn').click();
+      });
     }
 
     if ($('saveDemoConfigBtn')) {

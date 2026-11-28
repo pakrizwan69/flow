@@ -4952,7 +4952,7 @@ $__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
         }
       });
 
-      heroCreateBtn.addEventListener('click', () => showAuth('login'));
+      heroCreateBtn.addEventListener('click', () => showAuth('signup'));
       navLoginBtn.addEventListener('click', () => showAuth('login'));
       navSignupBtn.addEventListener('click', () => showAuth('signup'));
       authBackBtn.addEventListener('click', () => {
@@ -5226,7 +5226,7 @@ $__pfExtZipName = 'PakFlow_v' . $__pfExtSafeVer . '.zip';
         const token = localStorage.getItem('pakflow_token') || localStorage.getItem('token');
         if (!token) {
           try { sessionStorage.setItem('pakflow_pending_demo', '1'); } catch (_) {}
-          showAuth('register');
+          showAuth('signup');
           syncTrialSignupBanner();
           showCornerToast('Free Trial Ready', 'Sign up or log in to activate your Free Trial instantly!');
           return;
